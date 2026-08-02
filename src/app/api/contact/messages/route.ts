@@ -14,6 +14,23 @@ function isCounselor(role: UserRole | "PUBLIC") {
   return role === "COLLABORATOR" || role === "ADMIN";
 }
 
+async function resolveTargetClientIdForRead(user: { id: string; role: UserRole | "PUBLIC" }, rawClientId: string | null) {
+  if (isCounselor(user.role)) {
+    if (!rawClientId) {
+      return { error: "clientId est requis pour ce role.", status: 400 as const };
+    }
+
+    const parsed = z.string().uuid().safeParse(rawClientId);
+    if (!parsed.success) {
+      return { error: "clientId invalide.", status: 400 as const };
+    }
+
+    return { clientId: parsed.data };
+  }
+
+  return { clientId: user.id };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const contactModel = (prisma as unknown as { contactMessage?: typeof prisma.contactMessage }).contactMessage;
@@ -30,7 +47,21 @@ export async function GET(request: NextRequest) {
     const clientIdParam = request.nextUrl.searchParams.get("clientId");
     const peek = request.nextUrl.searchParams.get("peek") === "1";
 
-    const resolvedClientId = isCounselor(user.role) ? (clientIdParam ?? user.id) : user.id;
+    const resolved = await resolveTargetClientIdForRead(user, clientIdParam);
+    if ("error" in resolved) {
+      return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+    }
+
+    const resolvedClientId = resolved.clientId;
+
+    const targetClient = await prisma.user.findUnique({
+      where: { id: resolvedClientId },
+      select: { id: true },
+    });
+
+    if (!targetClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
 
     if (!peek && conversationStateModel) {
       await conversationStateModel.upsert({
@@ -111,8 +142,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const targetClientId = isCounselor(user.role) ? (parsed.data.clientId ?? user.id) : user.id;
-    if (!targetClientId) {
+    const targetClientId = isCounselor(user.role) ? parsed.data.clientId : user.id;
+    if (isCounselor(user.role) && !targetClientId) {
       return NextResponse.json({ error: "clientId est requis pour ce role." }, { status: 400 });
     }
 

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const messages = await claimMessageModel.findMany({
       where: { claimId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         senderId: true,

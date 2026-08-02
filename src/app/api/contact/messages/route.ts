@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
       const where = { clientId: resolvedClientId };
       const messages = await contactModel.findMany({
         where,
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           clientId: true,
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
 
     const messages = await contactModel.findMany({
       where: { clientId: resolvedClientId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         clientId: true,

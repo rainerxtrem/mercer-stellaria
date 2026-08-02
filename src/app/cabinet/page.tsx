@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BalanceScale, FileText, Landmark, Scale } from "lucide-react";
+import { ArrowRight, FileText, Landmark, Scale } from "lucide-react";
 
 const offers = [
   {
@@ -38,7 +38,7 @@ export default function CabinetPage() {
         <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
           <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
-            <BalanceScale size={13} /> Practice & Counsel
+            <Scale size={13} /> Practice & Counsel
           </p>
           <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
             Le conseil juridique de reference du groupe Mercer & Stelleria Corporation.

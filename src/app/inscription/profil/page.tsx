@@ -36,7 +36,7 @@ const riskOptions = [
 
 export default function OnboardingProfilePage() {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus, update } = useSession();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -146,10 +146,12 @@ export default function OnboardingProfilePage() {
           : null;
 
       if (redirectTo) {
+        await update();
         router.replace(redirectTo);
         return;
       }
 
+      await update();
       router.replace("/client");
     } catch {
       setStatus("Erreur reseau pendant la validation. Reessayez dans quelques secondes.");

@@ -147,8 +147,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "clientId est requis pour ce role." }, { status: 400 });
     }
 
+    const finalTargetClientId = targetClientId as string;
+
     const targetClient = await prisma.user.findUnique({
-      where: { id: targetClientId },
+      where: { id: finalTargetClientId },
       select: { id: true },
     });
 
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     const message = await contactModel.create({
       data: {
-        clientId: targetClientId,
+        clientId: finalTargetClientId,
         senderId: user.id,
         senderRole: user.role,
         senderName,
@@ -190,9 +192,9 @@ export async function POST(request: NextRequest) {
 
     if (conversationStateModel) {
       await conversationStateModel.upsert({
-        where: { clientId: targetClientId },
+        where: { clientId: finalTargetClientId },
         create: {
-          clientId: targetClientId,
+          clientId: finalTargetClientId,
           staffLastReadAt: isCounselor(user.role) ? new Date() : null,
           clientLastReadAt: isCounselor(user.role) ? null : new Date(),
         },

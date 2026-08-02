@@ -16,6 +16,23 @@ export async function GET() {
   const conversationStateModel = (prisma as unknown as { contactConversationState?: typeof prisma.contactConversationState }).contactConversationState;
 
   if (isCounselor(user.role)) {
+    const conversationStates = conversationStateModel
+      ? await (conversationStateModel as unknown as {
+          findMany: (args: {
+            select: {
+              clientId: boolean;
+              staffArchivedAt: boolean;
+            };
+          }) => Promise<Array<{ clientId: string; staffArchivedAt: Date | null }>>;
+        }).findMany({
+          select: { clientId: true, staffArchivedAt: true },
+        })
+      : [];
+
+    const archivedForStaff = new Set(
+      conversationStates.filter((state) => state.staffArchivedAt).map((state) => state.clientId),
+    );
+
     const clients = await prisma.user.findMany({
       where: { role: { in: [UserRole.CLIENT, UserRole.COLLABORATOR, UserRole.ADMIN] } },
       select: {
@@ -40,6 +57,10 @@ export async function GET() {
     });
 
     const unreadClients = clients.filter((client) => {
+      if (archivedForStaff.has(client.id)) {
+        return false;
+      }
+
       const contactLastRead = client.contactConversationState?.staffLastReadAt ?? null;
       const latestClientContactMessage = client.clientContactMessages.find((message) => message.senderId === client.id);
       const hasUnreadContact = Boolean(
@@ -72,6 +93,21 @@ export async function GET() {
   }
 
   const clientId = user.id;
+  const conversationStateRaw = conversationStateModel
+    ? await (conversationStateModel as unknown as {
+        findUnique: (args: {
+          where: { clientId: string };
+          select: {
+            clientLastReadAt: boolean;
+            clientArchivedAt: boolean;
+          };
+        }) => Promise<{ clientLastReadAt: Date | null; clientArchivedAt: Date | null } | null>;
+      }).findUnique({
+        where: { clientId },
+        select: { clientLastReadAt: true, clientArchivedAt: true },
+      })
+    : null;
+
   const contactState = conversationStateModel
     ? await conversationStateModel.findUnique({
         where: { clientId },
@@ -89,6 +125,7 @@ export async function GET() {
   });
 
   const unreadContact = Boolean(
+    !conversationStateRaw?.clientArchivedAt &&
     lastContactFromStaff &&
       (!contactState?.clientLastReadAt || lastContactFromStaff.createdAt.getTime() > contactState.clientLastReadAt.getTime()),
   );

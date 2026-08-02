@@ -18,6 +18,24 @@ export async function GET() {
 
   const where = { role: { in: [UserRole.CLIENT, UserRole.COLLABORATOR, UserRole.ADMIN] } };
 
+  const conversationStateModel = (prisma as unknown as { contactConversationState?: typeof prisma.contactConversationState }).contactConversationState;
+  const archivedByClientId = conversationStateModel
+    ? await (conversationStateModel as unknown as {
+        findMany: (args: {
+          select: {
+            clientId: boolean;
+            staffArchivedAt: boolean;
+          };
+        }) => Promise<Array<{ clientId: string; staffArchivedAt: Date | null }>>;
+      }).findMany({
+        select: { clientId: true, staffArchivedAt: true },
+      })
+    : [];
+
+  const staffArchivedSet = new Set(
+    archivedByClientId.filter((state) => state.staffArchivedAt).map((state) => state.clientId),
+  );
+
   const clients = await prisma.user.findMany({
     where,
     select: {
@@ -67,6 +85,7 @@ export async function GET() {
     const contactLastRead = client.contactConversationState?.staffLastReadAt ?? null;
     const latestClientContactMessage = client.clientContactMessages.find((message) => message.senderId === client.id);
     const hasUnreadContact = Boolean(
+      !staffArchivedSet.has(client.id) &&
       latestClientContactMessage &&
         (!contactLastRead || latestClientContactMessage.createdAt.getTime() > contactLastRead.getTime()),
     );

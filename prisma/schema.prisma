@@ -213,6 +213,8 @@ model ContactConversationState {
   clientId        String   @unique
   clientLastReadAt DateTime?
   staffLastReadAt  DateTime?
+  clientArchivedAt DateTime?
+  staffArchivedAt  DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

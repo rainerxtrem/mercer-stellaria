@@ -147,6 +147,22 @@ const requestStatusOptions: { value: SubscriptionRequestStatus; label: string }[
   { value: SubscriptionRequestStatus.REJECTED, label: "Refusee" },
 ];
 
+function formatSenderRole(role: string) {
+  if (role === "ADMIN") {
+    return "Direction";
+  }
+
+  if (role === "COLLABORATOR") {
+    return "Collaborateur";
+  }
+
+  if (role === "CLIENT") {
+    return "Client";
+  }
+
+  return role;
+}
+
 export default function CollaborateurPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
@@ -242,6 +258,42 @@ export default function CollaborateurPage() {
 
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!openedContactClient) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const response = await fetch(`/api/contact/messages?clientId=${openedContactClient.id}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      setContactMessages(payload.data ?? []);
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [openedContactClient?.id]);
+
+  useEffect(() => {
+    if (!openedClaim || claimDossierTab !== "COMMUNICATION") {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const response = await fetch(`/api/claims/messages?claimId=${openedClaim.id}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      setClaimMessages(payload.data ?? []);
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [openedClaim?.id, claimDossierTab]);
 
   async function openDossier(clientId: string) {
     const response = await fetch(`/api/clients/${clientId}`);
@@ -527,7 +579,6 @@ export default function CollaborateurPage() {
                   <th className="pb-3">Nom</th>
                   <th className="pb-3">Date de naissance</th>
                   <th className="pb-3">Téléphone</th>
-                  <th className="pb-3">Email</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
                   <th className="pb-3">État dossier</th>
@@ -537,7 +588,7 @@ export default function CollaborateurPage() {
               <tbody className="text-ms-ink/85">
                 {clients.length === 0 ? (
                   <tr>
-                    <td className="py-5 text-sm text-ms-ink/70" colSpan={9}>
+                    <td className="py-5 text-sm text-ms-ink/70" colSpan={8}>
                       Aucun assuré visible pour le moment. Tous les comptes métiers apparaissent ici automatiquement après connexion.
                     </td>
                   </tr>
@@ -548,7 +599,6 @@ export default function CollaborateurPage() {
                       <td className="py-3">{client.lastName ?? client.fullName}</td>
                       <td className="py-3">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Non renseignée"}</td>
                       <td className="py-3">{client.phone ?? "Non renseigné"}</td>
-                      <td className="py-3">{client.email}</td>
                       <td className="py-3">
                         <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
                           {client.riskLabel ?? "Non évalué"}
@@ -752,7 +802,6 @@ export default function CollaborateurPage() {
                   <th className="pb-3">Nom</th>
                   <th className="pb-3">Date de naissance</th>
                   <th className="pb-3">Téléphone</th>
-                  <th className="pb-3">Email</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
                   <th className="pb-3">Action</th>
@@ -765,7 +814,6 @@ export default function CollaborateurPage() {
                     <td className="py-3">{client.lastName ?? client.fullName}</td>
                     <td className="py-3">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Non renseignée"}</td>
                     <td className="py-3">{client.phone ?? "Non renseigné"}</td>
-                    <td className="py-3">{client.email}</td>
                     <td className="py-3">{client.riskLabel ?? "Non évalué"}</td>
                     <td className="py-3">
                       {client.hasUnreadClientMessage ? (
@@ -797,7 +845,7 @@ export default function CollaborateurPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Popup dossier client</p>
                   <h2 className="mt-2 font-display text-4xl text-ms-navy">{selectedDossier.client.fullName}</h2>
-                  <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.email} - {selectedDossier.client.phone ?? "Téléphone non renseigné"}</p>
+                  <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.phone ?? "Téléphone non renseigné"}</p>
                 </div>
                 <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeDossier}>
                   Fermer
@@ -963,7 +1011,7 @@ export default function CollaborateurPage() {
                       <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
-                            {message.senderName} ({message.senderRole})
+                            {message.senderName} ({formatSenderRole(message.senderRole)})
                           </p>
                           <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
                         </div>
@@ -1010,7 +1058,7 @@ export default function CollaborateurPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Contact direct</p>
                   <h2 className="mt-2 font-display text-3xl text-ms-navy">{openedContactClient.fullName}</h2>
-                  <p className="mt-1 text-sm text-ms-ink/75">{openedContactClient.email}</p>
+                  <p className="mt-1 text-sm text-ms-ink/75">Canal direct client</p>
                 </div>
                 <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeContactClientPopup}>
                   Fermer
@@ -1025,7 +1073,7 @@ export default function CollaborateurPage() {
                     <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
-                          {message.senderName} ({message.senderRole})
+                          {message.senderName} ({formatSenderRole(message.senderRole)})
                         </p>
                         <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
                       </div>

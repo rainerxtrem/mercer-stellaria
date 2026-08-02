@@ -40,5 +40,17 @@ export function getDefaultSpaceForRole(role: AppRole) {
 }
 
 export function getAccessibleSpaces(role: AppRole) {
-  return protectedSpaces.filter((space) => hasRequiredRole(role, space.minRole));
+  if (role === "ADMIN") {
+    return protectedSpaces.filter((space) => space.minRole === "ADMIN");
+  }
+
+  if (role === "COLLABORATOR") {
+    return protectedSpaces.filter((space) => space.minRole === "COLLABORATOR");
+  }
+
+  if (role === "CLIENT") {
+    return protectedSpaces.filter((space) => space.minRole === "CLIENT");
+  }
+
+  return [];
 }

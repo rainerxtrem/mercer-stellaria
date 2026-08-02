@@ -97,7 +97,7 @@ export default function CollaborateurClientDossierPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Fiche individuelle client</p>
               <h1 className="mt-2 font-display text-4xl text-ms-navy">{data.client.fullName}</h1>
-              <p className="mt-2 text-sm text-ms-ink/75">{data.client.email} - {data.client.phone ?? "Téléphone non renseigné"}</p>
+              <p className="mt-2 text-sm text-ms-ink/75">{data.client.phone ?? "Téléphone non renseigné"}</p>
             </div>
             <Link href="/collaborateur" className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">
               Retour portefeuille

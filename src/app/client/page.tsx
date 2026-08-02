@@ -85,6 +85,22 @@ const clientTabs: Array<{ id: ClientTab; label: string }> = [
   { id: "BILLING", label: "Facturation" },
 ];
 
+function formatSenderRole(role: string) {
+  if (role === "ADMIN") {
+    return "Direction";
+  }
+
+  if (role === "COLLABORATOR") {
+    return "Collaborateur";
+  }
+
+  if (role === "CLIENT") {
+    return "Client";
+  }
+
+  return role;
+}
+
 export default function ClientPage() {
   const { data: session } = useSession();
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -262,8 +278,31 @@ export default function ClientPage() {
     }
 
     loadGeneralContactMessages().catch(() => notifyError("Impossible de charger la conversation conseiller."));
+    const interval = window.setInterval(() => {
+      loadGeneralContactMessages().catch(() => null);
+    }, 2500);
+
+    return () => window.clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, session?.user?.id]);
+
+  useEffect(() => {
+    if (!openedMessagesClaim) {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      const response = await fetch(`/api/claims/messages?claimId=${openedMessagesClaim.id}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = await response.json();
+      setClaimMessages(payload.data ?? []);
+    }, 2500);
+
+    return () => window.clearInterval(interval);
+  }, [openedMessagesClaim?.id]);
 
   async function handleRequestSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -915,7 +954,7 @@ export default function ClientPage() {
                   <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
-                        {message.senderName} ({message.senderRole})
+                        {message.senderName} ({formatSenderRole(message.senderRole)})
                       </p>
                       <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
                     </div>
@@ -1125,7 +1164,7 @@ export default function ClientPage() {
                     <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
-                          {message.senderName} ({message.senderRole})
+                          {message.senderName} ({formatSenderRole(message.senderRole)})
                         </p>
                         <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
                       </div>

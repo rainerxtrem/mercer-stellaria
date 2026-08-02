@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, Shield, Stethoscope, Wallet } from "lucide-react";
 
@@ -29,13 +30,23 @@ export default function AssurancesPage() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6 lg:px-10">
-        <div>
-          <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Insurance</p>
-          <p className="text-xs uppercase tracking-[0.28em] text-ms-navy-soft">Assurances</p>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/Mercer_Stellaria_LOGOBLEU.png"
+            alt="Mercer & Stellaria Corporation"
+            width={92}
+            height={92}
+            className="h-14 w-auto"
+            priority
+          />
+          <div>
+            <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Insurance</p>
+            <p className="text-xs uppercase tracking-[0.28em] text-ms-navy-soft">Assurances</p>
+          </div>
         </div>
         <nav className="surface tab-strip p-2" aria-label="Navigation">
           <Link href="/" className="tab-pill">Accueil</Link>
-          <Link href="/cabinet" className="tab-pill">Le cabinet</Link>
+          <Link href="/cabinet" className="tab-pill">Avocats</Link>
           <Link href="/assurances" className="tab-pill tab-pill-active">Assurances</Link>
         </nav>
       </header>

@@ -34,11 +34,11 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-8">
           <div className="flex items-center gap-3">
             <Image
-              src="/mercer-stellaria-corporation-logo.svg"
+              src="/Mercer_Stellaria_LOGOBLEU.png"
               alt="Mercer & Stellaria Corporation"
-              width={88}
-              height={50}
-              className="h-12 w-auto"
+              width={92}
+              height={92}
+              className="h-14 w-auto"
               priority
             />
             <div>
@@ -47,8 +47,8 @@ export default function Home() {
             </div>
           </div>
 
-          <nav className="tab-strip" aria-label="Navigation principale">
-            <Link href="/cabinet" className="tab-pill">Le cabinet</Link>
+          <nav className="surface tab-strip p-2" aria-label="Navigation principale">
+            <Link href="/cabinet" className="tab-pill">Avocats</Link>
             <Link href="/assurances" className="tab-pill">Assurances</Link>
           </nav>
 
@@ -102,7 +102,7 @@ export default function Home() {
 
             <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
               <Image
-                src="/mercer-stellaria-corporation-logo.svg"
+                src="/Mercer_Stellaria_LOGOBLEU.png"
                 alt="Logo Mercer & Stellaria Corporation"
                 width={640}
                 height={360}

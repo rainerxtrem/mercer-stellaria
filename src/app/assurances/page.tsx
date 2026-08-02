@@ -1,0 +1,89 @@
+import Link from "next/link";
+import { ArrowRight, BriefcaseBusiness, Shield, Stethoscope, Wallet } from "lucide-react";
+
+const insuranceLines = [
+  {
+    title: "Sante",
+    text: "Formules Access, Pro et Elite avec prise en charge progressive selon profil et niveau de risque.",
+    Icon: Stethoscope,
+  },
+  {
+    title: "Professionnel",
+    text: "Protection responsabilite civile, locaux, pertes d'exploitation et accompagnement de crise.",
+    Icon: BriefcaseBusiness,
+  },
+  {
+    title: "Patrimoine & vols",
+    text: "Garanties contre vols, cambriolages et atteintes aux actifs prives ou commerciaux.",
+    Icon: Shield,
+  },
+];
+
+const formulas = [
+  { name: "Access", premium: "400 $ / sem.", coverage: "Essentiels sante et urgences de premiere ligne." },
+  { name: "Pro", premium: "750 $ / sem.", coverage: "Couverture etendue avec remboursements renforces." },
+  { name: "Elite", premium: "1 400 $ / sem.", coverage: "Protection premium sur les cas lourds et sensibles." },
+];
+
+export default function AssurancesPage() {
+  return (
+    <div className="brand-shell brand-lattice flex flex-1 flex-col">
+      <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6 lg:px-10">
+        <div>
+          <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Insurance</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-ms-navy-soft">Assurances</p>
+        </div>
+        <nav className="surface tab-strip p-2" aria-label="Navigation">
+          <Link href="/" className="tab-pill">Accueil</Link>
+          <Link href="/cabinet" className="tab-pill">Le cabinet</Link>
+          <Link href="/assurances" className="tab-pill tab-pill-active">Assurances</Link>
+        </nav>
+      </header>
+
+      <main className="mx-auto grid w-full max-w-7xl gap-8 px-6 pb-14 pt-4 lg:px-10">
+        <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
+          <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
+          <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
+            <Wallet size={13} /> Solutions assurelles
+          </p>
+          <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
+            Des offres d'assurance claires, modulaires et suivies en temps reel.
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
+            Mercer & Stellaria Insurance couvre les besoins sante, professionnels et patrimoniaux avec un parcours digital de la souscription a l'indemnisation.
+          </p>
+          <Link
+            href="/inscription"
+            className="mt-8 inline-flex items-center gap-2 rounded-full bg-ms-gold px-5 py-3 text-sm font-semibold text-ms-navy transition hover:bg-[#d8ba7b]"
+          >
+            Demarrer une souscription <ArrowRight size={16} />
+          </Link>
+        </section>
+
+        <section className="grid gap-6 md:grid-cols-3">
+          {insuranceLines.map(({ title, text, Icon }) => (
+            <article key={title} className="surface p-6">
+              <Icon className="text-ms-navy" />
+              <h2 className="mt-4 font-display text-3xl text-ms-navy">{title}</h2>
+              <p className="mt-2 text-sm leading-6 text-ms-ink/80">{text}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="surface p-6 lg:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ms-navy-soft">Formules principales</p>
+          <h2 className="mt-2 font-display text-4xl text-ms-navy">Comparatif express</h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {formulas.map((formula) => (
+              <article key={formula.name} className="rounded-2xl border border-ms-navy/10 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">{formula.name}</p>
+                <p className="mt-2 font-display text-3xl text-ms-navy">{formula.premium}</p>
+                <p className="mt-3 text-sm leading-6 text-ms-ink/85">{formula.coverage}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

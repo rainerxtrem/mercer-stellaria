@@ -15,9 +15,9 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Mercer & Stellaria Insurance",
+  title: "Mercer & Stelleria Corporation",
   description:
-    "Plateforme SaaS immersive pour la gestion des assurances en environnement GTA V / FiveM.",
+    "Holding de presentation du Mercer & Stellaria Law Office et de Mercer & Stellaria Insurance.",
 };
 
 export default function RootLayout({

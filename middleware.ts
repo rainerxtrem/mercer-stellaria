@@ -3,22 +3,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-function defaultPathForRole(role: AppRole) {
-  if (role === "ADMIN") {
-    return "/admin";
-  }
-
-  if (role === "COLLABORATOR") {
-    return "/collaborateur";
-  }
-
-  if (role === "CLIENT") {
-    return "/client";
-  }
-
-  return "/";
-}
-
 const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/client", role: "CLIENT" },
   { prefix: "/collaborateur", role: "COLLABORATOR" },
@@ -54,10 +38,6 @@ export async function middleware(request: NextRequest) {
 
   const userRole = (token.role as AppRole) ?? "PUBLIC";
   const profileCompleted = Boolean(token.profileCompleted);
-
-  if (pathname.startsWith("/client") && userRole !== "CLIENT") {
-    return NextResponse.redirect(new URL(defaultPathForRole(userRole), request.url));
-  }
 
   const isClientArea = pathname.startsWith("/client") || pathname.startsWith("/api/contracts") || pathname.startsWith("/api/invoices") || pathname.startsWith("/api/claims") || pathname.startsWith("/api/contact") || pathname.startsWith("/api/notifications") || pathname.startsWith("/api/subscription-requests");
 

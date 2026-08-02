@@ -39,7 +39,9 @@ export async function middleware(request: NextRequest) {
   const userRole = (token.role as AppRole) ?? "PUBLIC";
   const profileCompleted = Boolean(token.profileCompleted);
 
-  if (!profileCompleted && hasRequiredRole(userRole, "CLIENT")) {
+  const isClientArea = pathname.startsWith("/client") || pathname.startsWith("/api/contracts") || pathname.startsWith("/api/invoices") || pathname.startsWith("/api/claims") || pathname.startsWith("/api/contact") || pathname.startsWith("/api/notifications") || pathname.startsWith("/api/subscription-requests");
+
+  if (!profileCompleted && userRole === "CLIENT" && isClientArea) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Profile onboarding is required." }, { status: 403 });
     }

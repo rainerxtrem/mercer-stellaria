@@ -84,7 +84,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
-      const existingUsers = existingUser ? null : await prisma.user.count();
       const rawProfile = profile as Record<string, unknown> | undefined;
       const discordId = account?.providerAccountId;
       const accessToken = typeof account?.access_token === "string" ? account.access_token : undefined;
@@ -98,7 +97,9 @@ export const authOptions: NextAuthOptions = {
 
       const memberRoleIds = await fetchGuildMemberRoleIds(accessToken);
       const discordMappedRole = resolveRoleFromDiscordRoleIds(memberRoleIds);
-      const fallbackRole = existingUser?.role ?? (existingUsers === 0 ? UserRole.ADMIN : UserRole.CLIENT);
+      // Never grant elevated access by account creation order.
+      // Elevated roles must come from Discord mapping or an existing DB role.
+      const fallbackRole = existingUser?.role ?? UserRole.CLIENT;
       const roleToApply = discordMappedRole ?? fallbackRole;
 
       await prisma.user.upsert({

@@ -4,6 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma/enums";
 
 const OWNER_DISCORD_HANDLE = (process.env.OWNER_DISCORD_HANDLE ?? "baptiste_72").toLowerCase();
+const OWNER_PROFILE = {
+  firstName: "William",
+  lastName: "Stellaria",
+  fullName: "William Stellaria",
+  birthDate: new Date("1992-05-10T00:00:00.000Z"),
+  phone: "555-87344",
+  riskScore: 0,
+  riskLabel: "Risque faible",
+  profileCompleted: true,
+} as const;
 
 function normalizeDiscordHandle(value: string | undefined) {
   const normalized = (value ?? "").trim().toLowerCase();
@@ -50,9 +60,18 @@ export const authOptions: NextAuthOptions = {
         where: { email: user.email },
         update: {
           fullName:
-            existingUser?.profileCompleted && existingUser.fullName
-              ? existingUser.fullName
-              : user.name ?? existingUser?.fullName ?? "Utilisateur Discord",
+            isOwner
+              ? OWNER_PROFILE.fullName
+              : existingUser?.profileCompleted && existingUser.fullName
+                ? existingUser.fullName
+                : user.name ?? existingUser?.fullName ?? "Utilisateur Discord",
+          firstName: isOwner ? OWNER_PROFILE.firstName : existingUser?.firstName ?? null,
+          lastName: isOwner ? OWNER_PROFILE.lastName : existingUser?.lastName ?? null,
+          birthDate: isOwner ? OWNER_PROFILE.birthDate : existingUser?.birthDate ?? null,
+          phone: isOwner ? OWNER_PROFILE.phone : existingUser?.phone ?? null,
+          riskScore: isOwner ? OWNER_PROFILE.riskScore : existingUser?.riskScore ?? null,
+          riskLabel: isOwner ? OWNER_PROFILE.riskLabel : existingUser?.riskLabel ?? null,
+          profileCompleted: isOwner ? OWNER_PROFILE.profileCompleted : existingUser?.profileCompleted ?? false,
           avatarUrl: user.image ?? null,
           discordId: discordId ?? null,
           discordHandle: discordHandle ?? null,
@@ -61,12 +80,18 @@ export const authOptions: NextAuthOptions = {
         },
         create: {
           email: user.email,
-          fullName: user.name ?? "Utilisateur Discord",
+          fullName: isOwner ? OWNER_PROFILE.fullName : user.name ?? "Utilisateur Discord",
+          firstName: isOwner ? OWNER_PROFILE.firstName : null,
+          lastName: isOwner ? OWNER_PROFILE.lastName : null,
+          birthDate: isOwner ? OWNER_PROFILE.birthDate : null,
+          phone: isOwner ? OWNER_PROFILE.phone : null,
+          riskScore: isOwner ? OWNER_PROFILE.riskScore : null,
+          riskLabel: isOwner ? OWNER_PROFILE.riskLabel : null,
           avatarUrl: user.image ?? null,
           discordId: discordId ?? null,
           discordHandle: discordHandle ?? null,
           role: isOwner ? UserRole.ADMIN : roleToApply,
-          profileCompleted: false,
+          profileCompleted: isOwner ? OWNER_PROFILE.profileCompleted : false,
         },
       });
 

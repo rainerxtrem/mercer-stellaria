@@ -107,27 +107,55 @@ export default function OnboardingProfilePage() {
     setSubmitting(true);
     setStatus("Enregistrement du profil et evaluation du risque...");
 
-    const response = await fetch("/api/onboarding/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    try {
+      const response = await fetch("/api/onboarding/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
 
-    if (!response.ok) {
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const apiError =
+          payload &&
+          typeof payload === "object" &&
+          "error" in payload &&
+          typeof payload.error === "string"
+            ? payload.error
+            : "Echec de validation du formulaire.";
+
+        setStatus(apiError);
+        return;
+      }
+
+      const redirectTo =
+        payload &&
+        typeof payload === "object" &&
+        "data" in payload &&
+        payload.data &&
+        typeof payload.data === "object" &&
+        "redirectTo" in payload.data &&
+        typeof payload.data.redirectTo === "string"
+          ? payload.data.redirectTo
+          : null;
+
+      if (redirectTo) {
+        router.replace(redirectTo);
+        return;
+      }
+
+      router.replace("/client");
+    } catch {
+      setStatus("Erreur reseau pendant la validation. Reessayez dans quelques secondes.");
+    } finally {
       setSubmitting(false);
-      setStatus("Echec de validation du formulaire.");
-      return;
     }
-
-    const payload = await response.json();
-    const redirectTo = payload?.data?.redirectTo;
-
-    if (typeof redirectTo === "string") {
-      router.replace(redirectTo);
-      return;
-    }
-
-    router.replace("/client");
   }
 
   async function handleDiscordSignIn() {

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
+import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
 
 type Question = {
   key:
@@ -67,6 +68,12 @@ export default function OnboardingProfilePage() {
     }
 
     if (!session?.user) {
+      return;
+    }
+
+    const currentRole = ((session.user.role as AppRole | undefined) ?? "PUBLIC");
+    if (currentRole !== "CLIENT") {
+      router.replace(getDefaultSpaceForRole(currentRole));
       return;
     }
 

@@ -17,7 +17,11 @@ import {
 type Client = {
   id: string;
   fullName: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string;
+  phone: string | null;
+  birthDate: string | null;
   riskLabel: string | null;
   isArchived: boolean;
   hasUnreadClientMessage?: boolean;
@@ -516,10 +520,13 @@ export default function CollaborateurPage() {
         {activeTab === "CLIENTS" ? (
         <SectionBlock title="Fiches clients" subtitle="Ouverture des dossiers individuels et archivage sans suppression">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
-                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Prénom</th>
+                  <th className="pb-3">Nom</th>
+                  <th className="pb-3">Date de naissance</th>
+                  <th className="pb-3">Téléphone</th>
                   <th className="pb-3">Email</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
@@ -530,14 +537,17 @@ export default function CollaborateurPage() {
               <tbody className="text-ms-ink/85">
                 {clients.length === 0 ? (
                   <tr>
-                    <td className="py-5 text-sm text-ms-ink/70" colSpan={6}>
+                    <td className="py-5 text-sm text-ms-ink/70" colSpan={9}>
                       Aucun assuré visible pour le moment. Tous les comptes métiers apparaissent ici automatiquement après connexion.
                     </td>
                   </tr>
                 ) : (
                   clients.map((client) => (
                     <tr key={client.id} className="border-t border-ms-navy/10">
-                      <td className="py-3">{client.hasUnreadClientMessage ? `🔔 ${client.fullName}` : client.fullName}</td>
+                      <td className="py-3">{client.firstName ?? "Non renseigné"}</td>
+                      <td className="py-3">{client.lastName ?? client.fullName}</td>
+                      <td className="py-3">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Non renseignée"}</td>
+                      <td className="py-3">{client.phone ?? "Non renseigné"}</td>
                       <td className="py-3">{client.email}</td>
                       <td className="py-3">
                         <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
@@ -735,10 +745,13 @@ export default function CollaborateurPage() {
         {activeTab === "CONTACT" ? (
         <SectionBlock title="Contact direct Client -> Conseiller" subtitle="Canal hors sinistres pour informations et documents">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
-                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Prénom</th>
+                  <th className="pb-3">Nom</th>
+                  <th className="pb-3">Date de naissance</th>
+                  <th className="pb-3">Téléphone</th>
                   <th className="pb-3">Email</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
@@ -748,7 +761,10 @@ export default function CollaborateurPage() {
               <tbody className="text-ms-ink/85">
                 {clients.map((client) => (
                   <tr key={client.id} className="border-t border-ms-navy/10">
-                    <td className="py-3">{client.hasUnreadClientMessage ? `🔔 ${client.fullName}` : client.fullName}</td>
+                    <td className="py-3">{client.firstName ?? "Non renseigné"}</td>
+                    <td className="py-3">{client.lastName ?? client.fullName}</td>
+                    <td className="py-3">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Non renseignée"}</td>
+                    <td className="py-3">{client.phone ?? "Non renseigné"}</td>
                     <td className="py-3">{client.email}</td>
                     <td className="py-3">{client.riskLabel ?? "Non évalué"}</td>
                     <td className="py-3">

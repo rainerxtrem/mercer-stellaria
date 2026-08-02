@@ -27,6 +27,7 @@ export default function Home() {
   const { data: session } = useSession();
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const roleTarget = getDefaultSpaceForRole(role);
+  const requiresOnboarding = role === "CLIENT" && !session?.user?.profileCompleted;
 
   return (
     <div className="brand-shell flex flex-1 flex-col">
@@ -59,7 +60,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link href={session.user.profileCompleted ? roleTarget : "/inscription/profil"} className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+              <Link href={requiresOnboarding ? "/inscription/profil" : roleTarget} className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                 Mon espace
               </Link>
               <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">

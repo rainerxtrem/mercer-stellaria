@@ -83,7 +83,7 @@ export default function ConnexionPage() {
         {status ? <p className="mt-4 text-sm text-ms-navy">{status}</p> : null}
         {oauthError ? (
           <p className="mt-3 text-sm text-red-700">
-            Échec de connexion Discord: {oauthError}. Vérifie les scopes OAuth, la Redirect URL et que ton compte Discord partage son email.
+            Échec de connexion Discord: {oauthError}. Vérifiez les scopes OAuth, la Redirect URL et que votre compte Discord partage son email.
           </p>
         ) : null}
 

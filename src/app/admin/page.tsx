@@ -3,6 +3,7 @@
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RoleSwitcher } from "@/components/navigation/role-switcher";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
 type KpiData = {
@@ -33,13 +34,26 @@ type Contract = {
   agent: { fullName: string };
 };
 
+type AccessUser = {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "CLIENT" | "COLLABORATOR" | "ADMIN";
+  isActive: boolean;
+  discordHandle: string | null;
+};
+
 export default function AdminPage() {
+  const { data: session } = useSession();
+  const isOwner = Boolean(session?.user?.isOwner);
   const [status, setStatus] = useState<string>("");
   const [kpis, setKpis] = useState<KpiData>({ revenue: 0, activeContracts: 0, clients: 0, claims: 0 });
   const [team, setTeam] = useState<Collaborator[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [teamForm, setTeamForm] = useState({ userId: "", fullName: "", email: "" });
+  const [accessForm, setAccessForm] = useState({ userId: "", role: "COLLABORATOR" as AccessUser["role"], isActive: true });
 
   const performance = useMemo(() => {
     const byAgent = new Map<string, number>();
@@ -85,12 +99,20 @@ export default function AdminPage() {
       const json = await contractsRes.json();
       setContracts(json.data ?? []);
     }
+
+    if (isOwner) {
+      const accessRes = await fetch("/api/admin/access");
+      if (accessRes.ok) {
+        const json = await accessRes.json();
+        setAccessUsers(json.data ?? []);
+      }
+    }
   }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData().catch(() => setStatus("Erreur de chargement des données."));
-  }, []);
+  }, [isOwner]);
 
   async function createTeamMember() {
     const response = await fetch("/api/admin/team", {
@@ -164,6 +186,28 @@ export default function AdminPage() {
     }
 
     setStatus(statusValue === "APPROVED" ? "Sinistre validé." : "Compléments demandés.");
+    await loadData();
+  }
+
+  async function updateUserAccess() {
+    if (!accessForm.userId) {
+      setStatus("Sélectionnez un utilisateur à mettre à jour.");
+      return;
+    }
+
+    const response = await fetch("/api/admin/access", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(accessForm),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setStatus(payload?.error ?? "Mise à jour des accès impossible.");
+      return;
+    }
+
+    setStatus("Accès utilisateur mis à jour.");
     await loadData();
   }
 
@@ -271,6 +315,84 @@ export default function AdminPage() {
             </div>
           </SectionBlock>
         </section>
+
+        {isOwner ? (
+          <SectionBlock title="Gestion admin" subtitle="Visible uniquement pour le compte proprietaire Discord baptiste_72">
+            <div className="grid gap-3 text-sm">
+              <select
+                value={accessForm.userId}
+                onChange={(event) => {
+                  const selected = accessUsers.find((user) => user.id === event.target.value);
+                  setAccessForm({
+                    userId: event.target.value,
+                    role: (selected?.role ?? "COLLABORATOR") as AccessUser["role"],
+                    isActive: selected?.isActive ?? true,
+                  });
+                }}
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+              >
+                <option value="">Sélectionner un utilisateur</option>
+                {accessUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName} ({user.email})
+                  </option>
+                ))}
+              </select>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <select
+                  value={accessForm.role}
+                  onChange={(event) => setAccessForm((prev) => ({ ...prev, role: event.target.value as AccessUser["role"] }))}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                >
+                  <option value="CLIENT">Client</option>
+                  <option value="COLLABORATOR">Collaborateur</option>
+                  <option value="ADMIN">Direction</option>
+                </select>
+
+                <select
+                  value={accessForm.isActive ? "active" : "inactive"}
+                  onChange={(event) => setAccessForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                >
+                  <option value="active">Actif</option>
+                  <option value="inactive">Désactivé</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={updateUserAccess}
+                className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white"
+              >
+                Mettre à jour les accès
+              </button>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="text-ms-navy-soft">
+                    <tr>
+                      <th className="pb-3">Utilisateur</th>
+                      <th className="pb-3">Discord</th>
+                      <th className="pb-3">Rôle</th>
+                      <th className="pb-3">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-ms-ink/85">
+                    {accessUsers.map((user) => (
+                      <tr key={user.id} className="border-t border-ms-navy/10">
+                        <td className="py-3">{user.fullName} ({user.email})</td>
+                        <td className="py-3">{user.discordHandle ?? "-"}</td>
+                        <td className="py-3">{user.role}</td>
+                        <td className="py-3">{user.isActive ? "Actif" : "Désactivé"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </SectionBlock>
+        ) : null}
 
         <SectionBlock title="Performance par agent" subtitle="Qui a fait signer le plus de contrats ?">
           <div className="overflow-x-auto">

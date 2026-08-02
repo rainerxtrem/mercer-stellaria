@@ -3,61 +3,11 @@ import Discord from "next-auth/providers/discord";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma/enums";
 
-function parseRoleIds(value: string | undefined) {
-  if (!value) {
-    return new Set<string>();
-  }
+const OWNER_DISCORD_HANDLE = (process.env.OWNER_DISCORD_HANDLE ?? "baptiste_72").toLowerCase();
 
-  return new Set(
-    value
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean),
-  );
-}
-
-function resolveRoleFromDiscordRoleIds(roleIds: string[]) {
-  const adminRoles = parseRoleIds(process.env.DISCORD_ROLE_ADMIN_IDS);
-  const collaboratorRoles = parseRoleIds(process.env.DISCORD_ROLE_COLLABORATOR_IDS);
-  const clientRoles = parseRoleIds(process.env.DISCORD_ROLE_CLIENT_IDS);
-
-  if (roleIds.some((roleId) => adminRoles.has(roleId))) {
-    return UserRole.ADMIN;
-  }
-
-  if (roleIds.some((roleId) => collaboratorRoles.has(roleId))) {
-    return UserRole.COLLABORATOR;
-  }
-
-  if (roleIds.some((roleId) => clientRoles.has(roleId))) {
-    return UserRole.CLIENT;
-  }
-
-  return null;
-}
-
-async function fetchGuildMemberRoleIds(accessToken: string | undefined) {
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (!guildId || !accessToken) {
-    return [];
-  }
-
-  const response = await fetch(`https://discord.com/api/v10/users/@me/guilds/${guildId}/member`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  }).catch(() => null);
-
-  if (!response?.ok) {
-    return [];
-  }
-
-  const payload = (await response.json()) as { roles?: unknown };
-  if (!Array.isArray(payload.roles)) {
-    return [];
-  }
-
-  return payload.roles.filter((value): value is string => typeof value === "string");
+function normalizeDiscordHandle(value: string | undefined) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  return normalized.split("#")[0] ?? normalized;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -86,7 +36,6 @@ export const authOptions: NextAuthOptions = {
       const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
       const rawProfile = profile as Record<string, unknown> | undefined;
       const discordId = account?.providerAccountId;
-      const accessToken = typeof account?.access_token === "string" ? account.access_token : undefined;
       const username = typeof rawProfile?.username === "string" ? rawProfile.username : undefined;
       const discriminator = typeof rawProfile?.discriminator === "string" ? rawProfile.discriminator : undefined;
       const discordHandle = username
@@ -94,13 +43,8 @@ export const authOptions: NextAuthOptions = {
           ? `${username}#${discriminator}`
           : username
         : undefined;
-
-      const memberRoleIds = await fetchGuildMemberRoleIds(accessToken);
-      const discordMappedRole = resolveRoleFromDiscordRoleIds(memberRoleIds);
-      // Never grant elevated access by account creation order.
-      // Elevated roles must come from Discord mapping or an existing DB role.
-      const fallbackRole = existingUser?.role ?? UserRole.CLIENT;
-      const roleToApply = discordMappedRole ?? fallbackRole;
+      const isOwner = normalizeDiscordHandle(discordHandle) === OWNER_DISCORD_HANDLE;
+      const roleToApply = existingUser?.role ?? (isOwner ? UserRole.ADMIN : UserRole.CLIENT);
 
       await prisma.user.upsert({
         where: { email: user.email },
@@ -112,7 +56,7 @@ export const authOptions: NextAuthOptions = {
           avatarUrl: user.image ?? null,
           discordId: discordId ?? null,
           discordHandle: discordHandle ?? null,
-          role: roleToApply,
+          role: isOwner ? UserRole.ADMIN : roleToApply,
           isActive: true,
         },
         create: {
@@ -121,7 +65,7 @@ export const authOptions: NextAuthOptions = {
           avatarUrl: user.image ?? null,
           discordId: discordId ?? null,
           discordHandle: discordHandle ?? null,
-          role: roleToApply,
+          role: isOwner ? UserRole.ADMIN : roleToApply,
           profileCompleted: false,
         },
       });
@@ -144,6 +88,8 @@ export const authOptions: NextAuthOptions = {
           token.firstName = dbUser.firstName;
           token.lastName = dbUser.lastName;
           token.profileCompleted = dbUser.profileCompleted;
+          token.discordHandle = dbUser.discordHandle;
+          token.isOwner = normalizeDiscordHandle(dbUser.discordHandle ?? undefined) === OWNER_DISCORD_HANDLE;
           token.name = dbUser.fullName;
           token.picture = dbUser.avatarUrl ?? token.picture;
         }
@@ -159,6 +105,8 @@ export const authOptions: NextAuthOptions = {
         session.user.firstName = typeof token.firstName === "string" ? token.firstName : null;
         session.user.lastName = typeof token.lastName === "string" ? token.lastName : null;
         session.user.profileCompleted = Boolean(token.profileCompleted);
+        session.user.discordHandle = typeof token.discordHandle === "string" ? token.discordHandle : null;
+        session.user.isOwner = Boolean(token.isOwner);
       }
 
       return session;

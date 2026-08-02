@@ -188,6 +188,7 @@ export default function CollaborateurPage() {
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
   const [openConversationClients, setOpenConversationClients] = useState<Client[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
 
   const filteredClaims = useMemo(() => {
     if (!selectedClientId) {
@@ -218,6 +219,21 @@ export default function CollaborateurPage() {
     () => clients.filter((client) => client.hasUnreadClientMessage).length,
     [clients],
   );
+
+  const contactClients = useMemo(() => {
+    const source = contactSearch.trim() ? clients : openConversationClients;
+    const query = contactSearch.trim().toLowerCase();
+
+    return source.filter((client) => {
+      if (!query) {
+        return true;
+      }
+
+      return [client.firstName, client.lastName, client.fullName, client.email, client.phone]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [clients, contactSearch, openConversationClients]);
 
   async function loadData() {
     const [clientsRes, claimsRes, requestsRes, invoicesRes] = await Promise.all([
@@ -466,6 +482,25 @@ export default function CollaborateurPage() {
     setOpenedContactClient(null);
     setContactMessages([]);
     setContactForm({ body: "", documentLink: "" });
+  }
+
+  async function closeContactDiscussion() {
+    if (!openedContactClient) {
+      return;
+    }
+
+    const response = await fetch(`/api/contact/messages?clientId=${openedContactClient.id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      setStatus("Impossible de terminer la discussion.");
+      return;
+    }
+
+    setStatus("Discussion terminée.");
+    closeContactClientPopup();
+    await loadData();
   }
 
   async function sendContactMessageToClient(event: FormEvent<HTMLFormElement>) {
@@ -806,6 +841,15 @@ export default function CollaborateurPage() {
 
         {activeTab === "CONTACT" ? (
         <SectionBlock title="Contact direct Client -> Conseiller" subtitle="Canal hors sinistres pour informations et documents">
+          <div className="mb-4 rounded-2xl border border-ms-navy/10 bg-white p-4">
+            <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Rechercher une cliente</label>
+            <input
+              value={contactSearch}
+              onChange={(event) => setContactSearch(event.target.value)}
+              placeholder="Nom, prénom, email ou téléphone"
+              className="w-full rounded-xl border border-ms-navy/15 bg-ms-pearl px-3 py-2 text-sm"
+            />
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="text-ms-navy-soft">
@@ -820,13 +864,13 @@ export default function CollaborateurPage() {
                 </tr>
               </thead>
               <tbody className="text-ms-ink/85">
-                {openConversationClients.length === 0 ? (
+                {contactClients.length === 0 ? (
                   <tr>
                     <td className="py-5 text-sm text-ms-ink/70" colSpan={7}>
-                      Aucune discussion ouverte pour le moment.
+                      Aucune cliente trouvée.
                     </td>
                   </tr>
-                ) : openConversationClients.map((client) => (
+                ) : contactClients.map((client) => (
                   <tr key={client.id} className="border-t border-ms-navy/10">
                     <td className="py-3">{client.firstName ?? "Non renseigné"}</td>
                     <td className="py-3">{client.lastName ?? client.fullName}</td>
@@ -834,9 +878,15 @@ export default function CollaborateurPage() {
                     <td className="py-3">{client.phone ?? "Non renseigné"}</td>
                     <td className="py-3">{client.riskLabel ?? "Non évalué"}</td>
                     <td className="py-3">
-                      <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                        Discussion ouverte
-                      </span>
+                      {client.hasOpenContactConversation ? (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          Discussion ouverte
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-ms-navy/15 bg-ms-pearl px-2 py-1 text-xs font-semibold text-ms-navy-soft">
+                          Pas de discussion ouverte
+                        </span>
+                      )}
                     </td>
                     <td className="py-3">
                       <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openConversationFromList(client)}>
@@ -903,6 +953,12 @@ export default function CollaborateurPage() {
                   Envoyer au client
                 </button>
               </form>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={closeContactDiscussion} className="rounded-full border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
+                  Terminer la discussion
+                </button>
+              </div>
             </div>
           ) : null}
         </SectionBlock>

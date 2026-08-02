@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  PUBLIC
+  CLIENT
+  COLLABORATOR
+  ADMIN
+}
+
+enum ContractCategory {
+  HEALTH
+  THEFT_BURGLARY
+  PROFESSIONAL
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_SIGNATURE
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum SignatureMethod {
+  DRAWN_CANVAS
+  CERTIFIED_CLICK
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  LATE
+  CANCELED
+}
+
+enum ClaimStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  WAITING_DETAILS
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum SubscriptionRequestType {
+  NEW_SUBSCRIPTION
+  UPGRADE
+}
+
+enum SubscriptionRequestStatus {
+  REQUESTED
+  WAITING_MEETING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String?
+  discordId     String?  @unique
+  fullName      String
+  firstName     String?
+  lastName      String?
+  avatarUrl     String?
+  birthDate     DateTime?
+  phone         String?
+  discordHandle String?
+  profileCompleted  Boolean @default(false)
+  riskQuestionnaire Json?
+  riskScore         Int?
+  riskLabel         String?
+  isArchived        Boolean @default(false)
+  archivedAt        DateTime?
+  archivedById      String?
+  role          UserRole @default(CLIENT)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  managedClients   User[]  @relation("ClientPortfolio")
+  accountManager   User?   @relation("ClientPortfolio", fields: [accountManagerId], references: [id])
+  accountManagerId String?
+
+  clientContracts Contract[] @relation("ClientContracts")
+  agentContracts  Contract[] @relation("AgentContracts")
+  invoices        Invoice[]
+  claims          Claim[]    @relation("ClientClaims")
+  reviewedClaims  Claim[]    @relation("ClaimReviewer")
+  claimMessages   ClaimMessage[]
+  contactConversationState ContactConversationState?
+  sentContactMessages ContactMessage[] @relation("ContactSender")
+  clientContactMessages ContactMessage[] @relation("ContactClient")
+  subscriptionRequests         SubscriptionRequest[] @relation("SubscriptionClient")
+  reviewedSubscriptionRequests SubscriptionRequest[] @relation("SubscriptionReviewer")
+}
+
+model SubscriptionRequest {
+  id               String                    @id @default(uuid())
+  requestNumber    String                    @unique
+  clientId         String
+  requestedFormula String
+  requestedCategory ContractCategory
+  currentFormula   String?
+  type             SubscriptionRequestType
+  reason           String?
+  status           SubscriptionRequestStatus @default(REQUESTED)
+  advisorValidated Boolean                   @default(false)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNotes      String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  client     User  @relation("SubscriptionClient", fields: [clientId], references: [id])
+  reviewedBy User? @relation("SubscriptionReviewer", fields: [reviewedById], references: [id])
+
+  @@index([clientId, status])
+  @@index([status])
+}
+
+model Contract {
+  id              String           @id @default(uuid())
+  contractNumber  String           @unique
+  clientId        String
+  agentId         String
+  category        ContractCategory
+  formulaName     String
+  weeklyPremium   Float
+  coverageSummary Json
+  effectiveDate   DateTime
+  expirationDate  DateTime?
+  status          ContractStatus   @default(DRAFT)
+  signatureMethod SignatureMethod?
+  signatureData   String?
+  signedAt        DateTime?
+  pdfUrl          String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  client   User      @relation("ClientContracts", fields: [clientId], references: [id])
+  agent    User      @relation("AgentContracts", fields: [agentId], references: [id])
+  invoices Invoice[]
+  claims   Claim[]
+
+  @@index([clientId])
+  @@index([agentId])
+  @@index([status])
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  invoiceNumber    String        @unique
+  contractId       String
+  clientId         String
+  amount           Float
+  dueDate          DateTime
+  paidAt           DateTime?
+  status           InvoiceStatus @default(PENDING)
+  reminderSentAt   DateTime?
+  discordWebhookId String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  client   User     @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, status])
+  @@index([contractId, dueDate])
+}
+
+model Claim {
+  id              String      @id @default(uuid())
+  claimNumber     String      @unique
+  clientId        String
+  contractId      String?
+  incidentType    String
+  description     String
+  evidenceLink    String?
+  lspdReportLink  String?
+  incidentDate    DateTime
+  declaredAt      DateTime    @default(now())
+  status          ClaimStatus @default(SUBMITTED)
+  requestedAmount Float?
+  approvedAmount  Float?
+  reviewedById    String?
+  decisionNotes   String?
+  clientLastReadAt DateTime?
+  staffLastReadAt DateTime?
+  reimbursedAt    DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  client     User      @relation("ClientClaims", fields: [clientId], references: [id])
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  reviewedBy User?     @relation("ClaimReviewer", fields: [reviewedById], references: [id])
+  messages   ClaimMessage[]
+
+  @@index([clientId, status])
+  @@index([reviewedById])
+}
+
+model ContactConversationState {
+  id              String   @id @default(uuid())
+  clientId        String   @unique
+  clientLastReadAt DateTime?
+  staffLastReadAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClaimMessage {
+  id           String   @id @default(uuid())
+  claimId      String
+  senderId     String
+  senderRole   UserRole
+  senderName   String
+  body         String
+  documentLink String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  claim   Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  sender  User  @relation(fields: [senderId], references: [id])
+
+  @@index([claimId, createdAt])
+  @@index([senderId])
+}
+
+model ContactMessage {
+  id           String   @id @default(uuid())
+  clientId     String
+  senderId     String
+  senderRole   UserRole
+  senderName   String
+  body         String
+  documentLink String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client User @relation("ContactClient", fields: [clientId], references: [id], onDelete: Cascade)
+  sender User @relation("ContactSender", fields: [senderId], references: [id])
+
+  @@index([clientId, createdAt])
+  @@index([senderId])
+}

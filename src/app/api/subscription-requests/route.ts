@@ -1,0 +1,108 @@
+import { ContractCategory, SubscriptionRequestStatus, SubscriptionRequestType } from "@/generated/prisma/enums";
+import { buildNumber } from "@/lib/ids";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/server-auth";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const createRequestSchema = z.object({
+  type: z.enum([SubscriptionRequestType.NEW_SUBSCRIPTION, SubscriptionRequestType.UPGRADE]),
+  requestedCategory: z.enum([ContractCategory.HEALTH, ContractCategory.THEFT_BURGLARY, ContractCategory.PROFESSIONAL]),
+  requestedFormula: z.string().min(2),
+  currentFormula: z.string().optional(),
+  reason: z.string().max(1000).optional(),
+});
+
+const updateRequestSchema = z.object({
+  requestId: z.string().uuid(),
+  status: z.enum([
+    SubscriptionRequestStatus.REQUESTED,
+    SubscriptionRequestStatus.WAITING_MEETING,
+    SubscriptionRequestStatus.UNDER_REVIEW,
+    SubscriptionRequestStatus.APPROVED,
+    SubscriptionRequestStatus.REJECTED,
+  ]),
+  advisorValidated: z.boolean().optional(),
+  reviewNotes: z.string().max(1000).optional(),
+});
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user || user.role === "PUBLIC") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const where = user.role === "CLIENT" ? { clientId: user.id } : {};
+
+  const requests = await prisma.subscriptionRequest.findMany({
+    where,
+    include: {
+      client: { select: { id: true, fullName: true, email: true } },
+      reviewedBy: { select: { id: true, fullName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ data: requests });
+}
+
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "CLIENT") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const parsed = createRequestSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const created = await prisma.subscriptionRequest.create({
+    data: {
+      requestNumber: buildNumber("REQ"),
+      clientId: user.id,
+      type: parsed.data.type,
+      requestedCategory: parsed.data.requestedCategory,
+      requestedFormula: parsed.data.requestedFormula,
+      currentFormula: parsed.data.currentFormula || null,
+      reason: parsed.data.reason || null,
+      status: SubscriptionRequestStatus.REQUESTED,
+    },
+  });
+
+  return NextResponse.json({ data: created }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "COLLABORATOR" && user.role !== "ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const parsed = updateRequestSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const existing = await prisma.subscriptionRequest.findUnique({ where: { id: parsed.data.requestId } });
+  if (!existing) {
+    return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
+  }
+
+  const updated = await prisma.subscriptionRequest.update({
+    where: { id: parsed.data.requestId },
+    data: {
+      status: parsed.data.status,
+      advisorValidated: parsed.data.advisorValidated ?? existing.advisorValidated,
+      reviewNotes: parsed.data.reviewNotes ?? existing.reviewNotes,
+      reviewedById: user.id,
+      reviewedAt: new Date(),
+    },
+  });
+
+  return NextResponse.json({ data: updated });
+}

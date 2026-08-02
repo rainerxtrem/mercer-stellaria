@@ -1,0 +1,1054 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { ClaimStatus, SubscriptionRequestStatus } from "@/generated/prisma/enums";
+import { SectionBlock } from "@/components/dashboard/section-block";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { RoleSwitcher } from "@/components/navigation/role-switcher";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  getContractStatusLabel,
+  getClaimStatusLabel,
+  getInvoiceStatusLabel,
+  getSubscriptionRequestStatusLabel,
+} from "@/lib/status-mapping";
+
+type Client = {
+  id: string;
+  fullName: string;
+  email: string;
+  riskLabel: string | null;
+  isArchived: boolean;
+  hasUnreadClientMessage?: boolean;
+};
+
+type Claim = {
+  id: string;
+  claimNumber: string;
+  contractId: string | null;
+  incidentType: string;
+  description: string;
+  evidenceLink: string | null;
+  lspdReportLink: string | null;
+  incidentDate: string;
+  declaredAt: string;
+  decisionNotes: string | null;
+  status: ClaimStatus;
+  requestedAmount: number | null;
+  approvedAmount: number | null;
+  client: { id: string; fullName: string };
+};
+
+type ClaimMessage = {
+  id: string;
+  senderId: string;
+  senderRole: string;
+  senderName: string;
+  body: string;
+  documentLink: string | null;
+  createdAt: string;
+};
+
+type ContactMessage = {
+  id: string;
+  clientId: string;
+  senderId: string;
+  senderRole: string;
+  senderName: string;
+  body: string;
+  documentLink: string | null;
+  createdAt: string;
+};
+
+type SubscriptionRequest = {
+  id: string;
+  requestNumber: string;
+  type: "NEW_SUBSCRIPTION" | "UPGRADE";
+  requestedFormula: string;
+  status: SubscriptionRequestStatus;
+  advisorValidated: boolean;
+  client: { id: string; fullName: string };
+};
+
+type Invoice = {
+  id: string;
+  status: string;
+  client: { id: string; fullName: string };
+  contract: { formulaName: string };
+  amount: string | number;
+};
+
+type DossierDetail = {
+  client: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone: string | null;
+    riskLabel: string | null;
+    riskScore: number | null;
+    isArchived: boolean;
+  };
+  contracts: Array<{
+    id: string;
+    contractNumber: string;
+    formulaName: string;
+    status: string;
+    weeklyPremium: string | number;
+  }>;
+  claims: Array<{
+    id: string;
+    claimNumber: string;
+    incidentType: string;
+    status: ClaimStatus;
+    requestedAmount: number | null;
+    approvedAmount: number | null;
+    declaredAt: string;
+  }>;
+  requests: Array<{
+    id: string;
+    requestNumber: string;
+    type: "NEW_SUBSCRIPTION" | "UPGRADE";
+    requestedFormula: string;
+    status: SubscriptionRequestStatus;
+    advisorValidated: boolean;
+    createdAt: string;
+  }>;
+};
+
+type CollaborateurTab = "CLIENTS" | "CLAIMS" | "REQUESTS" | "BILLING" | "CONTACT";
+type ClaimDossierTab = "SUMMARY" | "INSURER" | "COMMUNICATION";
+
+const collaborateurTabs: Array<{ id: CollaborateurTab; label: string }> = [
+  { id: "CLIENTS", label: "Fiches clients" },
+  { id: "CLAIMS", label: "Sinistres" },
+  { id: "REQUESTS", label: "Souscriptions" },
+  { id: "BILLING", label: "Facturation" },
+  { id: "CONTACT", label: "Contact direct" },
+];
+
+const claimStatusOptions: { value: ClaimStatus; label: string }[] = [
+  { value: ClaimStatus.SUBMITTED, label: "Demande" },
+  { value: ClaimStatus.WAITING_DETAILS, label: "En attente" },
+  { value: ClaimStatus.UNDER_REVIEW, label: "En examen" },
+  { value: ClaimStatus.APPROVED, label: "Valide" },
+  { value: ClaimStatus.REJECTED, label: "Refuse" },
+];
+
+const requestStatusOptions: { value: SubscriptionRequestStatus; label: string }[] = [
+  { value: SubscriptionRequestStatus.REQUESTED, label: "Demande" },
+  { value: SubscriptionRequestStatus.WAITING_MEETING, label: "En attente RDV" },
+  { value: SubscriptionRequestStatus.UNDER_REVIEW, label: "En examen" },
+  { value: SubscriptionRequestStatus.APPROVED, label: "Validee" },
+  { value: SubscriptionRequestStatus.REJECTED, label: "Refusee" },
+];
+
+export default function CollaborateurPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  const [status, setStatus] = useState("");
+  const [activeTab, setActiveTab] = useState<CollaborateurTab>("CLIENTS");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedDossier, setSelectedDossier] = useState<DossierDetail | null>(null);
+  const [claimUpdates, setClaimUpdates] = useState<Record<string, ClaimStatus>>({});
+  const [requestUpdates, setRequestUpdates] = useState<Record<string, SubscriptionRequestStatus>>({});
+  const [openedClaim, setOpenedClaim] = useState<Claim | null>(null);
+  const [claimMessages, setClaimMessages] = useState<ClaimMessage[]>([]);
+  const [insurerNote, setInsurerNote] = useState("");
+  const [approvedAmountInput, setApprovedAmountInput] = useState("");
+  const [messageForm, setMessageForm] = useState({ body: "", documentLink: "" });
+  const [claimDossierTab, setClaimDossierTab] = useState<ClaimDossierTab>("SUMMARY");
+  const [openedContactClient, setOpenedContactClient] = useState<Client | null>(null);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
+
+  const filteredClaims = useMemo(() => {
+    if (!selectedClientId) {
+      return claims;
+    }
+
+    return claims.filter((claim) => claim.client.id === selectedClientId);
+  }, [claims, selectedClientId]);
+
+  const filteredRequests = useMemo(() => {
+    if (!selectedClientId) {
+      return requests;
+    }
+
+    return requests.filter((request) => request.client.id === selectedClientId);
+  }, [requests, selectedClientId]);
+
+  const overview = useMemo(() => {
+    return {
+      activeClients: clients.filter((client) => !client.isArchived).length,
+      archivedClients: clients.filter((client) => client.isArchived).length,
+      claimsToReview: claims.filter((claim) => claim.status === ClaimStatus.SUBMITTED || claim.status === ClaimStatus.WAITING_DETAILS || claim.status === ClaimStatus.UNDER_REVIEW).length,
+      requestsToReview: requests.filter((request) => request.status === SubscriptionRequestStatus.REQUESTED || request.status === SubscriptionRequestStatus.WAITING_MEETING || request.status === SubscriptionRequestStatus.UNDER_REVIEW).length,
+    };
+  }, [claims, clients, requests]);
+
+  const unreadClientCount = useMemo(
+    () => clients.filter((client) => client.hasUnreadClientMessage).length,
+    [clients],
+  );
+
+  async function loadData() {
+    const [clientsRes, claimsRes, requestsRes, invoicesRes] = await Promise.all([
+      fetch("/api/clients"),
+      fetch("/api/claims"),
+      fetch("/api/subscription-requests"),
+      fetch("/api/invoices"),
+    ]);
+
+    if (clientsRes.ok) {
+      const json = await clientsRes.json();
+      setClients(json.data ?? []);
+    }
+
+    if (claimsRes.ok) {
+      const json = await claimsRes.json();
+      setClaims(json.data ?? []);
+    }
+
+    if (requestsRes.ok) {
+      const json = await requestsRes.json();
+      setRequests(json.data ?? []);
+    }
+
+    if (invoicesRes.ok) {
+      const json = await invoicesRes.json();
+      setInvoices(json.data ?? []);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData().catch(() => setStatus("Erreur de chargement des donnees."));
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      loadData().catch(() => null);
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  async function openDossier(clientId: string) {
+    const response = await fetch(`/api/clients/${clientId}`);
+    if (!response.ok) {
+      setStatus("Impossible de charger la fiche client.");
+      return;
+    }
+
+    const payload = await response.json();
+    setSelectedClientId(clientId);
+    setSelectedDossier(payload.data as DossierDetail);
+  }
+
+  function closeDossier() {
+    setSelectedClientId(null);
+    setSelectedDossier(null);
+  }
+
+  async function toggleArchive(clientId: string) {
+    const response = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
+
+    if (!response.ok) {
+      setStatus("Impossible de modifier l'etat du dossier.");
+      return;
+    }
+
+    setStatus("Etat du dossier client mis a jour.");
+    await loadData();
+    if (selectedClientId === clientId) {
+      await openDossier(clientId);
+    }
+  }
+
+  async function updateClaimStatus(claimId: string) {
+    const statusValue = claimUpdates[claimId];
+    if (!statusValue) {
+      setStatus("Selectionnez un statut de sinistre.");
+      return;
+    }
+
+    const claim = claims.find((item) => item.id === claimId);
+    if (!claim) {
+      return;
+    }
+
+    if (!isAdmin && Number(claim.requestedAmount ?? 0) > 15000) {
+      setStatus("Sinistre > 15 000$: validation direction obligatoire.");
+      return;
+    }
+
+    const payload: { claimId: string; status: ClaimStatus; decisionNotes?: string; approvedAmount?: string } = {
+      claimId,
+      status: statusValue,
+    };
+
+    if (insurerNote.trim()) {
+      payload.decisionNotes = insurerNote.trim();
+    }
+
+    if (approvedAmountInput.trim()) {
+      payload.approvedAmount = approvedAmountInput.trim();
+    }
+
+    const response = await fetch("/api/claims", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => null);
+      setStatus(errorPayload?.error ?? "Mise a jour du sinistre impossible.");
+      return;
+    }
+
+    setStatus("Statut sinistre mis a jour.");
+    await loadData();
+    if (selectedClientId) {
+      await openDossier(selectedClientId);
+    }
+
+    if (openedClaim?.id === claimId) {
+      const refreshed = claims.find((item) => item.id === claimId);
+      if (refreshed) {
+        setOpenedClaim({ ...refreshed, status: statusValue });
+      }
+    }
+  }
+
+  async function openClaimPopup(claim: Claim) {
+    setOpenedClaim(claim);
+    setClaimDossierTab("SUMMARY");
+    setInsurerNote(claim.decisionNotes ?? "");
+    setApprovedAmountInput(claim.approvedAmount !== null ? String(claim.approvedAmount) : "");
+    setMessageForm({ body: "", documentLink: "" });
+
+    const response = await fetch(`/api/claims/messages?claimId=${claim.id}`);
+    if (!response.ok) {
+      setStatus("Impossible de charger la conversation du dossier.");
+      setClaimMessages([]);
+      return;
+    }
+
+    const payload = await response.json();
+    setClaimMessages(payload.data ?? []);
+    await loadData();
+  }
+
+  function closeClaimPopup() {
+    setOpenedClaim(null);
+    setClaimMessages([]);
+    setMessageForm({ body: "", documentLink: "" });
+  }
+
+  async function sendClaimMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!openedClaim) {
+      return;
+    }
+
+    const response = await fetch("/api/claims/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        claimId: openedClaim.id,
+        body: messageForm.body,
+        documentLink: messageForm.documentLink || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      setStatus("Impossible d'envoyer le message au client.");
+      return;
+    }
+
+    setMessageForm({ body: "", documentLink: "" });
+
+    const refreshed = await fetch(`/api/claims/messages?claimId=${openedClaim.id}`);
+    if (refreshed.ok) {
+      const payload = await refreshed.json();
+      setClaimMessages(payload.data ?? []);
+    }
+  }
+
+  async function openContactClientPopup(client: Client) {
+    setOpenedContactClient(client);
+    setContactForm({ body: "", documentLink: "" });
+
+    const response = await fetch(`/api/contact/messages?clientId=${client.id}`);
+    if (!response.ok) {
+      setStatus("Impossible de charger le contact direct avec ce client.");
+      setContactMessages([]);
+      return;
+    }
+
+    const payload = await response.json();
+    setContactMessages(payload.data ?? []);
+    await loadData();
+  }
+
+  function closeContactClientPopup() {
+    setOpenedContactClient(null);
+    setContactMessages([]);
+    setContactForm({ body: "", documentLink: "" });
+  }
+
+  async function sendContactMessageToClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!openedContactClient) {
+      return;
+    }
+
+    const response = await fetch("/api/contact/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: openedContactClient.id,
+        body: contactForm.body,
+        documentLink: contactForm.documentLink || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      setStatus("Impossible d'envoyer le message de contact.");
+      return;
+    }
+
+    setContactForm({ body: "", documentLink: "" });
+    await openContactClientPopup(openedContactClient);
+  }
+
+  async function updateRequestStatus(requestId: string) {
+    const statusValue = requestUpdates[requestId];
+    if (!statusValue) {
+      setStatus("Selectionnez un statut de demande.");
+      return;
+    }
+
+    const response = await fetch("/api/subscription-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId,
+        status: statusValue,
+        advisorValidated: statusValue === SubscriptionRequestStatus.APPROVED,
+      }),
+    });
+
+    if (!response.ok) {
+      setStatus("Mise a jour de la demande impossible.");
+      return;
+    }
+
+    setStatus("Demande de formule mise a jour.");
+    await loadData();
+    if (selectedClientId) {
+      await openDossier(selectedClientId);
+    }
+  }
+
+  async function sendReminder(invoiceId: string) {
+    const response = await fetch("/api/invoices", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoiceId, action: "send_reminder" }),
+    });
+
+    if (!response.ok) {
+      setStatus("Echec de l'envoi du rappel.");
+      return;
+    }
+
+    setStatus("Rappel de paiement envoye.");
+    await loadData();
+  }
+
+  return (
+    <main className="brand-shell flex flex-1 justify-center px-6 py-8">
+      <div className="mx-auto grid w-full max-w-7xl gap-6">
+        <RoleSwitcher currentPath="/collaborateur" />
+        <header>
+          <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Espace Collaborateur</p>
+          <h1 className="mt-2 font-display text-5xl text-ms-navy">Dossiers clients</h1>
+          <p className="mt-2 text-sm text-ms-ink/70">Liste complete des assures du groupe, y compris clients, collaborateurs et direction.</p>
+        </header>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Dossiers actifs" value={String(overview.activeClients)} />
+          <StatCard label="Dossiers archives" value={String(overview.archivedClients)} />
+          <StatCard label="Sinistres a traiter" value={String(overview.claimsToReview)} />
+          <StatCard label="Demandes formule" value={String(overview.requestsToReview)} />
+        </section>
+
+        <nav className="surface tab-strip p-2" aria-label="Navigation espace collaborateur">
+          {collaborateurTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`tab-pill ${activeTab === tab.id ? "tab-pill-active" : ""}`}
+            >
+              {tab.id === "CONTACT" && unreadClientCount > 0 ? `🔔 ${tab.label}` : tab.label}
+            </button>
+          ))}
+        </nav>
+
+        {unreadClientCount > 0 ? (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900">
+            <p className="text-sm font-semibold">
+              Nouveau message client ({unreadClientCount}). Ouvrez les fiches marquees 🔔.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="tab-panel">
+        {activeTab === "CLIENTS" ? (
+        <SectionBlock title="Fiches clients" subtitle="Ouverture des dossiers individuels et archivage sans suppression">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[780px] text-left text-sm">
+              <thead className="text-ms-navy-soft">
+                <tr>
+                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Email</th>
+                  <th className="pb-3">Risque</th>
+                  <th className="pb-3">Alertes</th>
+                  <th className="pb-3">Etat dossier</th>
+                  <th className="pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="text-ms-ink/85">
+                {clients.length === 0 ? (
+                  <tr>
+                    <td className="py-5 text-sm text-ms-ink/70" colSpan={6}>
+                      Aucun assure visible pour le moment. Tous les comptes metiers apparaissent ici automatiquement apres connexion.
+                    </td>
+                  </tr>
+                ) : (
+                  clients.map((client) => (
+                    <tr key={client.id} className="border-t border-ms-navy/10">
+                      <td className="py-3">{client.hasUnreadClientMessage ? `🔔 ${client.fullName}` : client.fullName}</td>
+                      <td className="py-3">{client.email}</td>
+                      <td className="py-3">
+                        <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
+                          {client.riskLabel ?? "Non evalue"}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        {client.hasUnreadClientMessage ? (
+                          <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                            Nouveau message client
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ms-ink/55">-</span>
+                        )}
+                      </td>
+                      <td className="py-3">{client.isArchived ? "Archive" : "Actif"}</td>
+                      <td className="py-3 flex gap-2">
+                        <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openDossier(client.id)}>
+                          Ouvrir popup
+                        </button>
+                        <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
+                          Contact
+                        </button>
+                        <button className="rounded-lg bg-ms-navy px-2.5 py-1 text-xs font-semibold text-white" onClick={() => toggleArchive(client.id)}>
+                          {client.isArchived ? "Restaurer" : "Archiver"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </SectionBlock>
+        ) : null}
+
+        {activeTab === "CLAIMS" ? (
+        <SectionBlock title="Sinistres declares" subtitle="Traitement avec statuts metier et regle direction > 15 000$">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[840px] text-left text-sm">
+              <thead className="text-ms-navy-soft">
+                <tr>
+                  <th className="pb-3">Sinistre</th>
+                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Montant demande</th>
+                  <th className="pb-3">Statut</th>
+                  <th className="pb-3">Changer statut</th>
+                  <th className="pb-3">Dossier</th>
+                </tr>
+              </thead>
+              <tbody className="text-ms-ink/85">
+                {filteredClaims.map((claim) => (
+                  <tr key={claim.id} className="border-t border-ms-navy/10">
+                    <td className="py-3">{claim.claimNumber}</td>
+                    <td className="py-3">{claim.client.fullName}</td>
+                    <td className="py-3">{claim.requestedAmount ?? "-"} $</td>
+                    <td className="py-3">
+                      <StatusBadge {...getClaimStatusLabel(claim.status)} />
+                    </td>
+                    <td className="py-3">
+                      <div className="flex gap-2">
+                        <select
+                          value={claimUpdates[claim.id] ?? claim.status}
+                          onChange={(event) =>
+                            setClaimUpdates((prev) => ({
+                              ...prev,
+                              [claim.id]: event.target.value as ClaimStatus,
+                            }))
+                          }
+                          className="rounded-lg border border-ms-navy/20 bg-white px-2.5 py-1 text-xs"
+                          disabled={!isAdmin && Number(claim.requestedAmount ?? 0) > 15000}
+                        >
+                          {claimStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="rounded-lg bg-ms-navy px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => updateClaimStatus(claim.id)}
+                          disabled={!isAdmin && Number(claim.requestedAmount ?? 0) > 15000}
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                      {!isAdmin && Number(claim.requestedAmount ?? 0) > 15000 ? (
+                        <p className="mt-1 text-xs text-rose-700">Direction requise (montant &gt; 15 000$).</p>
+                      ) : null}
+                    </td>
+                    <td className="py-3">
+                      <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openClaimPopup(claim)}>
+                        Ouvrir popup
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionBlock>
+        ) : null}
+
+        {activeTab === "REQUESTS" ? (
+        <SectionBlock title="Demandes de souscription / upgrade" subtitle="Validation physique obligatoire par un conseiller">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="text-ms-navy-soft">
+                <tr>
+                  <th className="pb-3">Demande</th>
+                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Formule</th>
+                  <th className="pb-3">Statut</th>
+                  <th className="pb-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="text-ms-ink/85">
+                {filteredRequests.map((request) => (
+                  <tr key={request.id} className="border-t border-ms-navy/10">
+                    <td className="py-3">{request.requestNumber}</td>
+                    <td className="py-3">{request.client.fullName}</td>
+                    <td className="py-3">{request.requestedFormula}</td>
+                    <td className="py-3">
+                      <div className="flex items-center gap-2">
+                        <StatusBadge {...getSubscriptionRequestStatusLabel(request.status)} />
+                        <span className="text-xs text-ms-ink/65">{request.advisorValidated ? "Validee conseiller" : "A valider"}</span>
+                      </div>
+                    </td>
+                    <td className="py-3">
+                      <div className="flex gap-2">
+                        <select
+                          value={requestUpdates[request.id] ?? request.status}
+                          onChange={(event) =>
+                            setRequestUpdates((prev) => ({
+                              ...prev,
+                              [request.id]: event.target.value as SubscriptionRequestStatus,
+                            }))
+                          }
+                          className="rounded-lg border border-ms-navy/20 bg-white px-2.5 py-1 text-xs"
+                        >
+                          {requestStatusOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="rounded-lg bg-ms-navy px-2.5 py-1 text-xs font-semibold text-white" onClick={() => updateRequestStatus(request.id)}>
+                          Enregistrer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionBlock>
+        ) : null}
+
+        {activeTab === "BILLING" ? (
+        <SectionBlock title="Paiements et relances" subtitle="Vue simplifiee des cotisations clients">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[650px] text-left text-sm">
+              <thead className="text-ms-navy-soft">
+                <tr>
+                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Formule</th>
+                  <th className="pb-3">Prime</th>
+                  <th className="pb-3">Statut</th>
+                  <th className="pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="text-ms-ink/85">
+                {invoices
+                  .filter((invoice) => (selectedClientId ? invoice.client.id === selectedClientId : true))
+                  .map((item) => (
+                    <tr key={item.id} className="border-t border-ms-navy/10">
+                      <td className="py-3">{item.client.fullName}</td>
+                      <td className="py-3">{item.contract.formulaName}</td>
+                      <td className="py-3">{item.amount} $</td>
+                      <td className="py-3"><StatusBadge {...getInvoiceStatusLabel(item.status)} /></td>
+                      <td className="py-3">
+                        <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => sendReminder(item.id)}>
+                          Relancer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionBlock>
+        ) : null}
+
+        {activeTab === "CONTACT" ? (
+        <SectionBlock title="Contact direct Client -> Conseiller" subtitle="Canal hors sinistres pour informations et documents">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="text-ms-navy-soft">
+                <tr>
+                  <th className="pb-3">Client</th>
+                  <th className="pb-3">Email</th>
+                  <th className="pb-3">Risque</th>
+                  <th className="pb-3">Alertes</th>
+                  <th className="pb-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="text-ms-ink/85">
+                {clients.map((client) => (
+                  <tr key={client.id} className="border-t border-ms-navy/10">
+                    <td className="py-3">{client.hasUnreadClientMessage ? `🔔 ${client.fullName}` : client.fullName}</td>
+                    <td className="py-3">{client.email}</td>
+                    <td className="py-3">{client.riskLabel ?? "Non evalue"}</td>
+                    <td className="py-3">
+                      {client.hasUnreadClientMessage ? (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          Nouveau message client
+                        </span>
+                      ) : (
+                        <span className="text-xs text-ms-ink/55">-</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
+                        Ouvrir conversation
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionBlock>
+        ) : null}
+        </div>
+
+        {selectedDossier ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="surface max-h-[90vh] w-full max-w-5xl overflow-auto p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Popup dossier client</p>
+                  <h2 className="mt-2 font-display text-4xl text-ms-navy">{selectedDossier.client.fullName}</h2>
+                  <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.email} - {selectedDossier.client.phone ?? "Telephone non renseigne"}</p>
+                </div>
+                <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeDossier}>
+                  Fermer
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Risque</p>
+                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.riskLabel ?? "Non evalue"} ({selectedDossier.client.riskScore ?? "-"})</p>
+                </div>
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Etat dossier</p>
+                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.isArchived ? "Archive" : "Actif"}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Contrats</p>
+                  <div className="mt-3 space-y-2">
+                    {selectedDossier.contracts.map((contract) => (
+                      <div key={contract.id} className="flex items-center justify-between rounded-lg border border-ms-navy/10 p-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ms-navy">{contract.contractNumber}</p>
+                          <p className="text-xs text-ms-ink/70">{contract.formulaName} - {contract.weeklyPremium} $/sem</p>
+                        </div>
+                        <StatusBadge {...getContractStatusLabel(contract.status)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Demandes formules</p>
+                  <div className="mt-3 space-y-2">
+                    {selectedDossier.requests.map((request) => (
+                      <div key={request.id} className="flex items-center justify-between rounded-lg border border-ms-navy/10 p-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ms-navy">{request.requestNumber}</p>
+                          <p className="text-xs text-ms-ink/70">{request.type === "UPGRADE" ? "Upgrade" : "Souscription"} - {request.requestedFormula}</p>
+                        </div>
+                        <StatusBadge {...getSubscriptionRequestStatusLabel(request.status)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {openedClaim ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-4 py-8">
+            <div className="surface max-h-[90vh] w-full max-w-5xl overflow-auto p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Gestion dossier sinistre</p>
+                  <h2 className="mt-2 font-display text-4xl text-ms-navy">{openedClaim.claimNumber}</h2>
+                  <p className="mt-1 text-sm text-ms-ink/75">Client: {openedClaim.client.fullName}</p>
+                </div>
+                <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeClaimPopup}>
+                  Fermer
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="col-span-full tab-strip">
+                  <button
+                    type="button"
+                    onClick={() => setClaimDossierTab("SUMMARY")}
+                    className={`tab-pill ${claimDossierTab === "SUMMARY" ? "tab-pill-active" : ""}`}
+                  >
+                    Synthese
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClaimDossierTab("INSURER")}
+                    className={`tab-pill ${claimDossierTab === "INSURER" ? "tab-pill-active" : ""}`}
+                  >
+                    Traitement assureur
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClaimDossierTab("COMMUNICATION")}
+                    className={`tab-pill ${claimDossierTab === "COMMUNICATION" ? "tab-pill-active" : ""}`}
+                  >
+                    Communication client
+                  </button>
+                </div>
+
+                {claimDossierTab === "SUMMARY" ? (
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4 lg:col-span-2">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Informations sinistre</p>
+                  <div className="mt-3 grid gap-2 text-sm text-ms-ink/85 md:grid-cols-2">
+                    <p><span className="font-semibold">Type:</span> {openedClaim.incidentType}</p>
+                    <p><span className="font-semibold">Date incident:</span> {new Date(openedClaim.incidentDate).toLocaleDateString("fr-FR")}</p>
+                    <p><span className="font-semibold">Montant demande:</span> {openedClaim.requestedAmount ?? "-"} $</p>
+                    <p><span className="font-semibold">Montant approuve:</span> {openedClaim.approvedAmount ?? "-"} $</p>
+                    <p><span className="font-semibold">Preuve:</span> {openedClaim.evidenceLink ?? "-"}</p>
+                    <p><span className="font-semibold">Plainte:</span> {openedClaim.lspdReportLink ?? "-"}</p>
+                  </div>
+                  <p className="mt-3 text-sm text-ms-ink/85"><span className="font-semibold">Description:</span> {openedClaim.description}</p>
+                </div>
+                ) : null}
+
+                {claimDossierTab === "INSURER" ? (
+                <div className="rounded-2xl border border-ms-navy/10 bg-white p-4 lg:col-span-2">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Action assureur</p>
+                  <div className="mt-3 space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={claimUpdates[openedClaim.id] ?? openedClaim.status}
+                        onChange={(event) =>
+                          setClaimUpdates((prev) => ({
+                            ...prev,
+                            [openedClaim.id]: event.target.value as ClaimStatus,
+                          }))
+                        }
+                        className="rounded-lg border border-ms-navy/20 bg-white px-2.5 py-1 text-xs"
+                        disabled={!isAdmin && Number(openedClaim.requestedAmount ?? 0) > 15000}
+                      >
+                        {claimStatusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="rounded-lg bg-ms-navy px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => updateClaimStatus(openedClaim.id)}
+                        disabled={!isAdmin && Number(openedClaim.requestedAmount ?? 0) > 15000}
+                      >
+                        Enregistrer statut
+                      </button>
+                    </div>
+                    <input
+                      value={approvedAmountInput}
+                      onChange={(event) => setApprovedAmountInput(event.target.value)}
+                      placeholder="Montant approuve (optionnel)"
+                      className="w-full rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                    />
+                    <textarea
+                      value={insurerNote}
+                      onChange={(event) => setInsurerNote(event.target.value)}
+                      rows={4}
+                      placeholder="Commentaire assureur / demande d'information"
+                      className="w-full rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                    />
+                  </div>
+                </div>
+                ) : null}
+              </div>
+
+              {claimDossierTab === "COMMUNICATION" ? (
+              <div className="mt-6 rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Canal de communication</p>
+                <div className="mt-3 max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
+                  {claimMessages.length === 0 ? (
+                    <p className="text-sm text-ms-ink/65">Aucun message pour ce dossier.</p>
+                  ) : (
+                    claimMessages.map((message) => (
+                      <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
+                            {message.senderName} ({message.senderRole})
+                          </p>
+                          <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                        </div>
+                        <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
+                        {message.documentLink ? (
+                          <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
+                            Voir document
+                          </a>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form className="mt-3 grid gap-2" onSubmit={sendClaimMessage}>
+                  <textarea
+                    required
+                    value={messageForm.body}
+                    onChange={(event) => setMessageForm((prev) => ({ ...prev, body: event.target.value }))}
+                    rows={3}
+                    placeholder="Ecrire un message au client"
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={messageForm.documentLink}
+                    onChange={(event) => setMessageForm((prev) => ({ ...prev, documentLink: event.target.value }))}
+                    placeholder="Lien document (optionnel)"
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                  />
+                  <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                    Envoyer au client
+                  </button>
+                </form>
+              </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {openedContactClient ? (
+          <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/45 px-4 py-8">
+            <div className="surface max-h-[90vh] w-full max-w-3xl overflow-auto p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Contact direct</p>
+                  <h2 className="mt-2 font-display text-3xl text-ms-navy">{openedContactClient.fullName}</h2>
+                  <p className="mt-1 text-sm text-ms-ink/75">{openedContactClient.email}</p>
+                </div>
+                <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeContactClientPopup}>
+                  Fermer
+                </button>
+              </div>
+
+              <div className="mt-4 max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
+                {contactMessages.length === 0 ? (
+                  <p className="text-sm text-ms-ink/65">Aucun message dans ce canal.</p>
+                ) : (
+                  contactMessages.map((message) => (
+                    <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
+                          {message.senderName} ({message.senderRole})
+                        </p>
+                        <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
+                      {message.documentLink ? (
+                        <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
+                          Voir document
+                        </a>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form className="mt-3 grid gap-2" onSubmit={sendContactMessageToClient}>
+                <textarea
+                  required
+                  value={contactForm.body}
+                  onChange={(event) => setContactForm((prev) => ({ ...prev, body: event.target.value }))}
+                  rows={3}
+                  placeholder="Ecrire un message au client"
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                <input
+                  value={contactForm.documentLink}
+                  onChange={(event) => setContactForm((prev) => ({ ...prev, documentLink: event.target.value }))}
+                  placeholder="Lien document (optionnel)"
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                  Envoyer au client
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
+        {status ? <p className="surface px-4 py-3 text-sm font-medium text-ms-navy">{status}</p> : null}
+      </div>
+    </main>
+  );
+}

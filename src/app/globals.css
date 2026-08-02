@@ -1,26 +1,154 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ms-navy: #0f2043;
+  --ms-navy-soft: #1e3567;
+  --ms-cream: #fafbfc;
+  --ms-gold: #c7a866;
+  --ms-sky: #8ac6ff;
+  --ms-ink: #182235;
+  --background: var(--ms-cream);
+  --foreground: var(--ms-ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ms-navy: var(--ms-navy);
+  --color-ms-navy-soft: var(--ms-navy-soft);
+  --color-ms-cream: var(--ms-cream);
+  --color-ms-gold: var(--ms-gold);
+  --color-ms-sky: var(--ms-sky);
+  --color-ms-ink: var(--ms-ink);
+  --font-sans: var(--font-montserrat);
+  --font-display: var(--font-montserrat);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-montserrat), sans-serif;
+}
+
+button {
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+button:hover {
+  filter: brightness(1.02);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(138, 198, 255, 0.85);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(15, 32, 67, 0.22);
+}
+
+.tab-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 3rem;
+  padding: 0 1.15rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(15, 32, 67, 0.18);
+  background: #ffffff;
+  color: var(--ms-navy);
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tab-pill-active {
+  background: var(--ms-navy);
+  border-color: rgba(15, 32, 67, 0.85);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 32, 67, 0.2);
+}
+
+.tab-panel {
+  min-height: 36rem;
+}
+
+@media (max-width: 1024px) {
+  .tab-panel {
+    min-height: 30rem;
+  }
+}
+
+.brand-shell {
+  background:
+    radial-gradient(1200px 560px at 90% -20%, rgba(138, 198, 255, 0.3), transparent 58%),
+    radial-gradient(900px 500px at -10% 5%, rgba(199, 168, 102, 0.2), transparent 56%),
+    linear-gradient(180deg, #fefefe 0%, var(--ms-cream) 100%);
+}
+
+.brand-lattice {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(138, 198, 255, 0.1), transparent 28%),
+    radial-gradient(circle at 80% 70%, rgba(199, 168, 102, 0.09), transparent 32%),
+    linear-gradient(135deg, rgba(15, 32, 67, 0.04) 0%, rgba(15, 32, 67, 0) 32%);
+}
+
+.agency-name {
+  font-family: var(--font-cormorant), serif;
+}
+
+.surface {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(15, 32, 67, 0.1);
+  border-radius: 20px;
+}
+
+.surface-navy {
+  background: linear-gradient(160deg, #112956 0%, #0f2043 60%, #132b5c 100%);
+  border: 1px solid rgba(199, 168, 102, 0.28);
+  border-radius: 20px;
+  color: #fafbfc;
+}
+
+.gold-ring {
+  box-shadow:
+    0 0 0 1px rgba(199, 168, 102, 0.35),
+    0 16px 40px rgba(15, 32, 67, 0.18);
+}
+
+.gold-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(199, 168, 102, 0.5) 20%, rgba(199, 168, 102, 0.5) 80%, transparent 100%);
+}
+
+.reveal-up {
+  animation: reveal-up 0.72s ease-out both;
+}
+
+.reveal-up-delay {
+  animation: reveal-up 0.72s ease-out 0.16s both;
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

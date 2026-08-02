@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mercer & Stellaria Insurance - SaaS RP (GTA V / FiveM)
 
-## Getting Started
+Application web SaaS complete pour la gestion immersive d'une compagnie d'assurance en environnement roleplay.
 
-First, run the development server:
+## Fonctionnalites incluses (fonctionnelles)
+
+- Authentification Discord OAuth avec sessions JWT
+- RBAC complet (PUBLIC, CLIENT, COLLABORATOR, ADMIN) avec middleware
+- Espace Client (contrats, signature persistante, PDF, facturation, sinistres)
+- Espace Collaborateur (CRM, creation de contrats, rappels de paiement)
+- Espace Administrateur (KPI Prisma en temps reel, gestion des collaborateurs, supervision sinistres)
+- API Prisma CRUD reelles (plus de mode maquette)
+
+## Stack
+
+- Next.js 16 + React 19 + TypeScript
+- Tailwind CSS 4
+- Prisma ORM + SQLite
+- Zod, jose, bcryptjs
+
+Voir le detail dans [docs/STACK_TECHNIQUE.md](docs/STACK_TECHNIQUE.md).
+
+## Architecture
+
+Voir [docs/ARCHITECTURE_PROJET.md](docs/ARCHITECTURE_PROJET.md).
+
+## Demarrage
+
+1. Installer les dependances:
+
+```bash
+npm install
+```
+
+2. Configurer la base SQLite dans `.env`:
+
+```env
+DATABASE_URL="file:./dev.db"
+```
+
+3. Configurer OAuth Discord dans `.env`:
+
+```env
+AUTH_SECRET="your-random-secret"
+AUTH_DISCORD_ID="your-discord-client-id"
+AUTH_DISCORD_SECRET="your-discord-client-secret"
+```
+
+Redirect URI a configurer dans l'app Discord:
+
+```text
+http://localhost:3000/api/auth/callback/discord
+```
+
+Pour synchroniser les roles Discord -> roles applicatifs, ajouter aussi:
+
+```env
+DISCORD_GUILD_ID="your-discord-server-id"
+DISCORD_ROLE_ADMIN_IDS="111111111111111111"
+DISCORD_ROLE_COLLABORATOR_IDS="222222222222222222"
+DISCORD_ROLE_CLIENT_IDS="333333333333333333"
+```
+
+Notes:
+- les IDs sont des IDs de roles Discord (mode developpeur active dans Discord)
+- plusieurs IDs possibles: separes par des virgules
+- priorite appliquee: `ADMIN` > `COLLABORATOR` > `CLIENT`
+- si aucun role Discord mappe, l'application conserve le role existant (ou met `CLIENT` par defaut)
+
+4. Generer le client Prisma puis migrer:
+
+```bash
+npx prisma generate
+npx prisma migrate dev --name init
+```
+
+5. Lancer le serveur:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Endpoints API de base
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `GET /api/clients`
+- `GET /api/contracts`
+- `GET /api/invoices`
+- `GET /api/claims`
+- `GET /api/admin/kpis`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Signature electronique + PDF
 
-## Learn More
+- Signature certifiee par clic ou dessin via canvas
+- Persistance de la signature et activation du contrat
+- Generation PDF serveur et stockage local dans `public/storage/contracts`
 
-To learn more about Next.js, take a look at the following resources:
+## Charte visuelle
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Bleu Marine profond: `#0F2043`
+- Blanc casse: `#fafbfc`
+- Accents: dore et bleu clair

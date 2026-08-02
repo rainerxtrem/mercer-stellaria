@@ -1,0 +1,10 @@
+<svg width="640" height="360" viewBox="0 0 640 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="360" fill="transparent"/>
+  <g transform="translate(250 22)">
+    <path d="M70 10L130 26L152 84L134 178C128 201 115 221 96 236L70 256L44 236C25 221 12 201 6 178L-12 84L10 26L70 10Z" stroke="#0F2A58" stroke-width="8" fill="none"/>
+    <path d="M70 42C95 42 116 58 121 82C109 74 91 70 74 72C58 74 47 84 49 98C52 116 79 119 96 128C116 139 121 157 118 172C112 197 89 212 62 210" stroke="#0F2A58" stroke-width="8" stroke-linecap="round"/>
+    <path d="M70 56L76 72L94 74L80 84L84 100L70 90L56 100L60 84L46 74L64 72L70 56Z" fill="#C7A866"/>
+  </g>
+  <text x="320" y="300" text-anchor="middle" fill="#0F2A58" font-family="Georgia, 'Times New Roman', serif" font-size="54" letter-spacing="2">MERCER &amp; STELLARIA</text>
+  <text x="320" y="340" text-anchor="middle" fill="#0F2A58" font-family="Montserrat, Arial, sans-serif" font-size="24" letter-spacing="7">CORPORATION</text>
+</svg>

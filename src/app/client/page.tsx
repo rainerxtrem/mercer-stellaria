@@ -80,7 +80,7 @@ const clientTabs: Array<{ id: ClientTab; label: string }> = [
   { id: "OVERVIEW", label: "Vue d'ensemble" },
   { id: "CONTRACTS", label: "Contrats" },
   { id: "CLAIMS", label: "Dossiers sinistres" },
-  { id: "MESSAGES", label: "Messagerie" },
+  { id: "MESSAGES", label: "Contact conseiller" },
   { id: "REQUESTS", label: "Souscriptions" },
   { id: "BILLING", label: "Facturation" },
 ];
@@ -553,7 +553,7 @@ export default function ClientPage() {
         {hasUnreadAdvisorMessage ? (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900">
             <p className="text-sm font-semibold">
-              Nouveau message conseiller. Ouvrez l&apos;onglet Messagerie pour le consulter
+              Nouveau message conseiller. Ouvrez l&apos;onglet Contact conseiller pour le consulter
               {unreadAdvisorClaimsCount > 0 ? ` (${unreadAdvisorClaimsCount} dossier(s) sinistre)` : ""}.
             </p>
           </div>
@@ -602,7 +602,7 @@ export default function ClientPage() {
               <SectionBlock title="Raccourcis" subtitle="Navigation rapide">
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("CLAIMS")}>Dossiers sinistres</button>
-                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("MESSAGES")}>Messagerie</button>
+                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("MESSAGES")}>Contacter un conseiller</button>
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("CONTRACTS")}>Contrats</button>
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("BILLING")}>Facturation</button>
                 </div>
@@ -905,11 +905,11 @@ export default function ClientPage() {
 
         {activeTab === "MESSAGES" ? (
           <section className="grid gap-6 lg:grid-cols-2">
-            <SectionBlock title="Contact conseiller" subtitle="Canal general hors sinistres pour documents et informations">
+            <SectionBlock title="Contact conseiller" subtitle="Canal general independant des dossiers sinistres">
               <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
                 {contactLoading ? <p className="text-sm text-ms-ink/65">Chargement...</p> : null}
                 {!contactLoading && contactMessages.length === 0 ? (
-                  <p className="text-sm text-ms-ink/65">Aucun message pour le moment.</p>
+                  <p className="text-sm text-ms-ink/65">Aucun message pour le moment. Posez votre question a un conseiller, meme sans dossier en cours.</p>
                 ) : null}
                 {contactMessages.map((message) => (
                   <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
@@ -935,7 +935,7 @@ export default function ClientPage() {
                   value={contactForm.body}
                   onChange={(event) => setContactForm((prev) => ({ ...prev, body: event.target.value }))}
                   rows={3}
-                  placeholder="Ecrire au conseiller"
+                  placeholder="Ex: Bonjour, j'ai une question sur mes garanties"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
                 <input

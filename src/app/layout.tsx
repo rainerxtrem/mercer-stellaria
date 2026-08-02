@@ -15,9 +15,9 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Mercer & Stelleria Corporation",
+  title: "Mercer & Stellaria Corporation",
   description:
-    "Holding de presentation du Mercer & Stellaria Law Office et de Mercer & Stellaria Insurance.",
+    "Holding de présentation du Mercer & Stellaria Law Office et de Mercer & Stellaria Insurance.",
 };
 
 export default function RootLayout({

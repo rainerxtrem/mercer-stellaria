@@ -5,16 +5,16 @@ import { ArrowRight, FileText, Landmark, Scale } from "lucide-react";
 const offers = [
   {
     title: "Conseil corporate",
-    text: "Structuration societaire, pactes d'associes, conformite et gouvernance des organes dirigeants.",
+    text: "Structuration sociétaire, pactes d'associés, conformité et gouvernance des organes dirigeants.",
     Icon: Landmark,
   },
   {
-    title: "Contentieux strategique",
-    text: "Defense civile et commerciale, preparation dossier, gestion du risque judiciaire et negotiation.",
+    title: "Contentieux stratégique",
+    text: "Défense civile et commerciale, préparation dossier, gestion du risque judiciaire et négociation.",
     Icon: Scale,
   },
   {
-    title: "Ingenierie contractuelle",
+    title: "Ingénierie contractuelle",
     text: "Redaction de contrats sensibles, clauses de protection et dispositifs de securisation des engagements.",
     Icon: FileText,
   },
@@ -34,7 +34,7 @@ export default function CabinetPage() {
             priority
           />
           <div>
-            <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stelleria Law Office</p>
+            <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Law Office</p>
             <p className="text-xs uppercase tracking-[0.28em] text-ms-navy-soft">Le cabinet</p>
           </div>
         </div>
@@ -52,11 +52,11 @@ export default function CabinetPage() {
             <Scale size={13} /> Practice & Counsel
           </p>
           <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
-            Le conseil juridique de reference du groupe Mercer & Stelleria Corporation.
+            Le conseil juridique de référence du groupe Mercer & Stellaria Corporation.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
             Le cabinet accompagne dirigeants, entreprises et particuliers sur les enjeux contractuels, contentieux et de gouvernance.
-            Notre approche combine rigueur legale et vision business.
+            Notre approche combine rigueur légale et vision business.
           </p>
           <Link
             href="/connexion"
@@ -77,13 +77,13 @@ export default function CabinetPage() {
         </section>
 
         <section className="surface p-6 lg:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ms-navy-soft">Methodologie</p>
-          <h2 className="mt-2 font-display text-4xl text-ms-navy">Une execution en 4 etapes</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ms-navy-soft">Méthodologie</p>
+          <h2 className="mt-2 font-display text-4xl text-ms-navy">Une exécution en 4 étapes</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">1. Cadrage du risque et des enjeux prioritaires.</div>
-            <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">2. Strategie legale et options de defense ou de negociation.</div>
+            <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">2. Stratégie légale et options de défense ou de négociation.</div>
             <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">3. Production contractuelle ou contentieuse avec validation client.</div>
-            <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">4. Suivi de l'execution et pilotage post-decision.</div>
+            <div className="rounded-xl border border-ms-navy/10 bg-white p-5 text-sm text-ms-ink/85">4. Suivi de l'exécution et pilotage post-décision.</div>
           </div>
         </section>
       </main>

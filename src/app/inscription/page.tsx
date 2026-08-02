@@ -19,11 +19,11 @@ export default function InscriptionPage() {
       return `${firstName} ${lastName}`;
     }
 
-    return session?.user?.name ?? "Assure connecte";
+    return session?.user?.name ?? "Assuré connecté";
   }, [session?.user?.firstName, session?.user?.lastName, session?.user?.name]);
 
   async function handleDiscordSignup() {
-    setStatus("Redirection vers Discord pour creer votre compte...");
+    setStatus("Redirection vers Discord pour créer votre compte...");
     await signIn("discord", { callbackUrl: "/inscription/profil" });
   }
 
@@ -32,7 +32,7 @@ export default function InscriptionPage() {
       <div className="surface w-full max-w-2xl p-8">
         <p className="text-xs uppercase tracking-[0.24em] text-ms-navy-soft">Espace public</p>
         <h1 className="mt-3 font-display text-4xl text-ms-navy">Inscription Client</h1>
-        <p className="mt-2 text-sm text-ms-ink/70">Creation de compte securise via Discord (OAuth).</p>
+        <p className="mt-2 text-sm text-ms-ink/70">Création de compte sécurisé via Discord (OAuth).</p>
 
         {!session?.user ? (
           <button
@@ -44,20 +44,20 @@ export default function InscriptionPage() {
           </button>
         ) : (
           <div className="mt-7 grid gap-3">
-            <p className="text-sm text-ms-ink/80">Connecte en tant que {identity}</p>
+            <p className="text-sm text-ms-ink/80">Connecté en tant que {identity}</p>
             <div className="flex flex-wrap gap-2">
               <Link
                 href={session.user.profileCompleted ? roleTarget : "/inscription/profil"}
                 className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white"
               >
-                {session.user.profileCompleted ? "Acceder a mon espace" : "Finaliser mon profil"}
+                {session.user.profileCompleted ? "Accéder à mon espace" : "Finaliser mon profil"}
               </Link>
               <button
                 type="button"
                 className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
                 onClick={() => signOut({ callbackUrl: "/" })}
               >
-                Se deconnecter
+                Se déconnecter
               </button>
             </div>
           </div>
@@ -66,7 +66,7 @@ export default function InscriptionPage() {
         {status ? <p className="mt-4 text-sm text-ms-navy">{status}</p> : null}
 
         <p className="mt-5 text-sm text-ms-ink/70">
-          Deja inscrit ?{" "}
+          Déjà inscrit ?{" "}
           <Link href="/connexion" className="font-semibold text-ms-navy underline decoration-ms-gold/70 underline-offset-4">
             Se connecter
           </Link>

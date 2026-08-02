@@ -89,7 +89,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData().catch(() => setStatus("Erreur de chargement des donnees."));
+    loadData().catch(() => setStatus("Erreur de chargement des données."));
   }, []);
 
   async function createTeamMember() {
@@ -100,7 +100,7 @@ export default function AdminPage() {
     });
 
     if (!response.ok) {
-      setStatus("Creation collaborateur impossible.");
+      setStatus("Création collaborateur impossible.");
       return;
     }
 
@@ -110,7 +110,7 @@ export default function AdminPage() {
 
   async function updateTeamMember() {
     if (!teamForm.userId) {
-      setStatus("Selectionnez un collaborateur a modifier.");
+      setStatus("Sélectionnez un collaborateur à modifier.");
       return;
     }
 
@@ -125,13 +125,13 @@ export default function AdminPage() {
       return;
     }
 
-    setStatus("Collaborateur modifie.");
+    setStatus("Collaborateur modifié.");
     await loadData();
   }
 
   async function deleteTeamMember() {
     if (!teamForm.userId) {
-      setStatus("Selectionnez un collaborateur a supprimer.");
+      setStatus("Sélectionnez un collaborateur à supprimer.");
       return;
     }
 
@@ -146,7 +146,7 @@ export default function AdminPage() {
       return;
     }
 
-    setStatus("Collaborateur supprime.");
+    setStatus("Collaborateur supprimé.");
     setTeamForm({ userId: "", fullName: "", email: "" });
     await loadData();
   }
@@ -159,11 +159,11 @@ export default function AdminPage() {
     });
 
     if (!response.ok) {
-      setStatus("Mise a jour du sinistre impossible.");
+      setStatus("Mise à jour du sinistre impossible.");
       return;
     }
 
-    setStatus(statusValue === "APPROVED" ? "Sinistre valide." : "Complements demandes.");
+    setStatus(statusValue === "APPROVED" ? "Sinistre validé." : "Compléments demandés.");
     await loadData();
   }
 
@@ -181,11 +181,11 @@ export default function AdminPage() {
           <StatCard label="Chiffre d'affaires" value={`${kpis.revenue.toLocaleString("fr-FR")} $`} />
           <StatCard label="Contrats actifs" value={String(kpis.activeContracts)} />
           <StatCard label="Clients" value={String(kpis.clients)} />
-          <StatCard label="Sinistres declares" value={String(kpis.claims)} />
+          <StatCard label="Sinistres déclarés" value={String(kpis.claims)} />
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <SectionBlock title="Gestion de l'equipe" subtitle="Creation et gestion des comptes collaborateurs">
+          <SectionBlock title="Gestion de l'équipe" subtitle="Création et gestion des comptes collaborateurs">
             <form className="grid gap-3 text-sm">
               <select
                 value={teamForm.userId}
@@ -224,7 +224,7 @@ export default function AdminPage() {
                   onClick={createTeamMember}
                   className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white"
                 >
-                  Creer
+                  Créer
                 </button>
                 <button
                   type="button"
@@ -244,13 +244,13 @@ export default function AdminPage() {
             </form>
           </SectionBlock>
 
-          <SectionBlock title="Tresorerie & Sinistres" subtitle="Validation finale des remboursements lourds">
+          <SectionBlock title="Trésorerie & Sinistres" subtitle="Validation finale des remboursements lourds">
             <div className="space-y-3 text-sm">
               {claims.slice(0, 5).map((claim) => (
                 <div key={claim.id} className="rounded-xl border border-ms-navy/10 bg-white p-4">
                   <p className="font-semibold text-ms-navy">{claim.claimNumber}</p>
                   <p className="text-ms-ink/75">
-                    {claim.client.fullName} - montant demande: {claim.requestedAmount ?? 0} $ ({claim.status})
+                    {claim.client.fullName} - montant demandé: {claim.requestedAmount ?? 0} $ ({claim.status})
                   </p>
                   <div className="mt-3 flex gap-2">
                     <button
@@ -263,7 +263,7 @@ export default function AdminPage() {
                       className="rounded-lg border border-ms-navy/20 px-3 py-1.5 text-xs font-semibold text-ms-navy"
                       onClick={() => updateClaimStatus(claim.id, "WAITING_DETAILS")}
                     >
-                      Demander complements
+                      Demander compléments
                     </button>
                   </div>
                 </div>
@@ -278,7 +278,7 @@ export default function AdminPage() {
               <thead className="text-ms-navy-soft">
                 <tr>
                   <th className="pb-3">Collaborateur</th>
-                  <th className="pb-3">Contrats signes</th>
+                  <th className="pb-3">Contrats signés</th>
                   <th className="pb-3">Taux de conversion</th>
                 </tr>
               </thead>

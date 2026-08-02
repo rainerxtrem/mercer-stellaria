@@ -10,14 +10,14 @@ const entities = [
   {
     badge: "Le cabinet",
     title: "Mercer & Stellaria Law Office",
-    text: "Conseil, contentieux strategique, gouvernance et mediation pour dirigeants, entreprises et particuliers.",
+    text: "Conseil, contentieux stratégique, gouvernance et médiation pour dirigeants, entreprises et particuliers.",
     href: "/cabinet",
     icon: Landmark,
   },
   {
     badge: "Assurances",
     title: "Mercer & Stellaria Insurance",
-    text: "Offres sante, pro et patrimoniales avec souscription, suivi des dossiers et indemnisation pilotees en ligne.",
+    text: "Offres santé, pro et patrimoniales avec souscription, suivi des dossiers et indemnisation pilotées en ligne.",
     href: "/assurances",
     icon: ShieldCheck,
   },
@@ -55,7 +55,7 @@ export default function Home() {
           {!session?.user ? (
             <div className="flex items-center gap-2">
               <Link href="/connexion" className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">Connexion</Link>
-              <Link href="/inscription" className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Creer un compte</Link>
+              <Link href="/inscription" className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Créer un compte</Link>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export default function Home() {
                 Mon espace
               </Link>
               <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">
-                Deconnexion
+                Déconnexion
               </button>
             </div>
           )}
@@ -88,7 +88,7 @@ export default function Home() {
               </h1>
               <p className="mt-4 max-w-3xl text-base leading-7 text-ms-cream/90 md:text-lg">
                 Mercer & Stellaria Corporation pilote le Mercer & Stellaria Law Office et Mercer & Stellaria Insurance.
-                Une direction commune, une execution specialisee, une experience client unifiee.
+                Une direction commune, une exécution spécialisée, une expérience client unifiée.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/cabinet" className="inline-flex items-center gap-2 rounded-full bg-ms-gold px-5 py-3 text-sm font-semibold text-ms-navy hover:bg-[#d8ba7b]">
@@ -102,14 +102,14 @@ export default function Home() {
 
             <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
               <Image
-                src="/Mercer_Stellaria_LOGOBLEU.png"
+                src="/mercer-stellaria-corporation-logo.svg"
                 alt="Logo Mercer & Stellaria Corporation"
                 width={640}
                 height={360}
                 className="h-auto w-full rounded-2xl bg-white/80 p-3"
               />
               <p className="mt-4 text-sm leading-6 text-ms-cream/90">
-                Holding de pilotage, standards de qualite transverses et synergie operationnelle entre conseil juridique et couverture assurantielle.
+                Holding de pilotage, standards de qualité transverses et synergie opérationnelle entre conseil juridique et couverture assurantielle.
               </p>
             </div>
           </div>
@@ -141,18 +141,18 @@ export default function Home() {
           <div className="grid gap-6 lg:grid-cols-3">
             <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Gouvernance</p>
-              <h3 className="mt-2 font-display text-3xl text-ms-navy">Cap strategique</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Comite de direction holding, arbitrage transverse et feuille de route annuelle du groupe.</p>
+              <h3 className="mt-2 font-display text-3xl text-ms-navy">Cap stratégique</h3>
+              <p className="mt-2 text-sm text-ms-ink/80">Comité de direction holding, arbitrage transverse et feuille de route annuelle du groupe.</p>
             </article>
             <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Execution</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Exécution</p>
               <h3 className="mt-2 font-display text-3xl text-ms-navy">Deux expertises</h3>
               <p className="mt-2 text-sm text-ms-ink/80">Le cabinet traite les enjeux juridiques; les assurances pilotent la protection des clients et entreprises.</p>
             </article>
             <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Experience</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Expérience</p>
               <h3 className="mt-2 font-display text-3xl text-ms-navy">Un parcours unique</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Des points d'entree clairs par onglet, avec une narration de marque plus forte et coherent sur desktop et mobile.</p>
+              <p className="mt-2 text-sm text-ms-ink/80">Des points d'entrée clairs par onglet, avec une narration de marque plus forte et cohérente sur desktop et mobile.</p>
             </article>
           </div>
         </section>

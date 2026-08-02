@@ -244,7 +244,7 @@ export default function ClientPage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData().catch(() => notifyError("Impossible de charger vos donnees."));
+    loadData().catch(() => notifyError("Impossible de charger vos données."));
   }, []);
 
   useEffect(() => {
@@ -290,7 +290,7 @@ export default function ClientPage() {
       currentFormula: "",
       reason: "",
     });
-    notifySuccess("Demande envoyee. Validation physique par un conseiller requise.");
+    notifySuccess("Demande envoyée. Validation physique par un conseiller requise.");
     await loadData();
   }
 
@@ -366,12 +366,12 @@ export default function ClientPage() {
     });
 
     if (!response.ok) {
-      notifyError(await extractErrorMessage(response, "Impossible d'envoyer le complement demande."));
+      notifyError(await extractErrorMessage(response, "Impossible d'envoyer le complément demandé."));
       return;
     }
 
     closeComplementModal();
-    notifySuccess("Complement envoye. Le dossier repasse en cours d'analyse.");
+    notifySuccess("Complément envoyé. Le dossier repasse en cours d'analyse.");
     await loadData();
   }
 
@@ -425,7 +425,7 @@ export default function ClientPage() {
     }
 
     setContactForm({ body: "", documentLink: "" });
-    notifySuccess("Message envoye au conseiller.");
+    notifySuccess("Message envoyé au conseiller.");
     await loadGeneralContactMessages();
   }
 
@@ -457,7 +457,7 @@ export default function ClientPage() {
     }
 
     setMessageForm({ body: "", documentLink: "" });
-    notifySuccess("Message envoye.");
+    notifySuccess("Message envoyé.");
     await openClaimMessages(openedMessagesClaim);
   }
 
@@ -495,11 +495,11 @@ export default function ClientPage() {
     });
 
     if (!response.ok) {
-      notifyError(await extractErrorMessage(response, "Impossible de marquer la facture comme payee."));
+      notifyError(await extractErrorMessage(response, "Impossible de marquer la facture comme payée."));
       return;
     }
 
-    notifySuccess("Facture marquee comme payee.");
+    notifySuccess("Facture marquée comme payée.");
     await loadData();
   }
 
@@ -563,7 +563,7 @@ export default function ClientPage() {
           <div className="rounded-2xl border border-red-300 bg-red-50 px-5 py-4 text-red-800">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm font-semibold">
-                Complement demande, merci de repondre a cette demande pour la suite de votre dossier.
+                Complément demandé, merci de répondre à cette demande pour la suite de votre dossier.
               </p>
               <button
                 type="button"
@@ -591,11 +591,11 @@ export default function ClientPage() {
             </section>
 
             <section className="grid gap-6 lg:grid-cols-3">
-              <SectionBlock title="Priorites" subtitle="Actions recommandeees">
+              <SectionBlock title="Priorités" subtitle="Actions recommandées">
                 <div className="space-y-3 text-sm text-ms-ink/85">
                   <p>Sinistres actifs: {activeClaims.length}</p>
-                  <p>Complements demandes: {pendingComplementClaims.length}</p>
-                  <p>Contrats a signer: {pendingSignatureContracts.length}</p>
+                  <p>Compléments demandés: {pendingComplementClaims.length}</p>
+                  <p>Contrats à signer: {pendingSignatureContracts.length}</p>
                 </div>
               </SectionBlock>
 
@@ -608,8 +608,8 @@ export default function ClientPage() {
                 </div>
               </SectionBlock>
 
-              <SectionBlock title="Chargement" subtitle="Etat des donnees">
-                <p className="text-sm text-ms-ink/75">{loading ? "Chargement en cours..." : "Donnees synchronisees."}</p>
+              <SectionBlock title="Chargement" subtitle="État des données">
+                <p className="text-sm text-ms-ink/75">{loading ? "Chargement en cours..." : "Données synchronisées."}</p>
               </SectionBlock>
             </section>
           </>
@@ -663,13 +663,13 @@ export default function ClientPage() {
             </div>
 
             <div className="mt-5 grid gap-3 rounded-xl border border-ms-navy/10 bg-white p-4">
-              <p className="text-sm font-semibold text-ms-navy">Signature electronique</p>
+              <p className="text-sm font-semibold text-ms-navy">Signature électronique</p>
               <select
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 text-sm"
                 value={selectedContractId}
                 onChange={(event) => setSelectedContractId(event.target.value)}
               >
-                <option value="">Selectionner un contrat en attente</option>
+                <option value="">Sélectionner un contrat en attente</option>
                 {contracts
                   .filter((item) => item.status === "PENDING_SIGNATURE")
                   .map((item) => (
@@ -685,14 +685,14 @@ export default function ClientPage() {
                   className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "CERTIFIED_CLICK" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
                   onClick={() => setSignatureMethod("CERTIFIED_CLICK")}
                 >
-                  Signature certifiee par clic
+                  Signature certifiée par clic
                 </button>
                 <button
                   type="button"
                   className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "DRAWN_CANVAS" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
                   onClick={() => setSignatureMethod("DRAWN_CANVAS")}
                 >
-                  Signature dessinee
+                  Signature dessinée
                 </button>
               </div>
 
@@ -732,7 +732,7 @@ export default function ClientPage() {
                 }
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               >
-                <option value="HEALTH">Sante</option>
+                <option value="HEALTH">Santé</option>
                 <option value="THEFT_BURGLARY">Vols & cambriolages</option>
                 <option value="PROFESSIONAL">Professionnel</option>
               </select>
@@ -740,7 +740,7 @@ export default function ClientPage() {
                 required
                 value={requestForm.requestedFormula}
                 onChange={(event) => setRequestForm((prev) => ({ ...prev, requestedFormula: event.target.value }))}
-                placeholder="Formule demandee"
+                placeholder="Formule demandée"
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
               <input
@@ -775,7 +775,7 @@ export default function ClientPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusBadge {...getSubscriptionRequestStatusLabel(request.status)} />
-                        <span className="text-xs text-ms-ink/70">{request.advisorValidated ? "Validee conseiller" : "Validation conseiller requise"}</span>
+                        <span className="text-xs text-ms-ink/70">{request.advisorValidated ? "Validée conseiller" : "Validation conseiller requise"}</span>
                       </div>
                     </div>
                   </div>
@@ -794,7 +794,7 @@ export default function ClientPage() {
                 onChange={(event) => setClaimForm((prev) => ({ ...prev, contractId: event.target.value }))}
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               >
-                <option value="">Aucun contrat specifique</option>
+                <option value="">Aucun contrat spécifique</option>
                 {contracts.map((contract) => (
                   <option key={contract.id} value={contract.id}>
                     {contract.contractNumber}
@@ -812,7 +812,7 @@ export default function ClientPage() {
                 required
                 value={claimForm.description}
                 onChange={(event) => setClaimForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Description detaillee"
+                placeholder="Description détaillée"
                 rows={4}
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
@@ -826,7 +826,7 @@ export default function ClientPage() {
               <input
                 value={claimForm.requestedAmount}
                 onChange={(event) => setClaimForm((prev) => ({ ...prev, requestedAmount: event.target.value }))}
-                placeholder="Montant demande (optionnel)"
+                placeholder="Montant demandé (optionnel)"
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
               <input
@@ -845,15 +845,15 @@ export default function ClientPage() {
             </form>
             </SectionBlock>
 
-            <SectionBlock title="Historique sinistres" subtitle="Demande, examen et decision visible en temps reel">
+            <SectionBlock title="Historique sinistres" subtitle="Demande, examen et décision visible en temps réel">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[650px] text-left text-sm">
                   <thead className="text-ms-navy-soft">
                     <tr>
-                      <th className="pb-3">Numero</th>
+                      <th className="pb-3">Numéro</th>
                       <th className="pb-3">Type</th>
                       <th className="pb-3">Statut</th>
-                      <th className="pb-3">Montant demande</th>
+                      <th className="pb-3">Montant demandé</th>
                       <th className="pb-3">Date</th>
                       <th className="pb-3">Action</th>
                     </tr>
@@ -992,7 +992,7 @@ export default function ClientPage() {
                 <div key={invoice.id} className="flex items-center justify-between rounded-xl border border-ms-navy/10 bg-white p-4">
                   <div>
                     <p className="font-semibold text-ms-navy">{invoice.invoiceNumber}</p>
-                    <p className="text-xs text-ms-ink/70">Echeance: {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}</p>
+                    <p className="text-xs text-ms-ink/70">Échéance: {new Date(invoice.dueDate).toLocaleDateString("fr-FR")}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-ms-ink">{invoice.amount} $</p>
@@ -1001,7 +1001,7 @@ export default function ClientPage() {
                     </div>
                     {invoice.status !== "PAID" ? (
                       <button className="mt-1 rounded-md border border-ms-navy/20 px-2 py-1 text-xs font-semibold text-ms-navy" onClick={() => markInvoicePaid(invoice.id)}>
-                        Marquer paye
+                        Marquer payé
                       </button>
                     ) : null}
                   </div>
@@ -1019,7 +1019,7 @@ export default function ClientPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Dossier reouvert</p>
                   <h2 className="mt-1 font-display text-2xl text-ms-navy">{openedComplementClaim.claimNumber}</h2>
-                  <p className="mt-1 text-sm text-ms-ink/70">Ajoutez les informations demandees puis envoyez le complement.</p>
+                  <p className="mt-1 text-sm text-ms-ink/70">Ajoutez les informations demandées puis envoyez le complément.</p>
                 </div>
                 <button
                   type="button"
@@ -1036,7 +1036,7 @@ export default function ClientPage() {
                   onChange={(event) => setComplementForm((prev) => ({ ...prev, contractId: event.target.value }))}
                   className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
                 >
-                  <option value="">Aucun contrat specifique</option>
+                  <option value="">Aucun contrat spécifique</option>
                   {contracts.map((contract) => (
                     <option key={contract.id} value={contract.id}>
                       {contract.contractNumber}
@@ -1054,7 +1054,7 @@ export default function ClientPage() {
                   required
                   value={complementForm.description}
                   onChange={(event) => setComplementForm((prev) => ({ ...prev, description: event.target.value }))}
-                  placeholder="Description detaillee"
+                  placeholder="Description détaillée"
                   rows={4}
                   className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
                 />
@@ -1068,7 +1068,7 @@ export default function ClientPage() {
                 <input
                   value={complementForm.requestedAmount}
                   onChange={(event) => setComplementForm((prev) => ({ ...prev, requestedAmount: event.target.value }))}
-                  placeholder="Montant demande (optionnel)"
+                  placeholder="Montant demandé (optionnel)"
                   className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
                 />
                 <input
@@ -1085,7 +1085,7 @@ export default function ClientPage() {
                 />
                 <div className="flex flex-wrap gap-2">
                   <button type="submit" className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">
-                    Envoyer le complement
+                    Envoyer le complément
                   </button>
                   <button
                     type="button"
@@ -1146,7 +1146,7 @@ export default function ClientPage() {
                   value={messageForm.body}
                   onChange={(event) => setMessageForm((prev) => ({ ...prev, body: event.target.value }))}
                   rows={3}
-                  placeholder="Ecrire votre message"
+                  placeholder="Écrire votre message"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
                 <input

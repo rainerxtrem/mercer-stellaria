@@ -4,25 +4,25 @@ import { ArrowRight, BriefcaseBusiness, Shield, Stethoscope, Wallet } from "luci
 
 const insuranceLines = [
   {
-    title: "Sante",
+    title: "Santé",
     text: "Formules Access, Pro et Elite avec prise en charge progressive selon profil et niveau de risque.",
     Icon: Stethoscope,
   },
   {
     title: "Professionnel",
-    text: "Protection responsabilite civile, locaux, pertes d'exploitation et accompagnement de crise.",
+    text: "Protection responsabilité civile, locaux, pertes d'exploitation et accompagnement de crise.",
     Icon: BriefcaseBusiness,
   },
   {
     title: "Patrimoine & vols",
-    text: "Garanties contre vols, cambriolages et atteintes aux actifs prives ou commerciaux.",
+    text: "Garanties contre vols, cambriolages et atteintes aux actifs privés ou commerciaux.",
     Icon: Shield,
   },
 ];
 
 const formulas = [
-  { name: "Access", premium: "400 $ / sem.", coverage: "Essentiels sante et urgences de premiere ligne." },
-  { name: "Pro", premium: "750 $ / sem.", coverage: "Couverture etendue avec remboursements renforces." },
+  { name: "Access", premium: "400 $ / sem.", coverage: "Essentiels santé et urgences de première ligne." },
+  { name: "Pro", premium: "750 $ / sem.", coverage: "Couverture étendue avec remboursements renforcés." },
   { name: "Elite", premium: "1 400 $ / sem.", coverage: "Protection premium sur les cas lourds et sensibles." },
 ];
 
@@ -55,19 +55,19 @@ export default function AssurancesPage() {
         <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
           <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
-            <Wallet size={13} /> Solutions assurelles
+            <Wallet size={13} /> Solutions assurantielles
           </p>
           <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
-            Des offres d'assurance claires, modulaires et suivies en temps reel.
+            Des offres d'assurance claires, modulaires et suivies en temps réel.
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
-            Mercer & Stellaria Insurance couvre les besoins sante, professionnels et patrimoniaux avec un parcours digital de la souscription a l'indemnisation.
+            Mercer & Stellaria Insurance couvre les besoins santé, professionnels et patrimoniaux avec un parcours digital de la souscription à l'indemnisation.
           </p>
           <Link
             href="/inscription"
             className="mt-8 inline-flex items-center gap-2 rounded-full bg-ms-gold px-5 py-3 text-sm font-semibold text-ms-navy transition hover:bg-[#d8ba7b]"
           >
-            Demarrer une souscription <ArrowRight size={16} />
+            Démarrer une souscription <ArrowRight size={16} />
           </Link>
         </section>
 

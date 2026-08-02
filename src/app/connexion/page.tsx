@@ -52,9 +52,9 @@ export default function ConnexionPage() {
   return (
     <main className="brand-shell flex flex-1 items-center justify-center px-6 py-12">
       <div className="surface w-full max-w-md p-8">
-        <p className="text-xs uppercase tracking-[0.24em] text-ms-navy-soft">Portail securise</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-ms-navy-soft">Portail sécurisé</p>
         <h1 className="mt-3 font-display text-4xl text-ms-navy">Connexion</h1>
-        <p className="mt-2 text-sm text-ms-ink/70">Accedez a votre espace client, collaborateur ou direction.</p>
+        <p className="mt-2 text-sm text-ms-ink/70">Accédez à votre espace client, collaborateur ou direction.</p>
 
         {!session?.user ? (
           <button
@@ -66,7 +66,7 @@ export default function ConnexionPage() {
           </button>
         ) : (
           <div className="mt-7 grid gap-3">
-            <p className="text-sm text-ms-ink/80">Connecte en tant que {identity}</p>
+            <p className="text-sm text-ms-ink/80">Connecté en tant que {identity}</p>
             <p className="text-sm text-ms-ink/70">Redirection en cours vers votre espace client...</p>
             <div className="flex gap-2">
               <button
@@ -74,7 +74,7 @@ export default function ConnexionPage() {
                 className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
                 onClick={() => signOut({ callbackUrl: "/" })}
               >
-                Se deconnecter
+                Se déconnecter
               </button>
             </div>
           </div>
@@ -83,14 +83,14 @@ export default function ConnexionPage() {
         {status ? <p className="mt-4 text-sm text-ms-navy">{status}</p> : null}
         {oauthError ? (
           <p className="mt-3 text-sm text-red-700">
-            Echec de connexion Discord: {oauthError}. Verifie les scopes OAuth, la Redirect URL et que ton compte Discord partage son email.
+            Échec de connexion Discord: {oauthError}. Vérifie les scopes OAuth, la Redirect URL et que ton compte Discord partage son email.
           </p>
         ) : null}
 
         <p className="mt-5 text-sm text-ms-ink/70">
           Nouveau chez Mercer & Stellaria ?{" "}
           <Link href="/inscription" className="font-semibold text-ms-navy underline decoration-ms-gold/70 underline-offset-4">
-            Creer un compte client
+            Créer un compte client
           </Link>
         </p>
       </div>

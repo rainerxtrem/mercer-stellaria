@@ -139,7 +139,7 @@ const requestStatusOptions: { value: SubscriptionRequestStatus; label: string }[
   { value: SubscriptionRequestStatus.REQUESTED, label: "Demande" },
   { value: SubscriptionRequestStatus.WAITING_MEETING, label: "En attente RDV" },
   { value: SubscriptionRequestStatus.UNDER_REVIEW, label: "En examen" },
-  { value: SubscriptionRequestStatus.APPROVED, label: "Validee" },
+  { value: SubscriptionRequestStatus.APPROVED, label: "Validée" },
   { value: SubscriptionRequestStatus.REJECTED, label: "Refusee" },
 ];
 
@@ -228,7 +228,7 @@ export default function CollaborateurPage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData().catch(() => setStatus("Erreur de chargement des donnees."));
+    loadData().catch(() => setStatus("Erreur de chargement des données."));
   }, []);
 
   useEffect(() => {
@@ -260,11 +260,11 @@ export default function CollaborateurPage() {
     const response = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
 
     if (!response.ok) {
-      setStatus("Impossible de modifier l'etat du dossier.");
+      setStatus("Impossible de modifier l'état du dossier.");
       return;
     }
 
-    setStatus("Etat du dossier client mis a jour.");
+    setStatus("État du dossier client mis à jour.");
     await loadData();
     if (selectedClientId === clientId) {
       await openDossier(clientId);
@@ -309,11 +309,11 @@ export default function CollaborateurPage() {
 
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => null);
-      setStatus(errorPayload?.error ?? "Mise a jour du sinistre impossible.");
+      setStatus(errorPayload?.error ?? "Mise à jour du sinistre impossible.");
       return;
     }
 
-    setStatus("Statut sinistre mis a jour.");
+    setStatus("Statut sinistre mis à jour.");
     await loadData();
     if (selectedClientId) {
       await openDossier(selectedClientId);
@@ -447,11 +447,11 @@ export default function CollaborateurPage() {
     });
 
     if (!response.ok) {
-      setStatus("Mise a jour de la demande impossible.");
+      setStatus("Mise à jour de la demande impossible.");
       return;
     }
 
-    setStatus("Demande de formule mise a jour.");
+    setStatus("Demande de formule mise à jour.");
     await loadData();
     if (selectedClientId) {
       await openDossier(selectedClientId);
@@ -470,7 +470,7 @@ export default function CollaborateurPage() {
       return;
     }
 
-    setStatus("Rappel de paiement envoye.");
+    setStatus("Rappel de paiement envoyé.");
     await loadData();
   }
 
@@ -481,13 +481,13 @@ export default function CollaborateurPage() {
         <header>
           <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Espace Collaborateur</p>
           <h1 className="mt-2 font-display text-5xl text-ms-navy">Dossiers clients</h1>
-          <p className="mt-2 text-sm text-ms-ink/70">Liste complete des assures du groupe, y compris clients, collaborateurs et direction.</p>
+          <p className="mt-2 text-sm text-ms-ink/70">Liste complète des assurés du groupe, y compris clients, collaborateurs et direction.</p>
         </header>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Dossiers actifs" value={String(overview.activeClients)} />
-          <StatCard label="Dossiers archives" value={String(overview.archivedClients)} />
-          <StatCard label="Sinistres a traiter" value={String(overview.claimsToReview)} />
+          <StatCard label="Dossiers archivés" value={String(overview.archivedClients)} />
+          <StatCard label="Sinistres à traiter" value={String(overview.claimsToReview)} />
           <StatCard label="Demandes formule" value={String(overview.requestsToReview)} />
         </section>
 
@@ -523,7 +523,7 @@ export default function CollaborateurPage() {
                   <th className="pb-3">Email</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
-                  <th className="pb-3">Etat dossier</th>
+                  <th className="pb-3">État dossier</th>
                   <th className="pb-3">Actions</th>
                 </tr>
               </thead>
@@ -531,7 +531,7 @@ export default function CollaborateurPage() {
                 {clients.length === 0 ? (
                   <tr>
                     <td className="py-5 text-sm text-ms-ink/70" colSpan={6}>
-                      Aucun assure visible pour le moment. Tous les comptes metiers apparaissent ici automatiquement apres connexion.
+                      Aucun assuré visible pour le moment. Tous les comptes métiers apparaissent ici automatiquement après connexion.
                     </td>
                   </tr>
                 ) : (
@@ -541,7 +541,7 @@ export default function CollaborateurPage() {
                       <td className="py-3">{client.email}</td>
                       <td className="py-3">
                         <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
-                          {client.riskLabel ?? "Non evalue"}
+                          {client.riskLabel ?? "Non évalué"}
                         </span>
                       </td>
                       <td className="py-3">
@@ -553,7 +553,7 @@ export default function CollaborateurPage() {
                           <span className="text-xs text-ms-ink/55">-</span>
                         )}
                       </td>
-                      <td className="py-3">{client.isArchived ? "Archive" : "Actif"}</td>
+                      <td className="py-3">{client.isArchived ? "Archivé" : "Actif"}</td>
                       <td className="py-3 flex gap-2">
                         <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openDossier(client.id)}>
                           Ouvrir popup
@@ -575,14 +575,14 @@ export default function CollaborateurPage() {
         ) : null}
 
         {activeTab === "CLAIMS" ? (
-        <SectionBlock title="Sinistres declares" subtitle="Traitement avec statuts metier et regle direction > 15 000$">
+        <SectionBlock title="Sinistres déclarés" subtitle="Traitement avec statuts métier et règle direction > 15 000$">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
                   <th className="pb-3">Sinistre</th>
                   <th className="pb-3">Client</th>
-                  <th className="pb-3">Montant demande</th>
+                  <th className="pb-3">Montant demandé</th>
                   <th className="pb-3">Statut</th>
                   <th className="pb-3">Changer statut</th>
                   <th className="pb-3">Dossier</th>
@@ -663,7 +663,7 @@ export default function CollaborateurPage() {
                     <td className="py-3">
                       <div className="flex items-center gap-2">
                         <StatusBadge {...getSubscriptionRequestStatusLabel(request.status)} />
-                        <span className="text-xs text-ms-ink/65">{request.advisorValidated ? "Validee conseiller" : "A valider"}</span>
+                        <span className="text-xs text-ms-ink/65">{request.advisorValidated ? "Validée conseiller" : "À valider"}</span>
                       </div>
                     </td>
                     <td className="py-3">
@@ -698,7 +698,7 @@ export default function CollaborateurPage() {
         ) : null}
 
         {activeTab === "BILLING" ? (
-        <SectionBlock title="Paiements et relances" subtitle="Vue simplifiee des cotisations clients">
+        <SectionBlock title="Paiements et relances" subtitle="Vue simplifiée des cotisations clients">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="text-ms-navy-soft">
@@ -750,7 +750,7 @@ export default function CollaborateurPage() {
                   <tr key={client.id} className="border-t border-ms-navy/10">
                     <td className="py-3">{client.hasUnreadClientMessage ? `🔔 ${client.fullName}` : client.fullName}</td>
                     <td className="py-3">{client.email}</td>
-                    <td className="py-3">{client.riskLabel ?? "Non evalue"}</td>
+                    <td className="py-3">{client.riskLabel ?? "Non évalué"}</td>
                     <td className="py-3">
                       {client.hasUnreadClientMessage ? (
                         <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
@@ -781,7 +781,7 @@ export default function CollaborateurPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Popup dossier client</p>
                   <h2 className="mt-2 font-display text-4xl text-ms-navy">{selectedDossier.client.fullName}</h2>
-                  <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.email} - {selectedDossier.client.phone ?? "Telephone non renseigne"}</p>
+                  <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.email} - {selectedDossier.client.phone ?? "Téléphone non renseigné"}</p>
                 </div>
                 <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeDossier}>
                   Fermer
@@ -791,11 +791,11 @@ export default function CollaborateurPage() {
               <div className="mt-5 grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Risque</p>
-                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.riskLabel ?? "Non evalue"} ({selectedDossier.client.riskScore ?? "-"})</p>
+                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.riskLabel ?? "Non évalué"} ({selectedDossier.client.riskScore ?? "-"})</p>
                 </div>
                 <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Etat dossier</p>
-                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.isArchived ? "Archive" : "Actif"}</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">État dossier</p>
+                  <p className="mt-2 text-sm text-ms-ink/85">{selectedDossier.client.isArchived ? "Archivé" : "Actif"}</p>
                 </div>
               </div>
 
@@ -855,7 +855,7 @@ export default function CollaborateurPage() {
                     onClick={() => setClaimDossierTab("SUMMARY")}
                     className={`tab-pill ${claimDossierTab === "SUMMARY" ? "tab-pill-active" : ""}`}
                   >
-                    Synthese
+                    Synthèse
                   </button>
                   <button
                     type="button"
@@ -879,8 +879,8 @@ export default function CollaborateurPage() {
                   <div className="mt-3 grid gap-2 text-sm text-ms-ink/85 md:grid-cols-2">
                     <p><span className="font-semibold">Type:</span> {openedClaim.incidentType}</p>
                     <p><span className="font-semibold">Date incident:</span> {new Date(openedClaim.incidentDate).toLocaleDateString("fr-FR")}</p>
-                    <p><span className="font-semibold">Montant demande:</span> {openedClaim.requestedAmount ?? "-"} $</p>
-                    <p><span className="font-semibold">Montant approuve:</span> {openedClaim.approvedAmount ?? "-"} $</p>
+                    <p><span className="font-semibold">Montant demandé:</span> {openedClaim.requestedAmount ?? "-"} $</p>
+                    <p><span className="font-semibold">Montant approuvé:</span> {openedClaim.approvedAmount ?? "-"} $</p>
                     <p><span className="font-semibold">Preuve:</span> {openedClaim.evidenceLink ?? "-"}</p>
                     <p><span className="font-semibold">Plainte:</span> {openedClaim.lspdReportLink ?? "-"}</p>
                   </div>
@@ -921,7 +921,7 @@ export default function CollaborateurPage() {
                     <input
                       value={approvedAmountInput}
                       onChange={(event) => setApprovedAmountInput(event.target.value)}
-                      placeholder="Montant approuve (optionnel)"
+                      placeholder="Montant approuvé (optionnel)"
                       className="w-full rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
                     />
                     <textarea
@@ -968,7 +968,7 @@ export default function CollaborateurPage() {
                     value={messageForm.body}
                     onChange={(event) => setMessageForm((prev) => ({ ...prev, body: event.target.value }))}
                     rows={3}
-                    placeholder="Ecrire un message au client"
+                    placeholder="Écrire un message au client"
                     className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                   />
                   <input
@@ -1030,7 +1030,7 @@ export default function CollaborateurPage() {
                   value={contactForm.body}
                   onChange={(event) => setContactForm((prev) => ({ ...prev, body: event.target.value }))}
                   rows={3}
-                  placeholder="Ecrire un message au client"
+                    placeholder="Écrire un message au client"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
                 <input

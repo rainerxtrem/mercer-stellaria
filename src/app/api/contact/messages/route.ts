@@ -14,6 +14,26 @@ function isCounselor(role: UserRole | "PUBLIC") {
   return role === "COLLABORATOR" || role === "ADMIN";
 }
 
+async function resolvePersistedUser(user: { id: string; role: UserRole | "PUBLIC"; email: string | null }) {
+  const byId = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true, fullName: true, firstName: true, lastName: true, email: true },
+  });
+
+  if (byId) {
+    return byId;
+  }
+
+  if (!user.email) {
+    return null;
+  }
+
+  return prisma.user.findUnique({
+    where: { email: user.email },
+    select: { id: true, role: true, fullName: true, firstName: true, lastName: true, email: true },
+  });
+}
+
 async function resolveTargetClientIdForRead(user: { id: string; role: UserRole | "PUBLIC" }, rawClientId: string | null) {
   if (isCounselor(user.role)) {
     if (!rawClientId) {
@@ -44,10 +64,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const persistedUser = await resolvePersistedUser(user);
+    if (!persistedUser) {
+      return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
+    }
+
     const clientIdParam = request.nextUrl.searchParams.get("clientId");
     const peek = request.nextUrl.searchParams.get("peek") === "1";
 
-    const resolved = await resolveTargetClientIdForRead(user, clientIdParam);
+    const resolved = await resolveTargetClientIdForRead(
+      { id: persistedUser.id, role: persistedUser.role },
+      clientIdParam,
+    );
     if ("error" in resolved) {
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
@@ -68,16 +96,16 @@ export async function GET(request: NextRequest) {
         where: { clientId: resolvedClientId },
         create: {
           clientId: resolvedClientId,
-          staffLastReadAt: isCounselor(user.role) ? new Date() : null,
-          clientLastReadAt: isCounselor(user.role) ? null : new Date(),
+          staffLastReadAt: isCounselor(persistedUser.role) ? new Date() : null,
+          clientLastReadAt: isCounselor(persistedUser.role) ? null : new Date(),
         },
-        update: isCounselor(user.role)
+        update: isCounselor(persistedUser.role)
           ? { staffLastReadAt: new Date() }
           : { clientLastReadAt: new Date() },
       });
     }
 
-    if (isCounselor(user.role)) {
+    if (isCounselor(persistedUser.role)) {
       const where = { clientId: resolvedClientId };
       const messages = await contactModel.findMany({
         where,
@@ -135,6 +163,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const persistedUser = await resolvePersistedUser(user);
+    if (!persistedUser) {
+      return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
+    }
+
     const body = await request.json();
     const parsed = createContactMessageSchema.safeParse(body);
 
@@ -142,8 +175,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const targetClientId = isCounselor(user.role) ? parsed.data.clientId : user.id;
-    if (isCounselor(user.role) && !targetClientId) {
+    const targetClientId = isCounselor(persistedUser.role) ? parsed.data.clientId : persistedUser.id;
+    if (isCounselor(persistedUser.role) && !targetClientId) {
       return NextResponse.json({ error: "clientId est requis pour ce role." }, { status: 400 });
     }
 
@@ -158,22 +191,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    const senderProfile = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { fullName: true, firstName: true, lastName: true },
-    });
-
     const senderName =
-      [senderProfile?.firstName, senderProfile?.lastName].filter(Boolean).join(" ").trim() ||
-      senderProfile?.fullName ||
-      user.email ||
+      [persistedUser.firstName, persistedUser.lastName].filter(Boolean).join(" ").trim() ||
+      persistedUser.fullName ||
+      persistedUser.email ||
       "Utilisateur";
 
     const message = await contactModel.create({
       data: {
         clientId: finalTargetClientId,
-        senderId: user.id,
-        senderRole: user.role,
+        senderId: persistedUser.id,
+        senderRole: persistedUser.role,
         senderName,
         body: parsed.data.body,
         documentLink: parsed.data.documentLink || null,
@@ -195,10 +223,10 @@ export async function POST(request: NextRequest) {
         where: { clientId: finalTargetClientId },
         create: {
           clientId: finalTargetClientId,
-          staffLastReadAt: isCounselor(user.role) ? new Date() : null,
-          clientLastReadAt: isCounselor(user.role) ? null : new Date(),
+          staffLastReadAt: isCounselor(persistedUser.role) ? new Date() : null,
+          clientLastReadAt: isCounselor(persistedUser.role) ? null : new Date(),
         },
-        update: isCounselor(user.role)
+        update: isCounselor(persistedUser.role)
           ? { staffLastReadAt: new Date() }
           : { clientLastReadAt: new Date() },
       });

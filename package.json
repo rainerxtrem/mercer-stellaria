@@ -2,11 +2,16 @@
   "name": "mercer-stellaria",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate",
+    "railway:start": "mkdir -p data && prisma db push && next start -p $PORT"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.1",

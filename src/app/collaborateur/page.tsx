@@ -24,6 +24,7 @@ type Client = {
   birthDate: string | null;
   riskLabel: string | null;
   isArchived: boolean;
+  hasOpenContactConversation?: boolean;
   hasUnreadClientMessage?: boolean;
 };
 
@@ -186,6 +187,7 @@ export default function CollaborateurPage() {
   const [openedContactClient, setOpenedContactClient] = useState<Client | null>(null);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
+  const [openConversationClients, setOpenConversationClients] = useState<Client[]>([]);
 
   const filteredClaims = useMemo(() => {
     if (!selectedClientId) {
@@ -227,7 +229,11 @@ export default function CollaborateurPage() {
 
     if (clientsRes.ok) {
       const json = await clientsRes.json();
-      setClients(json.data ?? []);
+      const loadedClients = json.data ?? [];
+      setClients(loadedClients);
+      setOpenConversationClients(
+        loadedClients.filter((client: Client) => client.hasOpenContactConversation),
+      );
     }
 
     if (claimsRes.ok) {
@@ -244,6 +250,7 @@ export default function CollaborateurPage() {
       const json = await invoicesRes.json();
       setInvoices(json.data ?? []);
     }
+
   }
 
   useEffect(() => {
@@ -441,6 +448,7 @@ export default function CollaborateurPage() {
   async function openContactClientPopup(client: Client) {
     setOpenedContactClient(client);
     setContactForm({ body: "", documentLink: "" });
+    setActiveTab("CONTACT");
 
     const response = await fetch(`/api/contact/messages?clientId=${client.id}`);
     if (!response.ok) {
@@ -483,6 +491,10 @@ export default function CollaborateurPage() {
 
     setContactForm({ body: "", documentLink: "" });
     await openContactClientPopup(openedContactClient);
+  }
+
+  async function openConversationFromList(client: Client) {
+    await openContactClientPopup(client);
   }
 
   async function updateRequestStatus(requestId: string) {
@@ -808,7 +820,13 @@ export default function CollaborateurPage() {
                 </tr>
               </thead>
               <tbody className="text-ms-ink/85">
-                {clients.map((client) => (
+                {openConversationClients.length === 0 ? (
+                  <tr>
+                    <td className="py-5 text-sm text-ms-ink/70" colSpan={7}>
+                      Aucune discussion ouverte pour le moment.
+                    </td>
+                  </tr>
+                ) : openConversationClients.map((client) => (
                   <tr key={client.id} className="border-t border-ms-navy/10">
                     <td className="py-3">{client.firstName ?? "Non renseigné"}</td>
                     <td className="py-3">{client.lastName ?? client.fullName}</td>
@@ -816,16 +834,12 @@ export default function CollaborateurPage() {
                     <td className="py-3">{client.phone ?? "Non renseigné"}</td>
                     <td className="py-3">{client.riskLabel ?? "Non évalué"}</td>
                     <td className="py-3">
-                      {client.hasUnreadClientMessage ? (
-                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                          Nouveau message client
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ms-ink/55">-</span>
-                      )}
+                      <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                        Discussion ouverte
+                      </span>
                     </td>
                     <td className="py-3">
-                      <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
+                      <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openConversationFromList(client)}>
                         Ouvrir conversation
                       </button>
                     </td>
@@ -834,6 +848,63 @@ export default function CollaborateurPage() {
               </tbody>
             </table>
           </div>
+
+          {openedContactClient ? (
+            <div className="mt-5 rounded-2xl border border-ms-navy/10 bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Contact direct</p>
+                  <h3 className="mt-1 font-display text-2xl text-ms-navy">{openedContactClient.fullName}</h3>
+                </div>
+                <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeContactClientPopup}>
+                  Fermer
+                </button>
+              </div>
+
+              <div className="mt-4 max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
+                {contactMessages.length === 0 ? (
+                  <p className="text-sm text-ms-ink/65">Aucun message dans ce canal.</p>
+                ) : (
+                  contactMessages.map((message) => (
+                    <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
+                          {message.senderName} ({formatSenderRole(message.senderRole)})
+                        </p>
+                        <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
+                      {message.documentLink ? (
+                        <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
+                          Voir document
+                        </a>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <form className="mt-3 grid gap-2" onSubmit={sendContactMessageToClient}>
+                <textarea
+                  required
+                  value={contactForm.body}
+                  onChange={(event) => setContactForm((prev) => ({ ...prev, body: event.target.value }))}
+                  rows={3}
+                  placeholder="Écrire un message au client"
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                <input
+                  value={contactForm.documentLink}
+                  onChange={(event) => setContactForm((prev) => ({ ...prev, documentLink: event.target.value }))}
+                  placeholder="Lien document (optionnel)"
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                  Envoyer au client
+                </button>
+              </form>
+            </div>
+          ) : null}
         </SectionBlock>
         ) : null}
         </div>
@@ -1047,66 +1118,6 @@ export default function CollaborateurPage() {
                 </form>
               </div>
               ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {openedContactClient ? (
-          <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/45 px-4 py-8">
-            <div className="surface max-h-[90vh] w-full max-w-3xl overflow-auto p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Contact direct</p>
-                  <h2 className="mt-2 font-display text-3xl text-ms-navy">{openedContactClient.fullName}</h2>
-                  <p className="mt-1 text-sm text-ms-ink/75">Canal direct client</p>
-                </div>
-                <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeContactClientPopup}>
-                  Fermer
-                </button>
-              </div>
-
-              <div className="mt-4 max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
-                {contactMessages.length === 0 ? (
-                  <p className="text-sm text-ms-ink/65">Aucun message dans ce canal.</p>
-                ) : (
-                  contactMessages.map((message) => (
-                    <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-white p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
-                          {message.senderName} ({formatSenderRole(message.senderRole)})
-                        </p>
-                        <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
-                      </div>
-                      <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
-                      {message.documentLink ? (
-                        <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
-                          Voir document
-                        </a>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <form className="mt-3 grid gap-2" onSubmit={sendContactMessageToClient}>
-                <textarea
-                  required
-                  value={contactForm.body}
-                  onChange={(event) => setContactForm((prev) => ({ ...prev, body: event.target.value }))}
-                  rows={3}
-                    placeholder="Écrire un message au client"
-                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
-                />
-                <input
-                  value={contactForm.documentLink}
-                  onChange={(event) => setContactForm((prev) => ({ ...prev, documentLink: event.target.value }))}
-                  placeholder="Lien document (optionnel)"
-                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
-                />
-                <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
-                  Envoyer au client
-                </button>
-              </form>
             </div>
           </div>
         ) : null}

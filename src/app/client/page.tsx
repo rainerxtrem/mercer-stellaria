@@ -120,7 +120,6 @@ export default function ClientPage() {
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
   const [contactLoading, setContactLoading] = useState(false);
-  const [closingContactDiscussion, setClosingContactDiscussion] = useState(false);
   const [hasUnreadAdvisorMessage, setHasUnreadAdvisorMessage] = useState(false);
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
 
@@ -466,23 +465,6 @@ export default function ClientPage() {
     setContactForm({ body: "", documentLink: "" });
     notifySuccess("Message envoyé au conseiller.");
     await loadGeneralContactMessages();
-  }
-
-  async function closeGeneralContactDiscussion() {
-    setClosingContactDiscussion(true);
-    const response = await fetch("/api/contact/messages", { method: "DELETE" });
-    if (!response.ok) {
-      notifyError(await extractErrorMessage(response, "Impossible de clôturer la discussion."));
-      setClosingContactDiscussion(false);
-      return;
-    }
-
-    setContactMessages([]);
-    setHasUnreadAdvisorMessage(false);
-    setUnreadAdvisorClaimsCount(0);
-    notifySuccess("Discussion clôturée et archivée.");
-    setClosingContactDiscussion(false);
-    await loadData();
   }
 
   function closeClaimMessages() {
@@ -958,16 +940,6 @@ export default function ClientPage() {
         {activeTab === "MESSAGES" ? (
           <section className="grid gap-6 lg:grid-cols-2">
             <SectionBlock title="Contact conseiller" subtitle="Canal general independant des dossiers sinistres">
-              <div className="mb-3">
-                <button
-                  type="button"
-                  disabled={closingContactDiscussion}
-                  onClick={closeGeneralContactDiscussion}
-                  className="rounded-full border border-ms-navy/20 px-3 py-1.5 text-xs font-semibold text-ms-navy disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {closingContactDiscussion ? "Clôture..." : "Clôturer la discussion"}
-                </button>
-              </div>
               <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
                 {!contactLoading && contactMessages.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucun message pour le moment. Posez votre question a un conseiller, meme sans dossier en cours.</p>

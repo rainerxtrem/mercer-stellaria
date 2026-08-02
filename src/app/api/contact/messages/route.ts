@@ -305,6 +305,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
     }
 
+    if (!isCounselor(persistedUser.role)) {
+      return NextResponse.json({ error: "Seul un conseiller peut cloturer la discussion." }, { status: 403 });
+    }
+
     const clientIdParam = request.nextUrl.searchParams.get("clientId") ?? undefined;
     const resolvedTarget = await resolveTargetClientIdForWrite(
       { id: persistedUser.id, role: persistedUser.role },

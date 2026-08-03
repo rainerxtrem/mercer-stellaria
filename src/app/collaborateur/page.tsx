@@ -189,6 +189,8 @@ export default function CollaborateurPage() {
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
   const [openConversationClients, setOpenConversationClients] = useState<Client[]>([]);
   const [contactSearch, setContactSearch] = useState("");
+  const [liveUnreadClientIds, setLiveUnreadClientIds] = useState<string[]>([]);
+  const [openedContactConversationId, setOpenedContactConversationId] = useState<string | null>(null);
 
   const filteredClaims = useMemo(() => {
     if (!selectedClientId) {
@@ -216,8 +218,11 @@ export default function CollaborateurPage() {
   }, [claims, clients, requests]);
 
   const unreadClientCount = useMemo(
-    () => clients.filter((client) => client.hasUnreadClientMessage).length,
-    [clients],
+    () => {
+      const liveUnreadSet = new Set(liveUnreadClientIds);
+      return clients.filter((client) => client.hasUnreadClientMessage || liveUnreadSet.has(client.id)).length;
+    },
+    [clients, liveUnreadClientIds],
   );
 
   const contactClients = useMemo(() => {
@@ -269,6 +274,17 @@ export default function CollaborateurPage() {
 
   }
 
+  async function loadNotifications() {
+    const response = await fetch("/api/notifications");
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    const unreadClientIds = Array.isArray(payload?.data?.unreadClientIds) ? payload.data.unreadClientIds : [];
+    setLiveUnreadClientIds(unreadClientIds);
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData().catch(() => setStatus("Erreur de chargement des données."));
@@ -278,6 +294,16 @@ export default function CollaborateurPage() {
     const interval = window.setInterval(() => {
       loadData().catch(() => null);
     }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    loadNotifications().catch(() => null);
+
+    const interval = window.setInterval(() => {
+      loadNotifications().catch(() => null);
+    }, 2500);
 
     return () => window.clearInterval(interval);
   }, []);
@@ -475,6 +501,7 @@ export default function CollaborateurPage() {
 
     const payload = await response.json();
     setContactMessages(payload.data ?? []);
+    setOpenedContactConversationId(typeof payload?.meta?.conversationId === "string" ? payload.meta.conversationId : null);
     await loadData();
   }
 
@@ -652,7 +679,7 @@ export default function CollaborateurPage() {
                         </span>
                       </td>
                       <td className="py-3">
-                        {client.hasUnreadClientMessage ? (
+                        {client.hasUnreadClientMessage || liveUnreadClientIds.includes(client.id) ? (
                           <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
                             Nouveau message client
                           </span>
@@ -905,6 +932,9 @@ export default function CollaborateurPage() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Contact direct</p>
                   <h3 className="mt-1 font-display text-2xl text-ms-navy">{openedContactClient.fullName}</h3>
+                  {openedContactConversationId ? (
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-ms-navy-soft">ID discussion: {openedContactConversationId}</p>
+                  ) : null}
                 </div>
                 <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeContactClientPopup}>
                   Fermer

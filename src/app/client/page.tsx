@@ -122,6 +122,7 @@ export default function ClientPage() {
   const [hasUnreadAdvisorMessage, setHasUnreadAdvisorMessage] = useState(false);
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
+  const [contactConversationId, setContactConversationId] = useState<string | null>(null);
 
   const [claimForm, setClaimForm] = useState({
     contractId: "",
@@ -440,6 +441,7 @@ export default function ClientPage() {
 
     const payload = await response.json();
     setContactMessages(payload.data ?? []);
+    setContactConversationId(typeof payload?.meta?.conversationId === "string" ? payload.meta.conversationId : null);
     setContactLoadedOnce(true);
   }
 
@@ -938,6 +940,7 @@ export default function ClientPage() {
         {activeTab === "MESSAGES" ? (
           <section className="grid gap-6 lg:grid-cols-2">
             <SectionBlock title="Contact conseiller" subtitle="Canal general independant des dossiers sinistres">
+              {contactConversationId ? <p className="mb-2 text-xs uppercase tracking-[0.2em] text-ms-navy-soft">ID discussion: {contactConversationId}</p> : null}
               <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
                 {contactLoadedOnce && contactMessages.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucun message pour le moment. Posez votre question a un conseiller, meme sans dossier en cours.</p>

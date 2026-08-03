@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      return NextResponse.json({ data: messages });
+      return NextResponse.json({ data: messages, meta: { conversationId: currentConversationId } });
     }
 
     const messages = await contactModel.findMany({
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: messages });
+    return NextResponse.json({ data: messages, meta: { conversationId: currentConversationId } });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Impossible de charger les messages de contact." },
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ data: message }, { status: 201 });
+    return NextResponse.json({ data: message, meta: { conversationId } }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Impossible d'envoyer le message de contact." },

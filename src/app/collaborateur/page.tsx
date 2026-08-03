@@ -98,9 +98,12 @@ type DossierDetail = {
   contracts: Array<{
     id: string;
     contractNumber: string;
+    category: ContractCategory;
     formulaName: string;
     status: string;
     weeklyPremium: string | number;
+    effectiveDate: string;
+    expirationDate: string | null;
   }>;
   claims: Array<{
     id: string;
@@ -123,6 +126,19 @@ type DossierDetail = {
 };
 
 type ContractProposalForm = {
+  category: ContractCategory;
+  formulaName: string;
+  weeklyPremium: string;
+  effectiveDate: string;
+  expirationDate: string;
+  coverageNotes: string;
+};
+
+type ContractActionMode = "UPGRADE" | "MODIFY";
+
+type ContractActionForm = {
+  contractId: string;
+  mode: ContractActionMode;
   category: ContractCategory;
   formulaName: string;
   weeklyPremium: string;
@@ -209,6 +225,7 @@ export default function CollaborateurPage() {
     expirationDate: "",
     coverageNotes: "",
   });
+  const [contractActionForm, setContractActionForm] = useState<ContractActionForm | null>(null);
   const contactMessageIdsRef = useRef<string[]>([]);
   const openedContactClientIdRef = useRef<string | null>(null);
   const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -405,6 +422,7 @@ export default function CollaborateurPage() {
   function closeDossier() {
     setSelectedClientId(null);
     setSelectedDossier(null);
+    setContractActionForm(null);
     setContractProposalForm({
       category: ContractCategory.HEALTH,
       formulaName: "Care Plus",
@@ -676,8 +694,8 @@ export default function CollaborateurPage() {
       return;
     }
 
-    if (selectedDossier.client.role !== "CLIENT") {
-      setStatus("La proposition de contrat est disponible uniquement pour un compte client.");
+    if (selectedDossier.client.role === "PUBLIC") {
+      setStatus("La proposition de contrat est indisponible pour ce compte.");
       return;
     }
 
@@ -724,6 +742,111 @@ export default function CollaborateurPage() {
       coverageNotes: "",
     }));
 
+    await loadData();
+    if (selectedClientId) {
+      await openDossier(selectedClientId);
+    }
+  }
+
+  function toInputDate(value: string | null) {
+    if (!value) {
+      return "";
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return "";
+    }
+
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  function startContractAction(contract: DossierDetail["contracts"][number], mode: ContractActionMode) {
+    setContractActionForm({
+      contractId: contract.id,
+      mode,
+      category: contract.category,
+      formulaName: contract.formulaName,
+      weeklyPremium: String(contract.weeklyPremium),
+      effectiveDate: toInputDate(contract.effectiveDate),
+      expirationDate: toInputDate(contract.expirationDate),
+      coverageNotes: mode === "UPGRADE"
+        ? `Upgrade depuis ${contract.contractNumber}`
+        : `Modification du contrat ${contract.contractNumber}`,
+    });
+  }
+
+  async function submitContractAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!contractActionForm) {
+      return;
+    }
+
+    if (!contractActionForm.weeklyPremium.trim()) {
+      setStatus("Indiquez une prime hebdomadaire.");
+      return;
+    }
+
+    if (!contractActionForm.effectiveDate) {
+      setStatus("Indiquez une date d'effet.");
+      return;
+    }
+
+    const response = await fetch("/api/contracts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contractId: contractActionForm.contractId,
+        action: contractActionForm.mode,
+        category: contractActionForm.category,
+        formulaName: contractActionForm.formulaName,
+        weeklyPremium: contractActionForm.weeklyPremium,
+        effectiveDate: contractActionForm.effectiveDate,
+        expirationDate: contractActionForm.expirationDate || "",
+        coverageSummary: {
+          source: contractActionForm.mode === "UPGRADE" ? "collaborator_upgrade" : "collaborator_modify",
+          notes: contractActionForm.coverageNotes || undefined,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const errorMessage = typeof payload?.error === "string" ? payload.error : "Impossible de mettre à jour le contrat.";
+      setStatus(errorMessage);
+      return;
+    }
+
+    setStatus(
+      contractActionForm.mode === "UPGRADE"
+        ? "Upgrade proposé. Signature client requise."
+        : "Contrat modifié. Signature client requise.",
+    );
+
+    setContractActionForm(null);
+    await loadData();
+    if (selectedClientId) {
+      await openDossier(selectedClientId);
+    }
+  }
+
+  async function deleteContractFromDossier(contractId: string) {
+    const response = await fetch("/api/contracts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contractId, action: "DELETE" }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const errorMessage = typeof payload?.error === "string" ? payload.error : "Suppression du contrat impossible.";
+      setStatus(errorMessage);
+      return;
+    }
+
+    setStatus("Contrat supprimé sans validation client.");
+    setContractActionForm(null);
     await loadData();
     if (selectedClientId) {
       await openDossier(selectedClientId);
@@ -1169,15 +1292,158 @@ export default function CollaborateurPage() {
                   <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Contrats</p>
                   <div className="mt-3 space-y-2">
                     {selectedDossier.contracts.map((contract) => (
-                      <div key={contract.id} className="flex items-center justify-between rounded-lg border border-ms-navy/10 p-3">
-                        <div>
-                          <p className="text-sm font-semibold text-ms-navy">{contract.contractNumber}</p>
-                          <p className="text-xs text-ms-ink/70">{contract.formulaName} - {contract.weeklyPremium} $/sem</p>
+                      <div key={contract.id} className="rounded-lg border border-ms-navy/10 p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-ms-navy">{contract.contractNumber}</p>
+                            <p className="text-xs text-ms-ink/70">{contract.formulaName} - {contract.weeklyPremium} $/sem</p>
+                          </div>
+                          <StatusBadge {...getContractStatusLabel(contract.status)} />
                         </div>
-                        <StatusBadge {...getContractStatusLabel(contract.status)} />
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+                            onClick={() => startContractAction(contract, "UPGRADE")}
+                          >
+                            Proposer un upgrade
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+                            onClick={() => startContractAction(contract, "MODIFY")}
+                          >
+                            Modifier le contrat
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-full border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700"
+                            onClick={() => deleteContractFromDossier(contract.id)}
+                          >
+                            Supprimer le contrat
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
+
+                  {contractActionForm ? (
+                    <form className="mt-4 grid gap-3 border-t border-ms-navy/10 pt-4" onSubmit={submitContractAction}>
+                      <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">
+                        {contractActionForm.mode === "UPGRADE" ? "Upgrade avec signature client" : "Modification avec signature client"}
+                      </p>
+                      <select
+                        value={contractActionForm.category}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  category: event.target.value as ContractCategory,
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      >
+                        <option value={ContractCategory.HEALTH}>Santé</option>
+                        <option value={ContractCategory.THEFT_BURGLARY}>Vol & cambriolage</option>
+                        <option value={ContractCategory.PROFESSIONAL}>Professionnel</option>
+                      </select>
+                      <input
+                        required
+                        value={contractActionForm.formulaName}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  formulaName: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Formule"
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      />
+                      <input
+                        required
+                        value={contractActionForm.weeklyPremium}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  weeklyPremium: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Prime hebdomadaire ($)"
+                        inputMode="decimal"
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      />
+                      <input
+                        required
+                        type="date"
+                        value={contractActionForm.effectiveDate}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  effectiveDate: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      />
+                      <input
+                        type="date"
+                        value={contractActionForm.expirationDate}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  expirationDate: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      />
+                      <textarea
+                        value={contractActionForm.coverageNotes}
+                        onChange={(event) =>
+                          setContractActionForm((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  coverageNotes: event.target.value,
+                                }
+                              : prev,
+                          )
+                        }
+                        rows={3}
+                        placeholder="Notes de couverture"
+                        className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button type="submit" className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                          {contractActionForm.mode === "UPGRADE" ? "Valider l'upgrade" : "Valider la modification"}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
+                          onClick={() => setContractActionForm(null)}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
                 </div>
 
                 <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
@@ -1196,7 +1462,7 @@ export default function CollaborateurPage() {
                 </div>
               </div>
 
-              {selectedDossier.client.role === "CLIENT" ? (
+              {selectedDossier.client.role !== "PUBLIC" ? (
               <div className="mt-6 rounded-2xl border border-ms-navy/10 bg-white p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Proposition de contrat</p>
                 <p className="mt-2 text-sm text-ms-ink/80">

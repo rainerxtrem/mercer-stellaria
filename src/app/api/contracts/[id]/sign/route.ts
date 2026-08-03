@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ error: "Contract not found" }, { status: 404 });
   }
 
-  const canSign = user.role === "ADMIN" || user.role === "COLLABORATOR" || contract.clientId === user.id;
+  const canSign = contract.clientId === user.id;
   if (!canSign) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

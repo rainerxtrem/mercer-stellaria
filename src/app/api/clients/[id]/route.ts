@@ -44,9 +44,12 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
       select: {
         id: true,
         contractNumber: true,
+        category: true,
         formulaName: true,
         status: true,
         weeklyPremium: true,
+        effectiveDate: true,
+        expirationDate: true,
         createdAt: true,
       },
     }),

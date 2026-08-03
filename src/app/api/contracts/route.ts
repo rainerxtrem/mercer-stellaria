@@ -20,6 +20,17 @@ const createContractSchema = z.object({
   expirationDate: z.string().optional(),
 });
 
+const manageContractSchema = z.object({
+  contractId: z.string().uuid(),
+  action: z.enum(["UPGRADE", "MODIFY", "DELETE"]),
+  category: z.enum([ContractCategory.HEALTH, ContractCategory.THEFT_BURGLARY, ContractCategory.PROFESSIONAL]).optional(),
+  formulaName: z.string().min(2).optional(),
+  weeklyPremium: z.union([z.number(), z.string()]).optional(),
+  coverageSummary: z.record(z.string(), z.unknown()).optional(),
+  effectiveDate: z.string().optional(),
+  expirationDate: z.string().optional().or(z.literal("")),
+});
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -100,4 +111,104 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ data: contract }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const authResult = await requireRole("COLLABORATOR");
+  if (!authResult.ok) {
+    return authResult.response;
+  }
+
+  const body = await request.json();
+  const parsed = manageContractSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const existing = await prisma.contract.findUnique({
+    where: { id: parsed.data.contractId },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Contrat introuvable." }, { status: 404 });
+  }
+
+  if (authResult.user.role !== "ADMIN" && existing.agentId !== authResult.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (parsed.data.action === "DELETE") {
+    const deletedContract = await prisma.contract.update({
+      where: { id: existing.id },
+      data: {
+        status: ContractStatus.TERMINATED,
+        expirationDate: new Date(),
+      },
+    });
+
+    return NextResponse.json({ data: deletedContract });
+  }
+
+  const nextCategory = parsed.data.category ?? existing.category;
+  const nextFormulaName = parsed.data.formulaName ?? existing.formulaName;
+  const nextWeeklyPremium = parsed.data.weeklyPremium !== undefined
+    ? toNumber(parsed.data.weeklyPremium)
+    : existing.weeklyPremium;
+  const nextCoverageSummary = (parsed.data.coverageSummary ?? existing.coverageSummary) as Prisma.InputJsonValue;
+  const nextEffectiveDate = parsed.data.effectiveDate
+    ? new Date(parsed.data.effectiveDate)
+    : existing.effectiveDate;
+  const nextExpirationDate = parsed.data.expirationDate === undefined
+    ? existing.expirationDate
+    : parsed.data.expirationDate
+      ? new Date(parsed.data.expirationDate)
+      : null;
+
+  if (parsed.data.action === "UPGRADE") {
+    const upgradedContract = await prisma.contract.create({
+      data: {
+        contractNumber: buildNumber("CTR"),
+        clientId: existing.clientId,
+        agentId: existing.agentId,
+        category: nextCategory,
+        formulaName: nextFormulaName,
+        weeklyPremium: nextWeeklyPremium,
+        coverageSummary: nextCoverageSummary,
+        effectiveDate: nextEffectiveDate,
+        expirationDate: nextExpirationDate,
+        status: ContractStatus.PENDING_SIGNATURE,
+      },
+    });
+
+    await prisma.invoice.create({
+      data: {
+        invoiceNumber: buildNumber("INV"),
+        contractId: upgradedContract.id,
+        clientId: upgradedContract.clientId,
+        amount: nextWeeklyPremium,
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    return NextResponse.json({ data: upgradedContract });
+  }
+
+  const modifiedContract = await prisma.contract.update({
+    where: { id: existing.id },
+    data: {
+      category: nextCategory,
+      formulaName: nextFormulaName,
+      weeklyPremium: nextWeeklyPremium,
+      coverageSummary: nextCoverageSummary,
+      effectiveDate: nextEffectiveDate,
+      expirationDate: nextExpirationDate,
+      status: ContractStatus.PENDING_SIGNATURE,
+      signatureMethod: null,
+      signatureData: null,
+      signedAt: null,
+      pdfUrl: null,
+    },
+  });
+
+  return NextResponse.json({ data: modifiedContract });
 }

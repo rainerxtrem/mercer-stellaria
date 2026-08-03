@@ -727,6 +727,24 @@ export default function CollaborateurPage() {
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
       <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
+        {status ? (
+          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
+            <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <p>{status}</p>
+                <button
+                  type="button"
+                  aria-label="Fermer la notification"
+                  className="rounded-md px-1 py-0.5 text-xs font-bold opacity-70 hover:opacity-100"
+                  onClick={() => setStatus("")}
+                >
+                  x
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <RoleSwitcher currentPath="/collaborateur" />
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Collaborateur</p>
@@ -810,7 +828,7 @@ export default function CollaborateurPage() {
                       <td className="py-3">{client.isArchived ? "Archivé" : "Actif"}</td>
                       <td className="py-3 flex gap-2">
                         <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openDossier(client.id)}>
-                          Ouvrir popup
+                          Gérer le dossier
                         </button>
                         <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
                           Contact
@@ -884,7 +902,7 @@ export default function CollaborateurPage() {
                     </td>
                     <td className="py-3">
                       <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openClaimPopup(claim)}>
-                        Ouvrir popup
+                        Gérer le dossier
                       </button>
                     </td>
                   </tr>
@@ -1422,8 +1440,6 @@ export default function CollaborateurPage() {
             </div>
           </div>
         ) : null}
-
-        {status ? <p className="surface px-4 py-3 text-sm font-medium text-ms-navy">{status}</p> : null}
       </div>
     </main>
   );

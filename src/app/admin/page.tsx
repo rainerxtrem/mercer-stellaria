@@ -214,6 +214,24 @@ export default function AdminPage() {
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
       <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
+        {status ? (
+          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
+            <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <p>{status}</p>
+                <button
+                  type="button"
+                  aria-label="Fermer la notification"
+                  className="rounded-md px-1 py-0.5 text-xs font-bold opacity-70 hover:opacity-100"
+                  onClick={() => setStatus("")}
+                >
+                  x
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <RoleSwitcher currentPath="/admin" />
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Administrateur</p>
@@ -416,8 +434,6 @@ export default function AdminPage() {
             </table>
           </div>
         </SectionBlock>
-
-        {status ? <p className="surface px-4 py-3 text-sm font-medium text-ms-navy">{status}</p> : null}
       </div>
     </main>
   );

@@ -211,6 +211,7 @@ model Claim {
 model ContactConversationState {
   id              String   @id @default(uuid())
   clientId        String   @unique
+  conversationId  String?
   clientLastReadAt DateTime?
   staffLastReadAt  DateTime?
   clientArchivedAt DateTime?
@@ -242,6 +243,7 @@ model ClaimMessage {
 model ContactMessage {
   id           String   @id @default(uuid())
   clientId     String
+  conversationId String?
   senderId     String
   senderRole   UserRole
   senderName   String
@@ -254,5 +256,6 @@ model ContactMessage {
   sender User @relation("ContactSender", fields: [senderId], references: [id])
 
   @@index([clientId, createdAt])
+  @@index([conversationId, createdAt])
   @@index([senderId])
 }

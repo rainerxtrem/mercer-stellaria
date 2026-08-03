@@ -68,12 +68,16 @@ async function resolveTargetClientIdForWrite(user: { id: string; role: UserRole 
   return { clientId: user.id };
 }
 
+function createConversationId() {
+  return crypto.randomUUID();
+}
+
 export async function GET(request: NextRequest) {
   try {
     const contactModel = (prisma as unknown as { contactMessage?: typeof prisma.contactMessage }).contactMessage;
     const conversationStateModel = (prisma as unknown as { contactConversationState?: typeof prisma.contactConversationState }).contactConversationState;
     const conversationStateOps = conversationStateModel as unknown as {
-      findUnique: (args: unknown) => Promise<{ clientArchivedAt: Date | null; staffArchivedAt: Date | null } | null>;
+      findUnique: (args: unknown) => Promise<{ conversationId: string | null; clientArchivedAt: Date | null; staffArchivedAt: Date | null } | null>;
       upsert: (args: unknown) => Promise<unknown>;
     };
     if (!contactModel) {
@@ -106,7 +110,7 @@ export async function GET(request: NextRequest) {
     const conversationState = conversationStateModel
       ? await conversationStateOps.findUnique({
           where: { clientId: resolvedClientId },
-          select: { clientArchivedAt: true, staffArchivedAt: true },
+          select: { conversationId: true, clientArchivedAt: true, staffArchivedAt: true },
         })
       : null;
 
@@ -127,11 +131,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: [] });
     }
 
-    if (!peek && conversationStateModel) {
+    if (!peek && conversationStateModel && conversationState) {
       await conversationStateOps.upsert({
         where: { clientId: resolvedClientId },
         create: {
           clientId: resolvedClientId,
+          conversationId: conversationState.conversationId,
           staffLastReadAt: isCounselor(persistedUser.role) ? new Date() : null,
           clientLastReadAt: isCounselor(persistedUser.role) ? null : new Date(),
         },
@@ -141,8 +146,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const currentConversationId = conversationState?.conversationId ?? null;
+
     if (isCounselor(persistedUser.role)) {
-      const where = { clientId: resolvedClientId };
+      const where = currentConversationId ? { clientId: resolvedClientId, conversationId: currentConversationId } : { clientId: resolvedClientId };
       const messages = await contactModel.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -163,7 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     const messages = await contactModel.findMany({
-      where: { clientId: resolvedClientId },
+      where: currentConversationId ? { clientId: resolvedClientId, conversationId: currentConversationId } : { clientId: resolvedClientId },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -207,6 +214,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
     }
 
+    const existingState = conversationStateModel
+      ? await conversationStateModel.findUnique({
+          where: { clientId: persistedUser.id },
+          select: { conversationId: true, clientArchivedAt: true, staffArchivedAt: true },
+        })
+      : null;
+
     const body = await request.json();
     const parsed = createContactMessageSchema.safeParse(body);
 
@@ -239,9 +253,13 @@ export async function POST(request: NextRequest) {
       persistedUser.email ||
       "Utilisateur";
 
+    const isClosedThread = Boolean(existingState?.clientArchivedAt || existingState?.staffArchivedAt);
+    const conversationId = existingState && !isClosedThread && existingState.conversationId ? existingState.conversationId : createConversationId();
+
     const message = await contactModel.create({
       data: {
         clientId: finalTargetClientId,
+        conversationId,
         senderId: persistedUser.id,
         senderRole: persistedUser.role,
         senderName,
@@ -265,14 +283,15 @@ export async function POST(request: NextRequest) {
         where: { clientId: finalTargetClientId },
         create: {
           clientId: finalTargetClientId,
+          conversationId,
           staffLastReadAt: isCounselor(persistedUser.role) ? new Date() : null,
           clientLastReadAt: isCounselor(persistedUser.role) ? null : new Date(),
           clientArchivedAt: null,
           staffArchivedAt: null,
         },
         update: isCounselor(persistedUser.role)
-          ? { staffLastReadAt: new Date(), clientArchivedAt: null, staffArchivedAt: null }
-          : { clientLastReadAt: new Date(), clientArchivedAt: null, staffArchivedAt: null },
+          ? { conversationId, staffLastReadAt: new Date(), clientArchivedAt: null, staffArchivedAt: null }
+          : { conversationId, clientLastReadAt: new Date(), clientArchivedAt: null, staffArchivedAt: null },
       });
     }
 

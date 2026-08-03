@@ -36,6 +36,7 @@ export async function GET() {
       createdAt: true,
       contactConversationState: {
         select: {
+          conversationId: true,
           clientArchivedAt: true,
           staffArchivedAt: true,
           staffLastReadAt: true,
@@ -69,9 +70,9 @@ export async function GET() {
   const payload = clients.map((client) => {
     const contactLastRead = client.contactConversationState?.staffLastReadAt ?? null;
     const latestClientContactMessage = client.clientContactMessages.find((message) => message.senderId === client.id);
-    const hasContactMessage = Boolean(latestClientContactMessage);
-    const hasOpenContactConversation = hasContactMessage;
+    const hasOpenContactConversation = Boolean(client.contactConversationState && !client.contactConversationState.staffArchivedAt);
     const hasUnreadContact = Boolean(
+      client.contactConversationState &&
       latestClientContactMessage &&
         (!contactLastRead || latestClientContactMessage.createdAt.getTime() > contactLastRead.getTime()),
     );
@@ -102,7 +103,6 @@ export async function GET() {
       archivedAt: client.archivedAt,
       discordHandle: client.discordHandle,
       createdAt: client.createdAt,
-      hasContactMessage,
       hasOpenContactConversation,
       hasUnreadClientMessage: hasUnreadContact || hasUnreadClaimMessage,
     };

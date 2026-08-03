@@ -119,9 +119,9 @@ export default function ClientPage() {
   const [messageForm, setMessageForm] = useState({ body: "", documentLink: "" });
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
-  const [contactLoading, setContactLoading] = useState(false);
   const [hasUnreadAdvisorMessage, setHasUnreadAdvisorMessage] = useState(false);
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
+  const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
 
   const [claimForm, setClaimForm] = useState({
     contractId: "",
@@ -430,19 +430,17 @@ export default function ClientPage() {
   }
 
   async function loadGeneralContactMessages() {
-    setContactLoading(true);
     const query = session?.user?.id ? `?clientId=${session.user.id}` : "";
     const response = await fetch(`/api/contact/messages${query}`);
     if (!response.ok) {
       notifyError(await extractErrorMessage(response, "Impossible de charger la conversation conseiller."));
-      setContactMessages([]);
-      setContactLoading(false);
+      setContactLoadedOnce(true);
       return;
     }
 
     const payload = await response.json();
     setContactMessages(payload.data ?? []);
-    setContactLoading(false);
+    setContactLoadedOnce(true);
   }
 
   async function sendGeneralContactMessage(event: FormEvent<HTMLFormElement>) {
@@ -941,7 +939,7 @@ export default function ClientPage() {
           <section className="grid gap-6 lg:grid-cols-2">
             <SectionBlock title="Contact conseiller" subtitle="Canal general independant des dossiers sinistres">
               <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
-                {!contactLoading && contactMessages.length === 0 ? (
+                {contactLoadedOnce && contactMessages.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucun message pour le moment. Posez votre question a un conseiller, meme sans dossier en cours.</p>
                 ) : null}
                 {contactMessages.map((message) => (

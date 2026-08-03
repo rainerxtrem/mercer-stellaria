@@ -25,7 +25,6 @@ type Client = {
   riskLabel: string | null;
   isArchived: boolean;
   hasOpenContactConversation?: boolean;
-  hasContactMessage?: boolean;
   hasUnreadClientMessage?: boolean;
 };
 
@@ -222,14 +221,10 @@ export default function CollaborateurPage() {
   );
 
   const contactClients = useMemo(() => {
-    const source = contactSearch.trim() ? clients : openConversationClients;
+    const source = openConversationClients;
     const query = contactSearch.trim().toLowerCase();
 
     return source.filter((client) => {
-      if (!client.hasContactMessage) {
-        return false;
-      }
-
       if (!query) {
         return true;
       }
@@ -253,7 +248,7 @@ export default function CollaborateurPage() {
       const loadedClients = json.data ?? [];
       setClients(loadedClients);
       setOpenConversationClients(
-        loadedClients.filter((client: Client) => client.hasContactMessage),
+        loadedClients.filter((client: Client) => client.hasOpenContactConversation),
       );
     }
 

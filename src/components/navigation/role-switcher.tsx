@@ -14,11 +14,11 @@ export function RoleSwitcher({ currentPath }: RoleSwitcherProps) {
   const spaces = getAccessibleSpaces(role);
 
   return (
-    <div className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="surface role-switcher reveal-up flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-5">
+      <div className="role-switcher-links flex flex-wrap items-center gap-2">
         <Link
           href="/"
-          className="rounded-full border border-ms-navy/20 px-3 py-1.5 text-xs font-semibold text-ms-navy"
+          className="role-switcher-link"
         >
           Accueil
         </Link>
@@ -28,8 +28,8 @@ export function RoleSwitcher({ currentPath }: RoleSwitcherProps) {
             <Link
               key={space.href}
               href={space.href}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                isCurrent ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"
+              className={`role-switcher-link ${
+                isCurrent ? "role-switcher-link-active" : ""
               }`}
             >
               {space.label}
@@ -40,7 +40,7 @@ export function RoleSwitcher({ currentPath }: RoleSwitcherProps) {
       <button
         type="button"
         onClick={() => signOut({ callbackUrl: "/" })}
-        className="rounded-full border border-ms-navy/20 px-3 py-1.5 text-xs font-semibold text-ms-navy"
+        className="role-switcher-logout"
       >
         Se deconnecter
       </button>

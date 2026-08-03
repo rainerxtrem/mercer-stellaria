@@ -644,13 +644,13 @@ export default function CollaborateurPage() {
   }
 
   return (
-    <main className="brand-shell flex flex-1 justify-center px-6 py-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
+    <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         <RoleSwitcher currentPath="/collaborateur" />
-        <header>
-          <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Espace Collaborateur</p>
-          <h1 className="mt-2 font-display text-5xl text-ms-navy">Dossiers clients</h1>
-          <p className="mt-2 text-sm text-ms-ink/70">Liste complète des assurés du groupe, y compris clients, collaborateurs et direction.</p>
+        <header className="workspace-hero">
+          <p className="workspace-kicker">Espace Collaborateur</p>
+          <h1 className="workspace-title">Dossiers clients</h1>
+          <p className="workspace-subtitle">Liste complète des assurés du groupe, y compris clients, collaborateurs et direction.</p>
         </header>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -719,7 +719,7 @@ export default function CollaborateurPage() {
                       </td>
                       <td className="py-3">
                         {client.hasUnreadClientMessage || liveUnreadClientIds.includes(client.id) ? (
-                          <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          <span className="alert-badge rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
                             Nouveau message client
                           </span>
                         ) : (

@@ -77,8 +77,8 @@ export default function CollaborateurClientDossierPage() {
 
   if (!data) {
     return (
-      <main className="brand-shell flex flex-1 justify-center px-6 py-8">
-        <div className="mx-auto w-full max-w-7xl">
+      <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
+        <div className="workspace-grid mx-auto w-full max-w-7xl">
           <RoleSwitcher currentPath="/collaborateur" />
           <p className="surface mt-6 px-4 py-3 text-sm text-ms-navy">Chargement du dossier...</p>
           {status ? <p className="surface mt-3 px-4 py-3 text-sm text-ms-navy">{status}</p> : null}
@@ -88,11 +88,11 @@ export default function CollaborateurClientDossierPage() {
   }
 
   return (
-    <main className="brand-shell flex flex-1 justify-center px-6 py-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
+    <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         <RoleSwitcher currentPath="/collaborateur" />
 
-        <header className="surface p-6">
+        <header className="surface workspace-hero p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Fiche individuelle client</p>

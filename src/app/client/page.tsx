@@ -570,8 +570,8 @@ export default function ClientPage() {
   }
 
   return (
-    <main className="brand-shell flex flex-1 justify-center px-6 py-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
+    <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {toast ? (
           <div className="fixed right-5 top-5 z-[70] w-full max-w-sm">
             <div
@@ -597,10 +597,10 @@ export default function ClientPage() {
         ) : null}
 
         <RoleSwitcher currentPath="/client" />
-        <header>
-          <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Espace Client</p>
-          <h1 className="mt-2 font-display text-5xl text-ms-navy">Tableau de bord</h1>
-          <p className="mt-2 text-sm text-ms-ink/70">Souscription autonome, suivi des contrats et historique des sinistres.</p>
+        <header className="workspace-hero">
+          <p className="workspace-kicker">Espace Client</p>
+          <h1 className="workspace-title">Tableau de bord</h1>
+          <p className="workspace-subtitle">Souscription autonome, suivi des contrats et historique des sinistres.</p>
         </header>
 
         <nav className="surface tab-strip p-2" aria-label="Navigation espace client">

@@ -212,13 +212,13 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="brand-shell flex flex-1 justify-center px-6 py-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
+    <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         <RoleSwitcher currentPath="/admin" />
-        <header>
-          <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Espace Administrateur</p>
-          <h1 className="mt-2 font-display text-5xl text-ms-navy">Direction & Supervision</h1>
-          <p className="mt-2 text-sm text-ms-ink/70">KPI globaux, pilotage des collaborateurs et validation des sinistres majeurs.</p>
+        <header className="workspace-hero">
+          <p className="workspace-kicker">Espace Administrateur</p>
+          <h1 className="workspace-title">Direction & Supervision</h1>
+          <p className="workspace-subtitle">KPI globaux, pilotage des collaborateurs et validation des sinistres majeurs.</p>
         </header>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

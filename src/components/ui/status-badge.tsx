@@ -14,5 +14,5 @@ const toneClasses: Record<StatusBadgeTone, string> = {
 };
 
 export function StatusBadge({ label, tone }: StatusBadgeProps) {
-  return <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClasses[tone]}`}>{label}</span>;
+  return <span className={`status-badge rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClasses[tone]}`}>{label}</span>;
 }

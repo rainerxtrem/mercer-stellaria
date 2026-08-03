@@ -43,23 +43,27 @@ export async function GET() {
         },
       },
       clientContactMessages: {
+        where: {
+          senderRole: UserRole.CLIENT,
+        },
         select: {
-          senderId: true,
           createdAt: true,
         },
         orderBy: { createdAt: "desc" },
-        take: 20,
+        take: 1,
       },
       claims: {
         select: {
           staffLastReadAt: true,
           messages: {
+            where: {
+              senderRole: UserRole.CLIENT,
+            },
             select: {
-              senderId: true,
               createdAt: true,
             },
             orderBy: { createdAt: "desc" },
-            take: 20,
+            take: 1,
           },
         },
       },
@@ -69,7 +73,7 @@ export async function GET() {
 
   const payload = clients.map((client) => {
     const contactLastRead = client.contactConversationState?.staffLastReadAt ?? null;
-    const latestClientContactMessage = client.clientContactMessages.find((message) => message.senderId === client.id);
+    const latestClientContactMessage = client.clientContactMessages[0];
     const hasOpenContactConversation = Boolean(client.contactConversationState && !client.contactConversationState.staffArchivedAt);
     const hasUnreadContact = Boolean(
       client.contactConversationState &&
@@ -78,7 +82,7 @@ export async function GET() {
     );
 
     const hasUnreadClaimMessage = client.claims.some((claim) => {
-      const latestClientClaimMessage = claim.messages.find((message) => message.senderId === client.id);
+      const latestClientClaimMessage = claim.messages[0];
       if (!latestClientClaimMessage) {
         return false;
       }

@@ -165,7 +165,7 @@ export default function ClientPage() {
   function playNewContactMessageSound() {
     try {
       if (!newContactMessageAudioRef.current) {
-        newContactMessageAudioRef.current = new Audio("/son_nouveau_message.mp3");
+        newContactMessageAudioRef.current = new Audio("/son_nouveau_message05.mp3");
       }
 
       const audio = newContactMessageAudioRef.current;

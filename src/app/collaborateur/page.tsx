@@ -87,6 +87,7 @@ type Invoice = {
 type DossierDetail = {
   client: {
     id: string;
+    role: "CLIENT" | "COLLABORATOR" | "ADMIN" | "PUBLIC";
     fullName: string;
     email: string;
     phone: string | null;
@@ -675,6 +676,11 @@ export default function CollaborateurPage() {
       return;
     }
 
+    if (selectedDossier.client.role !== "CLIENT") {
+      setStatus("La proposition de contrat est disponible uniquement pour un compte client.");
+      return;
+    }
+
     if (!contractProposalForm.weeklyPremium.trim()) {
       setStatus("Indiquez une prime hebdomadaire pour proposer le contrat.");
       return;
@@ -1190,6 +1196,7 @@ export default function CollaborateurPage() {
                 </div>
               </div>
 
+              {selectedDossier.client.role === "CLIENT" ? (
               <div className="mt-6 rounded-2xl border border-ms-navy/10 bg-white p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Proposition de contrat</p>
                 <p className="mt-2 text-sm text-ms-ink/80">
@@ -1284,6 +1291,7 @@ export default function CollaborateurPage() {
                   </div>
                 </form>
               </div>
+              ) : null}
             </div>
           </div>
         ) : null}

@@ -18,6 +18,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     },
     select: {
       id: true,
+      role: true,
       fullName: true,
       firstName: true,
       lastName: true,

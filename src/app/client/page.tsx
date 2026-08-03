@@ -656,7 +656,7 @@ export default function ClientPage() {
               <StatCard label="Demandes formule en cours" value={String(overview.pendingRequests)} />
             </section>
 
-            <section className="grid gap-8 lg:grid-cols-2">
+            <section className="mt-3 grid gap-8 lg:grid-cols-2">
               <SectionBlock title="Priorités" subtitle="Actions recommandées">
                 <div className="space-y-3 text-sm text-ms-ink/85">
                   <p>Sinistres actifs: {activeClaims.length}</p>

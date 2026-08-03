@@ -60,6 +60,15 @@ export async function POST(request: NextRequest) {
   const agentId = authResult.user.role === "ADMIN" ? (parsed.data.agentId ?? authResult.user.id) : authResult.user.id;
   const weeklyPremium = toNumber(parsed.data.weeklyPremium);
 
+  const targetClient = await prisma.user.findUnique({
+    where: { id: parsed.data.clientId },
+    select: { id: true, role: true },
+  });
+
+  if (!targetClient || targetClient.role !== "CLIENT") {
+    return NextResponse.json({ error: "Le contrat doit être proposé à un compte client." }, { status: 400 });
+  }
+
   const contract = await prisma.contract.create({
     data: {
       contractNumber: buildNumber("CTR"),

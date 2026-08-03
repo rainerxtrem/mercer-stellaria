@@ -656,7 +656,7 @@ export default function ClientPage() {
               <StatCard label="Demandes formule en cours" value={String(overview.pendingRequests)} />
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-3">
+            <section className="grid gap-8 lg:grid-cols-2">
               <SectionBlock title="Priorités" subtitle="Actions recommandées">
                 <div className="space-y-3 text-sm text-ms-ink/85">
                   <p>Sinistres actifs: {activeClaims.length}</p>
@@ -724,46 +724,46 @@ export default function ClientPage() {
               </table>
             </div>
 
-            <div className="mt-5 grid gap-3 rounded-xl border border-ms-navy/10 bg-white p-4">
-              <p className="text-sm font-semibold text-ms-navy">Signature électronique</p>
-              <select
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 text-sm"
-                value={selectedContractId}
-                onChange={(event) => setSelectedContractId(event.target.value)}
-              >
-                <option value="">Sélectionner un contrat en attente</option>
-                {contracts
-                  .filter((item) => item.status === "PENDING_SIGNATURE")
-                  .map((item) => (
+            {pendingSignatureContracts.length > 0 ? (
+              <div className="mt-5 grid gap-3 rounded-xl border border-ms-navy/10 bg-white p-4">
+                <p className="text-sm font-semibold text-ms-navy">Signature électronique</p>
+                <select
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 text-sm"
+                  value={selectedContractId}
+                  onChange={(event) => setSelectedContractId(event.target.value)}
+                >
+                  <option value="">Sélectionner un contrat en attente</option>
+                  {pendingSignatureContracts.map((item) => (
                     <option value={item.id} key={item.id}>
                       {item.contractNumber} - {item.formulaName}
                     </option>
                   ))}
-              </select>
+                </select>
 
-              <div className="flex flex-wrap gap-2 text-sm">
-                <button
-                  type="button"
-                  className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "CERTIFIED_CLICK" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
-                  onClick={() => setSignatureMethod("CERTIFIED_CLICK")}
-                >
-                  Signature certifiée par clic
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "DRAWN_CANVAS" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
-                  onClick={() => setSignatureMethod("DRAWN_CANVAS")}
-                >
-                  Signature dessinée
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "CERTIFIED_CLICK" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
+                    onClick={() => setSignatureMethod("CERTIFIED_CLICK")}
+                  >
+                    Signature certifiée par clic
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1.5 font-semibold ${signatureMethod === "DRAWN_CANVAS" ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
+                    onClick={() => setSignatureMethod("DRAWN_CANVAS")}
+                  >
+                    Signature dessinée
+                  </button>
+                </div>
+
+                {signatureMethod === "DRAWN_CANVAS" ? <SignaturePad onSignatureChange={setSignatureData} /> : null}
+
+                <button type="button" className="w-fit rounded-full bg-ms-navy px-4 py-2.5 text-sm font-semibold text-white" onClick={signContract}>
+                  Valider la signature
                 </button>
               </div>
-
-              {signatureMethod === "DRAWN_CANVAS" ? <SignaturePad onSignatureChange={setSignatureData} /> : null}
-
-              <button type="button" className="w-fit rounded-full bg-ms-navy px-4 py-2.5 text-sm font-semibold text-white" onClick={signContract}>
-                Valider la signature
-              </button>
-            </div>
+            ) : null}
           </SectionBlock>
         ) : null}
 

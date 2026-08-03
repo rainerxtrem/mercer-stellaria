@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ClaimStatus, SubscriptionRequestStatus } from "@/generated/prisma/enums";
+import { ClaimStatus, ContractCategory, SubscriptionRequestStatus } from "@/generated/prisma/enums";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RoleSwitcher } from "@/components/navigation/role-switcher";
@@ -121,6 +121,15 @@ type DossierDetail = {
   }>;
 };
 
+type ContractProposalForm = {
+  category: ContractCategory;
+  formulaName: string;
+  weeklyPremium: string;
+  effectiveDate: string;
+  expirationDate: string;
+  coverageNotes: string;
+};
+
 type CollaborateurTab = "CLIENTS" | "CLAIMS" | "REQUESTS" | "BILLING" | "CONTACT";
 type ClaimDossierTab = "SUMMARY" | "INSURER" | "COMMUNICATION";
 
@@ -191,6 +200,14 @@ export default function CollaborateurPage() {
   const [contactSearch, setContactSearch] = useState("");
   const [liveUnreadClientIds, setLiveUnreadClientIds] = useState<string[]>([]);
   const [openedContactConversationId, setOpenedContactConversationId] = useState<string | null>(null);
+  const [contractProposalForm, setContractProposalForm] = useState<ContractProposalForm>({
+    category: ContractCategory.HEALTH,
+    formulaName: "Care Plus",
+    weeklyPremium: "",
+    effectiveDate: "",
+    expirationDate: "",
+    coverageNotes: "",
+  });
   const contactMessageIdsRef = useRef<string[]>([]);
   const openedContactClientIdRef = useRef<string | null>(null);
   const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -387,6 +404,14 @@ export default function CollaborateurPage() {
   function closeDossier() {
     setSelectedClientId(null);
     setSelectedDossier(null);
+    setContractProposalForm({
+      category: ContractCategory.HEALTH,
+      formulaName: "Care Plus",
+      weeklyPremium: "",
+      effectiveDate: "",
+      expirationDate: "",
+      coverageNotes: "",
+    });
   }
 
   async function toggleArchive(clientId: string) {
@@ -641,6 +666,62 @@ export default function CollaborateurPage() {
 
     setStatus("Rappel de paiement envoyé.");
     await loadData();
+  }
+
+  async function proposeContractForSelectedClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedDossier) {
+      return;
+    }
+
+    if (!contractProposalForm.weeklyPremium.trim()) {
+      setStatus("Indiquez une prime hebdomadaire pour proposer le contrat.");
+      return;
+    }
+
+    if (!contractProposalForm.effectiveDate) {
+      setStatus("Indiquez une date d'effet pour proposer le contrat.");
+      return;
+    }
+
+    const response = await fetch("/api/contracts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: selectedDossier.client.id,
+        category: contractProposalForm.category,
+        formulaName: contractProposalForm.formulaName,
+        weeklyPremium: contractProposalForm.weeklyPremium,
+        coverageSummary: {
+          source: "collaborator_proposal",
+          notes: contractProposalForm.coverageNotes || "Proposition manuelle collaborateur",
+        },
+        effectiveDate: contractProposalForm.effectiveDate,
+        expirationDate: contractProposalForm.expirationDate || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const errorMessage = typeof payload?.error === "string" ? payload.error : "Impossible de proposer le contrat au client.";
+      setStatus(errorMessage);
+      return;
+    }
+
+    setStatus("Contrat proposé au client. Signature disponible côté espace client.");
+    setContractProposalForm((prev) => ({
+      ...prev,
+      weeklyPremium: "",
+      effectiveDate: "",
+      expirationDate: "",
+      coverageNotes: "",
+    }));
+
+    await loadData();
+    if (selectedClientId) {
+      await openDossier(selectedClientId);
+    }
   }
 
   return (
@@ -1089,6 +1170,101 @@ export default function CollaborateurPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-ms-navy-soft">Proposition de contrat</p>
+                <p className="mt-2 text-sm text-ms-ink/80">
+                  Dès validation, le contrat passera en attente de signature dans l&apos;espace client.
+                </p>
+
+                <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={proposeContractForSelectedClient}>
+                  <select
+                    value={contractProposalForm.category}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        category: event.target.value as ContractCategory,
+                      }))
+                    }
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                  >
+                    <option value={ContractCategory.HEALTH}>Santé</option>
+                    <option value={ContractCategory.THEFT_BURGLARY}>Vol & cambriolage</option>
+                    <option value={ContractCategory.PROFESSIONAL}>Professionnel</option>
+                  </select>
+
+                  <input
+                    required
+                    value={contractProposalForm.formulaName}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        formulaName: event.target.value,
+                      }))
+                    }
+                    placeholder="Nom de la formule"
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                  />
+
+                  <input
+                    required
+                    value={contractProposalForm.weeklyPremium}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        weeklyPremium: event.target.value,
+                      }))
+                    }
+                    placeholder="Prime hebdomadaire ($)"
+                    inputMode="decimal"
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                  />
+
+                  <input
+                    required
+                    type="date"
+                    value={contractProposalForm.effectiveDate}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        effectiveDate: event.target.value,
+                      }))
+                    }
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                  />
+
+                  <input
+                    type="date"
+                    value={contractProposalForm.expirationDate}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        expirationDate: event.target.value,
+                      }))
+                    }
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                  />
+
+                  <textarea
+                    value={contractProposalForm.coverageNotes}
+                    onChange={(event) =>
+                      setContractProposalForm((prev) => ({
+                        ...prev,
+                        coverageNotes: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    placeholder="Notes de couverture (optionnel)"
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 md:col-span-2"
+                  />
+
+                  <div className="md:col-span-2">
+                    <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                      Proposer ce contrat au client
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

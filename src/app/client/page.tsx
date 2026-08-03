@@ -941,7 +941,9 @@ export default function ClientPage() {
           <section className="grid gap-6 lg:grid-cols-2">
             <SectionBlock title="Contact conseiller" subtitle="Canal general independant des dossiers sinistres">
               <div className="max-h-72 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
-                {!contactLoading && contactMessages.length === 0 ? (
+                {contactLoading ? (
+                  <p className="text-sm text-ms-ink/65">Chargement de la conversation...</p>
+                ) : contactMessages.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucun message pour le moment. Posez votre question a un conseiller, meme sans dossier en cours.</p>
                 ) : null}
                 {contactMessages.map((message) => (

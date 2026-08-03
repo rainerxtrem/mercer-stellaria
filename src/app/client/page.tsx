@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -123,6 +123,8 @@ export default function ClientPage() {
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
   const [contactConversationId, setContactConversationId] = useState<string | null>(null);
+  const contactMessageIdsRef = useRef<string[]>([]);
+  const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [claimForm, setClaimForm] = useState({
     contractId: "",
@@ -158,6 +160,20 @@ export default function ClientPage() {
 
   function notifyError(message: string) {
     setToast({ message, tone: "error" });
+  }
+
+  function playNewContactMessageSound() {
+    try {
+      if (!newContactMessageAudioRef.current) {
+        newContactMessageAudioRef.current = new Audio("/son_nouveau_message.mp3");
+      }
+
+      const audio = newContactMessageAudioRef.current;
+      audio.currentTime = 0;
+      void audio.play().catch(() => null);
+    } catch {
+      // Ignore audio errors (autoplay restrictions, unsupported format, etc.)
+    }
   }
 
   async function extractErrorMessage(response: Response, fallback: string) {
@@ -440,7 +456,19 @@ export default function ClientPage() {
     }
 
     const payload = await response.json();
-    setContactMessages(payload.data ?? []);
+    const nextMessages: ContactMessage[] = payload.data ?? [];
+    const previousMessageIds = new Set(contactMessageIdsRef.current);
+    const hasNewIncomingMessage = nextMessages.some(
+      (message) => !previousMessageIds.has(message.id) && message.senderId !== session?.user?.id,
+    );
+
+    setContactMessages(nextMessages);
+    contactMessageIdsRef.current = nextMessages.map((message) => message.id);
+
+    if (contactLoadedOnce && hasNewIncomingMessage) {
+      playNewContactMessageSound();
+    }
+
     setContactConversationId(typeof payload?.meta?.conversationId === "string" ? payload.meta.conversationId : null);
     setContactLoadedOnce(true);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ClaimStatus, SubscriptionRequestStatus } from "@/generated/prisma/enums";
 import { SectionBlock } from "@/components/dashboard/section-block";
@@ -191,6 +191,9 @@ export default function CollaborateurPage() {
   const [contactSearch, setContactSearch] = useState("");
   const [liveUnreadClientIds, setLiveUnreadClientIds] = useState<string[]>([]);
   const [openedContactConversationId, setOpenedContactConversationId] = useState<string | null>(null);
+  const contactMessageIdsRef = useRef<string[]>([]);
+  const openedContactClientIdRef = useRef<string | null>(null);
+  const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const filteredClaims = useMemo(() => {
     if (!selectedClientId) {
@@ -239,6 +242,20 @@ export default function CollaborateurPage() {
         .some((value) => String(value).toLowerCase().includes(query));
     });
   }, [clients, contactSearch, openConversationClients]);
+
+  function playNewContactMessageSound() {
+    try {
+      if (!newContactMessageAudioRef.current) {
+        newContactMessageAudioRef.current = new Audio("/son_nouveau_message.mp3");
+      }
+
+      const audio = newContactMessageAudioRef.current;
+      audio.currentTime = 0;
+      void audio.play().catch(() => null);
+    } catch {
+      // Ignore audio errors (autoplay restrictions, unsupported format, etc.)
+    }
+  }
 
   async function loadData() {
     const [clientsRes, claimsRes, requestsRes, invoicesRes] = await Promise.all([
@@ -320,7 +337,18 @@ export default function CollaborateurPage() {
       }
 
       const payload = await response.json();
-      setContactMessages(payload.data ?? []);
+      const nextMessages: ContactMessage[] = payload.data ?? [];
+      const previousMessageIds = new Set(contactMessageIdsRef.current);
+      const hasNewIncomingMessage = nextMessages.some(
+        (message) => !previousMessageIds.has(message.id) && message.senderId !== session?.user?.id,
+      );
+
+      setContactMessages(nextMessages);
+      contactMessageIdsRef.current = nextMessages.map((message) => message.id);
+
+      if (hasNewIncomingMessage) {
+        playNewContactMessageSound();
+      }
     }, 2500);
 
     return () => window.clearInterval(interval);
@@ -488,6 +516,12 @@ export default function CollaborateurPage() {
   }
 
   async function openContactClientPopup(client: Client) {
+    const isSameClient = openedContactClientIdRef.current === client.id;
+    if (!isSameClient) {
+      contactMessageIdsRef.current = [];
+    }
+    openedContactClientIdRef.current = client.id;
+
     setOpenedContactClient(client);
     setContactForm({ body: "", documentLink: "" });
     setActiveTab("CONTACT");
@@ -500,7 +534,9 @@ export default function CollaborateurPage() {
     }
 
     const payload = await response.json();
-    setContactMessages(payload.data ?? []);
+    const nextMessages: ContactMessage[] = payload.data ?? [];
+    setContactMessages(nextMessages);
+    contactMessageIdsRef.current = nextMessages.map((message) => message.id);
     setOpenedContactConversationId(typeof payload?.meta?.conversationId === "string" ? payload.meta.conversationId : null);
     await loadData();
   }
@@ -509,6 +545,9 @@ export default function CollaborateurPage() {
     setOpenedContactClient(null);
     setContactMessages([]);
     setContactForm({ body: "", documentLink: "" });
+    setOpenedContactConversationId(null);
+    contactMessageIdsRef.current = [];
+    openedContactClientIdRef.current = null;
   }
 
   async function closeContactDiscussion() {

@@ -214,13 +214,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
     }
 
-    const existingState = conversationStateModel
-      ? await conversationStateModel.findUnique({
-          where: { clientId: persistedUser.id },
-          select: { conversationId: true, clientArchivedAt: true, staffArchivedAt: true },
-        })
-      : null;
-
     const body = await request.json();
     const parsed = createContactMessageSchema.safeParse(body);
 
@@ -246,6 +239,13 @@ export async function POST(request: NextRequest) {
     if (!targetClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
+
+    const existingState = conversationStateModel
+      ? await conversationStateModel.findUnique({
+          where: { clientId: finalTargetClientId },
+          select: { conversationId: true, clientArchivedAt: true, staffArchivedAt: true },
+        })
+      : null;
 
     const senderName =
       [persistedUser.firstName, persistedUser.lastName].filter(Boolean).join(" ").trim() ||

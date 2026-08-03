@@ -20,14 +20,19 @@ const createContractSchema = z.object({
   expirationDate: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const scope = request.nextUrl.searchParams.get("scope");
+  const forceSelfScope = scope === "self";
+
   const where =
-    user.role === "ADMIN"
+    forceSelfScope
+      ? { clientId: user.id }
+      : user.role === "ADMIN"
       ? {}
       : user.role === "COLLABORATOR"
         ? { agentId: user.id }
@@ -65,8 +70,8 @@ export async function POST(request: NextRequest) {
     select: { id: true, role: true },
   });
 
-  if (!targetClient || targetClient.role !== "CLIENT") {
-    return NextResponse.json({ error: "Le contrat doit être proposé à un compte client." }, { status: 400 });
+  if (!targetClient || targetClient.role === "PUBLIC") {
+    return NextResponse.json({ error: "Le contrat doit être proposé à un compte assuré actif." }, { status: 400 });
   }
 
   const contract = await prisma.contract.create({

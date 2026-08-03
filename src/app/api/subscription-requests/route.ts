@@ -26,13 +26,16 @@ const updateRequestSchema = z.object({
   reviewNotes: z.string().max(1000).optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user || user.role === "PUBLIC") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const where = user.role === "CLIENT" ? { clientId: user.id } : {};
+  const scope = request.nextUrl.searchParams.get("scope");
+  const forceSelfScope = scope === "self";
+
+  const where = forceSelfScope || user.role === "CLIENT" ? { clientId: user.id } : {};
 
   const requests = await prisma.subscriptionRequest.findMany({
     where,
@@ -48,7 +51,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "CLIENT") {
+  if (!user || user.role === "PUBLIC") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -40,14 +40,19 @@ const complementClaimSchema = z.object({
   requestedAmount: z.union([z.number(), z.string()]).optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const scope = request.nextUrl.searchParams.get("scope");
+  const forceSelfScope = scope === "self";
+
   const where =
-    user.role === "ADMIN"
+    forceSelfScope
+      ? { clientId: user.id }
+      : user.role === "ADMIN"
       ? {}
       : user.role === "COLLABORATOR"
         ? {}

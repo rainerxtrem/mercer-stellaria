@@ -148,7 +148,7 @@ export default function ClientPage() {
 
   const [requestForm, setRequestForm] = useState({
     type: "NEW_SUBSCRIPTION" as "NEW_SUBSCRIPTION" | "UPGRADE",
-    requestedCategory: "HEALTH" as "HEALTH" | "THEFT_BURGLARY" | "PROFESSIONAL",
+    requestedCategory: "HEALTH" as "HEALTH",
     requestedFormula: "Care Plus",
     currentFormula: "",
     reason: "",
@@ -238,10 +238,10 @@ export default function ClientPage() {
   async function loadData() {
     setLoading(true);
     const [contractsRes, invoicesRes, claimsRes, requestsRes, notificationsRes] = await Promise.all([
-      fetch("/api/contracts"),
-      fetch("/api/invoices"),
-      fetch("/api/claims"),
-      fetch("/api/subscription-requests"),
+      fetch("/api/contracts?scope=self"),
+      fetch("/api/invoices?scope=self"),
+      fetch("/api/claims?scope=self"),
+      fetch("/api/subscription-requests?scope=self"),
       fetch("/api/notifications"),
     ]);
 
@@ -786,25 +786,22 @@ export default function ClientPage() {
               </select>
               <select
                 value={requestForm.requestedCategory}
-                onChange={(event) =>
-                  setRequestForm((prev) => ({
-                    ...prev,
-                    requestedCategory: event.target.value as "HEALTH" | "THEFT_BURGLARY" | "PROFESSIONAL",
-                  }))
-                }
+                onChange={() => null}
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                disabled
               >
                 <option value="HEALTH">Santé</option>
-                <option value="THEFT_BURGLARY">Vols & cambriolages</option>
-                <option value="PROFESSIONAL">Professionnel</option>
               </select>
-              <input
+              <select
                 required
                 value={requestForm.requestedFormula}
                 onChange={(event) => setRequestForm((prev) => ({ ...prev, requestedFormula: event.target.value }))}
-                placeholder="Formule demandée"
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              />
+              >
+                <option value="Essential Care">Essential Care</option>
+                <option value="Care Plus">Care Plus</option>
+                <option value="Care Max">Care Max</option>
+              </select>
               <input
                 value={requestForm.currentFormula}
                 onChange={(event) => setRequestForm((prev) => ({ ...prev, currentFormula: event.target.value }))}

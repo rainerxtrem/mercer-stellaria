@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 
     const isArchivedForViewer = isCounselor(persistedUser.role)
       ? Boolean(conversationState?.staffArchivedAt)
-      : false;
+      : Boolean(conversationState?.clientArchivedAt);
 
     const targetClient = await prisma.user.findUnique({
       where: { id: resolvedClientId },

@@ -27,24 +27,44 @@ export default function CabinetPage() {
       <MarketingHeader activeTab="CABINET" title="Mercer & Stellaria Law Office" subtitle="Le cabinet" />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
-        <section className="marketing-hero-panel legal-hero-panel surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
+        <section className="marketing-hero-panel legal-hero-panel surface-navy gold-ring relative overflow-hidden">
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
-          <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
-            <Scale size={13} /> Practice & Counsel
-          </p>
-          <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
-            Le conseil juridique de référence du groupe Mercer & Stellaria Corporation.
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
-            Le cabinet accompagne dirigeants, entreprises et particuliers sur les enjeux contractuels, contentieux et de gouvernance.
-            Notre approche combine rigueur légale et vision business.
-          </p>
-          <Link
-            href="/connexion"
-            className="mt-8 inline-flex items-center gap-2 rounded-full bg-ms-gold px-5 py-3 text-sm font-semibold text-ms-navy transition hover:bg-[#d8ba7b]"
-          >
-            Demander un accompagnement <ArrowRight size={16} />
-          </Link>
+          <div className="relative grid min-h-[29rem] gap-6 p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
+            <div className="self-center">
+              <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
+                <Scale size={13} /> Practice & Counsel
+              </p>
+              <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
+                Le conseil juridique de référence du groupe Mercer & Stellaria Corporation.
+              </h1>
+              <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
+                Le cabinet accompagne dirigeants, entreprises et particuliers sur les enjeux contractuels, contentieux et de gouvernance.
+                Notre approche combine rigueur légale et vision business.
+              </p>
+              <Link
+                href="/connexion"
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-ms-gold px-5 py-3 text-sm font-semibold text-ms-navy transition hover:bg-[#d8ba7b]"
+              >
+                Demander un accompagnement <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <aside className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
+              <Image
+                src="/Mercer_Stellaria_CORPORATION.png"
+                alt="Mercer & Stellaria Law Office"
+                width={640}
+                height={360}
+                className="h-auto w-full rounded-2xl bg-white/80 p-3 object-contain"
+              />
+              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-ms-gold/90">Axes d'intervention</p>
+              <ul className="mt-3 space-y-2 text-sm leading-6 text-ms-cream/90">
+                <li>Conseil stratégique aux dirigeants et structures en croissance.</li>
+                <li>Contentieux civils et commerciaux a forts enjeux.</li>
+                <li>Architecture contractuelle et prevention du risque.</li>
+              </ul>
+            </aside>
+          </div>
         </section>
 
         <section className="grid gap-6 md:grid-cols-3">

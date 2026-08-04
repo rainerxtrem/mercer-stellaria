@@ -30,16 +30,16 @@
 
 body {
   background:
-    radial-gradient(1200px 700px at 8% -15%, rgba(90, 182, 216, 0.17), transparent 55%),
-    radial-gradient(900px 680px at 95% 0%, rgba(199, 168, 102, 0.2), transparent 52%),
+    radial-gradient(1200px 700px at 8% -15%, rgba(90, 182, 216, 0.14), transparent 58%),
+    radial-gradient(900px 680px at 95% 0%, rgba(199, 168, 102, 0.16), transparent 56%),
     repeating-linear-gradient(
       110deg,
-      rgba(15, 32, 67, 0.02) 0,
-      rgba(15, 32, 67, 0.02) 2px,
+      rgba(15, 32, 67, 0.016) 0,
+      rgba(15, 32, 67, 0.016) 2px,
       transparent 2px,
       transparent 14px
     ),
-    linear-gradient(180deg, #fcfeff 0%, var(--background) 45%, #f5f9ff 100%);
+    linear-gradient(180deg, #f8fbff 0%, #f8fbff 100%);
   color: var(--foreground);
   font-family: var(--font-montserrat), sans-serif;
   min-height: 100vh;
@@ -222,30 +222,21 @@ button:focus-visible {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(1200px 560px at 90% -20%, rgba(138, 198, 255, 0.17), transparent 60%),
-    radial-gradient(900px 500px at -10% 5%, rgba(199, 168, 102, 0.13), transparent 58%),
-    linear-gradient(180deg, #fefefe 0%, #f9fcff 52%, #f6f9fe 100%);
-}
-
-.brand-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 38%, rgba(255, 255, 255, 0.2) 100%);
+    radial-gradient(1200px 560px at 90% -20%, rgba(138, 198, 255, 0.12), transparent 62%),
+    radial-gradient(900px 500px at -10% 5%, rgba(199, 168, 102, 0.1), transparent 60%),
+    linear-gradient(180deg, #f8fbff 0%, #f8fbff 100%);
 }
 
 .brand-lattice {
   position: relative;
   z-index: 1;
   background-image:
-    radial-gradient(circle at 20% 20%, rgba(138, 198, 255, 0.08), transparent 30%),
-    radial-gradient(circle at 80% 70%, rgba(199, 168, 102, 0.07), transparent 34%),
+    radial-gradient(circle at 20% 20%, rgba(138, 198, 255, 0.06), transparent 32%),
+    radial-gradient(circle at 80% 70%, rgba(199, 168, 102, 0.05), transparent 36%),
     repeating-linear-gradient(
       110deg,
-      rgba(15, 32, 67, 0.018) 0,
-      rgba(15, 32, 67, 0.018) 1px,
+      rgba(15, 32, 67, 0.014) 0,
+      rgba(15, 32, 67, 0.014) 1px,
       transparent 1px,
       transparent 13px
     );

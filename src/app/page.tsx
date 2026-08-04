@@ -28,7 +28,13 @@ export default function Home() {
       <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Holding | Law Office | Insurance" />
 
       <main className="mx-auto w-full max-w-[1500px] px-4 pb-14 pt-6 lg:px-8">
-        <section className="marketing-hero-panel home-hero-panel relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">
+        <section className="relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">
+          <Image
+            src="/holding-abstract-scene.svg"
+            alt="Ambiance corporate Mercer & Stellaria"
+            fill
+            className="object-cover opacity-70"
+          />
           <div className="relative grid gap-6 p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/50 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">

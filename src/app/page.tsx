@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
-import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
+import { MarketingHeader } from "@/components/navigation/marketing-header";
 import { ArrowRight, Landmark, ShieldCheck, Sparkles } from "lucide-react";
 
 const entities = [
@@ -24,52 +23,9 @@ const entities = [
 ];
 
 export default function Home() {
-  const { data: session } = useSession();
-  const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
-  const roleTarget = getDefaultSpaceForRole(role);
-  const requiresOnboarding = role === "CLIENT" && !session?.user?.profileCompleted;
-
   return (
     <div className="brand-shell flex flex-1 flex-col">
-      <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-4 lg:px-8">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/Mercer_Stellaria_LOGOBLEU.png"
-              alt="Mercer & Stellaria Corporation"
-              width={92}
-              height={92}
-              className="h-14 w-auto"
-              priority
-            />
-            <div>
-              <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Corporation</p>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-ms-navy-soft">Holding | Law Office | Insurance</p>
-            </div>
-          </div>
-
-          <nav className="surface tab-strip p-2" aria-label="Navigation principale">
-            <Link href="/cabinet" className="tab-pill">Avocats</Link>
-            <Link href="/assurances" className="tab-pill">Assurances</Link>
-          </nav>
-
-          {!session?.user ? (
-            <div className="flex items-center gap-2">
-              <Link href="/connexion" className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">Connexion</Link>
-              <Link href="/inscription" className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Créer un compte</Link>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link href={requiresOnboarding ? "/inscription/profil" : roleTarget} className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
-                Mon espace
-              </Link>
-              <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">
-                Déconnexion
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
+      <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Holding | Law Office | Insurance" />
 
       <main className="mx-auto w-full max-w-[1500px] px-4 pb-14 pt-6 lg:px-8">
         <section className="relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">

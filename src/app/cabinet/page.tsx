@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { MarketingHeader } from "@/components/navigation/marketing-header";
 import { ArrowRight, FileText, Landmark, Scale } from "lucide-react";
 
 const offers = [
@@ -23,37 +24,7 @@ const offers = [
 export default function CabinetPage() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-8">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/Mercer_Stellaria_LOGOBLEU.png"
-              alt="Mercer & Stellaria Corporation"
-              width={92}
-              height={92}
-              className="h-14 w-auto"
-              priority
-            />
-            <div>
-              <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Law Office</p>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-ms-navy-soft">Le cabinet</p>
-            </div>
-          </div>
-
-          <nav className="surface tab-strip p-2 lg:justify-self-center" aria-label="Navigation">
-            <Link href="/" className="tab-pill">Accueil</Link>
-            <Link href="/cabinet" className="tab-pill tab-pill-active">Avocats</Link>
-            <Link href="/assurances" className="tab-pill">Assurances</Link>
-          </nav>
-
-          <div className="hidden lg:flex lg:justify-self-end">
-            <div className="invisible flex items-center gap-2">
-              <span className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Mon espace</span>
-              <span className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">Déconnexion</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <MarketingHeader activeTab="CABINET" title="Mercer & Stellaria Law Office" subtitle="Le cabinet" />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
         <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">

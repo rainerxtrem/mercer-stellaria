@@ -40,7 +40,7 @@ export default function CabinetPage() {
               <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
                 <Scale size={13} /> Practice & Counsel
               </p>
-              <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.04] text-ms-cream md:text-6xl">
+              <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[1.04] text-ms-cream md:text-5xl">
                 Le conseil juridique de référence du groupe Mercer & Stellaria Corporation.
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
@@ -55,7 +55,7 @@ export default function CabinetPage() {
               </Link>
             </div>
 
-            <aside className="max-w-[33rem] justify-self-end rounded-3xl border border-white/20 bg-white/10 p-4 backdrop-blur lg:p-5">
+            <aside className="max-w-[33rem] justify-self-end rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
               <Image
                 src="/Mercer_Stellaria_CORPORATION.png"
                 alt="Mercer & Stellaria Law Office"
@@ -63,12 +63,9 @@ export default function CabinetPage() {
                 height={360}
                 className="h-auto w-full rounded-2xl bg-white/80 p-3 object-contain"
               />
-              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-ms-gold/90">Axes d'intervention</p>
-              <ul className="mt-2 space-y-1.5 text-sm leading-6 text-ms-cream/90">
-                <li>Conseil stratégique aux dirigeants et structures en croissance.</li>
-                <li>Contentieux civils et commerciaux a forts enjeux.</li>
-                <li>Architecture contractuelle et prevention du risque.</li>
-              </ul>
+              <p className="mt-4 text-sm leading-6 text-ms-cream/90">
+                Conseil stratégique, contentieux et architecture contractuelle pour dirigeants, entreprises et particuliers.
+              </p>
             </aside>
           </div>
         </section>

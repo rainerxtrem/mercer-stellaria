@@ -33,23 +33,23 @@ export default function AssurancesPage() {
       <MarketingHeader activeTab="ASSURANCES" title="Mercer & Stellaria Insurance" subtitle="Assurances" />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
-        <section className="marketing-hero-panel insurance-hero-panel surface-navy gold-ring relative overflow-hidden">
+        <section className="marketing-hero-panel insurance-hero-panel relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">
           <Image
             src="/holding-abstract-scene.svg"
             alt="Fond assurances Mercer & Stellaria"
             fill
-            className="object-cover opacity-54"
+            className="object-cover opacity-70"
           />
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
-          <div className="relative grid items-start gap-6 p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
+          <div className="relative grid gap-6 p-7 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
                 <Wallet size={13} /> Solutions assurantielles
               </p>
-              <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[1.04] text-ms-cream md:text-5xl">
+              <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.02] md:text-6xl">
                 Des offres d'assurance claires, modulaires et suivies en temps réel.
               </h1>
-              <p className="mt-5 max-w-3xl text-base leading-7 text-ms-cream/85 md:text-lg">
+              <p className="mt-4 max-w-3xl text-base leading-7 text-ms-cream/90 md:text-lg">
                 Mercer & Stellaria Insurance couvre les besoins santé, professionnels et patrimoniaux avec un parcours digital de la souscription à l'indemnisation.
               </p>
               <Link
@@ -60,7 +60,7 @@ export default function AssurancesPage() {
               </Link>
             </div>
 
-            <aside className="max-w-[33rem] justify-self-end rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
+            <aside className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur">
               <Image
                 src="/Mercer_Stellaria_CORPORATION.png"
                 alt="Mercer & Stellaria Insurance"

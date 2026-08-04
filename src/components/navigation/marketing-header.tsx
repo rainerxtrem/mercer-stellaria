@@ -45,15 +45,15 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
 
         {!session?.user ? (
           <div className="row-start-3 flex items-center justify-center gap-2 lg:row-start-auto lg:justify-self-end">
-            <Link href="/connexion" className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">Connexion</Link>
-            <Link href="/inscription" className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Créer un compte</Link>
+            <Link href="/connexion" className="marketing-header-action">Connexion</Link>
+            <Link href="/inscription" className="marketing-header-action marketing-header-action-primary">Créer un compte</Link>
           </div>
         ) : (
           <div className="row-start-3 flex items-center justify-center gap-2 lg:row-start-auto lg:justify-self-end">
-            <Link href={requiresOnboarding ? "/inscription/profil" : roleTarget} className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+            <Link href={requiresOnboarding ? "/inscription/profil" : roleTarget} className="marketing-header-action marketing-header-action-primary">
               Mon espace
             </Link>
-            <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">
+            <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="marketing-header-action">
               Déconnexion
             </button>
           </div>

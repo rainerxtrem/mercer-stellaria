@@ -33,7 +33,7 @@ export default function AssurancesPage() {
       <MarketingHeader activeTab="ASSURANCES" title="Mercer & Stellaria Insurance" subtitle="Assurances" />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
-        <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
+        <section className="marketing-hero-panel insurance-hero-panel surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
           <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">
             <Wallet size={13} /> Solutions assurantielles

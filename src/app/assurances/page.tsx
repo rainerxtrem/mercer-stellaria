@@ -29,29 +29,39 @@ const formulas = [
 export default function AssurancesPage() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-6 lg:px-10">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/Mercer_Stellaria_LOGOBLEU.png"
-            alt="Mercer & Stellaria Corporation"
-            width={92}
-            height={92}
-            className="h-14 w-auto"
-            priority
-          />
-          <div>
-            <p className="agency-name text-3xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Insurance</p>
-            <p className="text-xs uppercase tracking-[0.28em] text-ms-navy-soft">Assurances</p>
+      <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-4 px-4 py-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-8">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/Mercer_Stellaria_LOGOBLEU.png"
+              alt="Mercer & Stellaria Corporation"
+              width={92}
+              height={92}
+              className="h-14 w-auto"
+              priority
+            />
+            <div>
+              <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy">Mercer & Stellaria Insurance</p>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-ms-navy-soft">Assurances</p>
+            </div>
+          </div>
+
+          <nav className="surface tab-strip p-2 lg:justify-self-center" aria-label="Navigation">
+            <Link href="/" className="tab-pill">Accueil</Link>
+            <Link href="/cabinet" className="tab-pill">Avocats</Link>
+            <Link href="/assurances" className="tab-pill tab-pill-active">Assurances</Link>
+          </nav>
+
+          <div className="hidden lg:flex lg:justify-self-end">
+            <div className="invisible flex items-center gap-2">
+              <span className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">Mon espace</span>
+              <span className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy">Déconnexion</span>
+            </div>
           </div>
         </div>
-        <nav className="surface tab-strip p-2" aria-label="Navigation">
-          <Link href="/" className="tab-pill">Accueil</Link>
-          <Link href="/cabinet" className="tab-pill">Avocats</Link>
-          <Link href="/assurances" className="tab-pill tab-pill-active">Assurances</Link>
-        </nav>
       </header>
 
-      <main className="mx-auto grid w-full max-w-7xl gap-8 px-6 pb-14 pt-4 lg:px-10">
+      <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
         <section className="surface-navy gold-ring relative overflow-hidden p-8 lg:p-12">
           <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-ms-gold/20 blur-3xl" />
           <p className="inline-flex items-center gap-2 rounded-full border border-ms-gold/40 bg-ms-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-gold">

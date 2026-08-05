@@ -91,8 +91,22 @@ function decodeBasicHtmlEntities(content: string) {
     .replace(/&#39;/g, "'");
 }
 
+function sanitizePdfText(content: string) {
+  return content
+    .replace(/➔/g, "->")
+    .replace(/[“”]/g, '"')
+    .replace(/[’]/g, "'")
+    .replace(/[–—]/g, "-")
+    .normalize("NFKD")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, " ");
+}
+
 function htmlToPdfText(content: string) {
-  const withBreaks = content
+  const withoutStyleAndScript = content
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ");
+
+  const withBreaks = withoutStyleAndScript
     .replace(/<\s*br\s*\/?>/gi, "\n")
     .replace(/<\s*\/p\s*>/gi, "\n\n")
     .replace(/<\s*\/div\s*>/gi, "\n")
@@ -102,8 +116,9 @@ function htmlToPdfText(content: string) {
 
   const withoutTags = withBreaks.replace(/<[^>]+>/g, " ");
   const decoded = decodeBasicHtmlEntities(withoutTags);
+  const sanitized = sanitizePdfText(decoded);
 
-  return decoded
+  return sanitized
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

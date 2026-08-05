@@ -62,15 +62,20 @@ export async function POST(request: NextRequest) {
   const previewNumber = buildNumber("PREVIEW");
   const previewTitle = `${parsed.data.title} (prévisualisation)`;
 
-  const previewUrl = await generateTemplatePdf({
-    documentNumber: previewNumber,
-    title: previewTitle,
-    content: rendered,
-    signatureMethod: parsed.data.signatureMethod,
-    signatureData: parsed.data.signatureData,
-    outputBucket: "previews",
-    outputFileName: `${previewNumber}.pdf`,
-  });
+  try {
+    const previewUrl = await generateTemplatePdf({
+      documentNumber: previewNumber,
+      title: previewTitle,
+      content: rendered,
+      signatureMethod: parsed.data.signatureMethod,
+      signatureData: parsed.data.signatureData,
+      outputBucket: "previews",
+      outputFileName: `${previewNumber}.pdf`,
+    });
 
-  return NextResponse.json({ data: { previewUrl, renderedContent: rendered, previewKind: "PDF" } });
+    return NextResponse.json({ data: { previewUrl, renderedContent: rendered, previewKind: "PDF" } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Prévisualisation impossible.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

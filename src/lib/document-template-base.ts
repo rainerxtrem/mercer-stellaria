@@ -46,18 +46,11 @@ export const BASE_DOCUMENT_TEMPLATE_HTML = `<!DOCTYPE html>
     .header-table td {
       vertical-align: middle;
     }
-    .logo-box {
-      width: 50px;
-      height: 50px;
-      background-color: #0f2043;
-      color: #c5a059;
-      font-family: 'Georgia', serif;
-      font-size: 15pt;
-      font-weight: bold;
-      text-align: center;
-      line-height: 47px;
-      border: 1.5px solid #c5a059;
-      border-radius: 3px;
+    .brand-logo {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      display: block;
     }
     .brand-name {
       font-family: 'Georgia', serif;
@@ -286,7 +279,7 @@ export const BASE_DOCUMENT_TEMPLATE_HTML = `<!DOCTYPE html>
     <table class="header-table">
       <tr>
         <td style="width: 65px;">
-          <div class="logo-box">M&S</div>
+          <img class="brand-logo" src="/Mercer_Stellaria_LOGOBLEU.png" alt="Logo Mercer & Stellaria" />
         </td>
         <td>
           <div class="brand-name">MERCER & STELLARIA</div>

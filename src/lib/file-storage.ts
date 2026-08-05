@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getStorageRoot } from "@/lib/storage-paths";
 
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 const allowedMimeTypes = new Set([
@@ -62,7 +63,7 @@ export async function storeUploadedFile(file: File, scope: "claims" | "contact" 
   const extension = resolveExtension(file.name, file.type);
   const finalName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBaseName}.${extension}`;
 
-  const targetDirectory = path.join(process.cwd(), "public", "storage", "uploads", scope);
+  const targetDirectory = path.join(getStorageRoot(), "uploads", scope);
   await mkdir(targetDirectory, { recursive: true });
 
   const absolutePath = path.join(targetDirectory, finalName);

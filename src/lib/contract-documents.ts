@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getStorageRoot } from "@/lib/storage-paths";
 
 type ContractPdfInput = {
   contractNumber: string;
@@ -54,7 +55,7 @@ export async function generateContractPdf(input: ContractPdfInput) {
     }
   }
 
-  const outputDirectory = path.join(process.cwd(), "public", "storage", "contracts");
+  const outputDirectory = path.join(getStorageRoot(), "contracts");
   await mkdir(outputDirectory, { recursive: true });
 
   const fileName = `${input.contractNumber}.pdf`;

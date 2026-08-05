@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getStorageRoot } from "@/lib/storage-paths";
 
 type TemplatePayload = Record<string, unknown>;
 
@@ -155,7 +156,7 @@ export async function generateTemplatePdf(input: {
     }
   }
 
-  const outputDirectory = path.join(process.cwd(), "public", "storage", "documents");
+  const outputDirectory = path.join(getStorageRoot(), "documents");
   await mkdir(outputDirectory, { recursive: true });
 
   const fileName = `${input.documentNumber}.pdf`;

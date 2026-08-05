@@ -1,6 +1,7 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { BASE_DOCUMENT_TEMPLATE_HTML, TRANSPARENT_IMAGE_DATA_URL } from "./document-template-base";
+import { renderTemplateContent } from "./document-templates";
 import { getStorageRoot } from "./storage-paths";
 
 type ContractPdfInput = {
@@ -26,43 +27,46 @@ function parseDataUrl(signatureData: string) {
 }
 
 export async function generateContractPdf(input: ContractPdfInput) {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595, 842]);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const hasClientSignature = Boolean(input.signatureData && parseDataUrl(input.signatureData));
 
-  page.drawText("Mercer & Stellaria Insurance", {
-    x: 50,
-    y: 790,
-    size: 22,
-    font: fontBold,
-    color: rgb(0.06, 0.13, 0.26),
+  const renderedHtml = renderTemplateContent(BASE_DOCUMENT_TEMPLATE_HTML, {
+    document: {
+      type: "Contrat d'assurance",
+      reference: input.contractNumber,
+      section1: `Le présent contrat couvre la formule ${input.formulaName} pour ${input.clientName}. Date d'effet: ${input.effectiveDate}.`,
+      section2: `Prime hebdomadaire: ${input.weeklyPremium} $. Mode de signature: ${input.signatureMethod}.`,
+    },
+    issuer: {
+      department: "Contrats",
+      agentName: "Direction Mercer & Stellaria",
+    },
+    client: {
+      fullName: input.clientName,
+      entity: "Particulier",
+      phone: "N/A",
+      dossierNumber: input.contractNumber,
+    },
+    meta: {
+      city: "Los Santos",
+      date: input.effectiveDate,
+    },
+    signature: {
+      insurerLabel: "Cachet de l'entreprise et signature de l'agent",
+      clientLabel: hasClientSignature
+        ? "Signature client validée"
+        : "Précédé de la mention manuscrite \"Lu et approuvé\"",
+      insurerImage: TRANSPARENT_IMAGE_DATA_URL,
+      clientImage: input.signatureData || TRANSPARENT_IMAGE_DATA_URL,
+    },
   });
-
-  page.drawText(`Contrat: ${input.contractNumber}`, { x: 50, y: 750, size: 12, font });
-  page.drawText(`Client: ${input.clientName}`, { x: 50, y: 730, size: 12, font });
-  page.drawText(`Formule: ${input.formulaName}`, { x: 50, y: 710, size: 12, font });
-  page.drawText(`Prime hebdomadaire: ${input.weeklyPremium} $`, { x: 50, y: 690, size: 12, font });
-  page.drawText(`Date d'effet: ${input.effectiveDate}`, { x: 50, y: 670, size: 12, font });
-  page.drawText(`Methode signature: ${input.signatureMethod}`, { x: 50, y: 650, size: 12, font });
-
-  if (input.signatureData) {
-    const parsed = parseDataUrl(input.signatureData);
-    if (parsed) {
-      const image = parsed.mime === "png" ? await pdfDoc.embedPng(parsed.bytes) : await pdfDoc.embedJpg(parsed.bytes);
-      page.drawText("Signature client", { x: 50, y: 610, size: 11, font });
-      page.drawImage(image, { x: 50, y: 500, width: 200, height: 90 });
-    }
-  }
 
   const outputDirectory = path.join(getStorageRoot(), "contracts");
   await mkdir(outputDirectory, { recursive: true });
 
-  const fileName = `${input.contractNumber}.pdf`;
+  const fileName = `${input.contractNumber}.html`;
   const filePath = path.join(outputDirectory, fileName);
-  const pdfBytes = await pdfDoc.save();
 
-  await writeFile(filePath, pdfBytes);
+  await writeFile(filePath, renderedHtml, "utf-8");
 
   return `/storage/contracts/${fileName}`;
 }

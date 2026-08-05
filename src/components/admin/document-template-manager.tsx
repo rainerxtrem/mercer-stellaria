@@ -2,6 +2,7 @@
 
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { SignaturePad } from "@/components/signature/signature-pad";
+import { BASE_DOCUMENT_TEMPLATE_HTML, getDefaultTemplatePayload } from "@/lib/document-template-base";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type TemplateItem = {
@@ -95,8 +96,7 @@ const emptyTemplateForm = {
   name: "",
   slug: "",
   description: "",
-  content:
-    "Document {{document.type}}\n\nClient: {{client.fullName}}\nNuméro contrat: {{contract.number}}\n\nObjet:\n{{document.object}}\n\nFait le {{meta.date}}.",
+  content: BASE_DOCUMENT_TEMPLATE_HTML,
   isActive: true,
 };
 
@@ -115,12 +115,7 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
     clientId: "",
     contractId: "",
     payloadText: JSON.stringify(
-      {
-        client: { fullName: "Nom Client" },
-        contract: { number: "CTR-2026-0000" },
-        document: { type: "Attestation", object: "Détail du document" },
-        meta: { date: new Date().toLocaleDateString("fr-FR") },
-      },
+      getDefaultTemplatePayload(),
       null,
       2,
     ),

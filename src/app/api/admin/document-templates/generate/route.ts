@@ -1,11 +1,14 @@
 import { NotificationSeverity, NotificationType, SignatureMethod } from "@/generated/prisma/enums";
 import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { writeAuditLogSafe } from "@/lib/audit-log";
-import { generateTemplatePdf, renderTemplateContent } from "@/lib/document-templates";
+import { buildHtmlPreviewDocument, generateTemplatePdf, isHtmlTemplate, renderTemplateContent } from "@/lib/document-templates";
 import { buildNumber } from "@/lib/ids";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getStorageRoot } from "@/lib/storage-paths";
 import { requireRole } from "@/lib/server-auth";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -67,14 +70,26 @@ export async function POST(request: NextRequest) {
   const documentNumber = buildNumber("DOC");
   const renderedContent = renderTemplateContent(template.content, parsed.data.payload);
   const payloadSnapshot = parsed.data.payload as Prisma.InputJsonValue;
+  let pdfUrl = "";
 
-  const pdfUrl = await generateTemplatePdf({
-    documentNumber,
-    title: parsed.data.title,
-    content: renderedContent,
-    signatureMethod: parsed.data.signatureMethod,
-    signatureData: parsed.data.signatureData,
-  });
+  if (isHtmlTemplate(renderedContent)) {
+    const htmlDocument = buildHtmlPreviewDocument(renderedContent, parsed.data.title);
+    const outputDirectory = path.join(getStorageRoot(), "documents");
+    await mkdir(outputDirectory, { recursive: true });
+
+    const fileName = `${documentNumber}.html`;
+    const filePath = path.join(outputDirectory, fileName);
+    await writeFile(filePath, htmlDocument, "utf-8");
+    pdfUrl = `/storage/documents/${fileName}`;
+  } else {
+    pdfUrl = await generateTemplatePdf({
+      documentNumber,
+      title: parsed.data.title,
+      content: renderedContent,
+      signatureMethod: parsed.data.signatureMethod,
+      signatureData: parsed.data.signatureData,
+    });
+  }
 
   const generated = await prisma.generatedDocument.create({
     data: {

@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { BASE_DOCUMENT_TEMPLATE_HTML } from "@/lib/document-template-base";
 import { getStorageRoot } from "@/lib/storage-paths";
 
 type TemplatePayload = Record<string, unknown>;
@@ -41,6 +42,10 @@ export function renderTemplateContent(content: string, payload: TemplatePayload)
 export function buildHtmlPreviewDocument(content: string, title: string) {
   if (/<\s*html[\s>]/i.test(content)) {
     return content;
+  }
+
+  if (content.includes("{{document.section1}}") || content.includes("{{document.section2}}")) {
+    return BASE_DOCUMENT_TEMPLATE_HTML;
   }
 
   return `<!DOCTYPE html>

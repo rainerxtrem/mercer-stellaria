@@ -1,8 +1,12 @@
 import { SignatureMethod } from "@/generated/prisma/enums";
+import { buildHtmlPreviewDocument, isHtmlTemplate } from "@/lib/document-templates";
 import { buildNumber } from "@/lib/ids";
 import { generateTemplatePdf, renderTemplateContent } from "@/lib/document-templates";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/server-auth";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { getStorageRoot } from "@/lib/storage-paths";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -62,6 +66,24 @@ export async function POST(request: NextRequest) {
   const previewNumber = buildNumber("PREVIEW");
   const previewTitle = `${parsed.data.title} (prévisualisation)`;
 
+  if (isHtmlTemplate(rendered)) {
+    const htmlContent = buildHtmlPreviewDocument(rendered, previewTitle);
+    const outputDirectory = path.join(getStorageRoot(), "previews");
+    await mkdir(outputDirectory, { recursive: true });
+
+    const fileName = `${previewNumber}.html`;
+    const filePath = path.join(outputDirectory, fileName);
+    await writeFile(filePath, htmlContent, "utf-8");
+
+    return NextResponse.json({
+      data: {
+        previewUrl: `/storage/previews/${fileName}`,
+        renderedContent: rendered,
+        previewKind: "HTML",
+      },
+    });
+  }
+
   const previewUrl = await generateTemplatePdf({
     documentNumber: previewNumber,
     title: previewTitle,
@@ -72,5 +94,5 @@ export async function POST(request: NextRequest) {
     outputFileName: `${previewNumber}.pdf`,
   });
 
-  return NextResponse.json({ data: { previewUrl, renderedContent: rendered } });
+  return NextResponse.json({ data: { previewUrl, renderedContent: rendered, previewKind: "PDF" } });
 }

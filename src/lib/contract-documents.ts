@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getStorageRoot } from "@/lib/storage-paths";
+import { getStorageRoot } from "./storage-paths";
 
 type ContractPdfInput = {
   contractNumber: string;

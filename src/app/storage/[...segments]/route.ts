@@ -28,6 +28,10 @@ function detectContentType(fileName: string) {
     return "text/plain; charset=utf-8";
   }
 
+  if (extension === ".html") {
+    return "text/html; charset=utf-8";
+  }
+
   return "application/octet-stream";
 }
 

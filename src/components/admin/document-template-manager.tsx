@@ -39,6 +39,7 @@ type PendingTemplateCreate = {
   isActive: boolean;
   previewUrl?: string;
   renderedContent?: string;
+  previewKind?: "PDF" | "HTML";
 };
 
 type PendingDocumentGeneration = {
@@ -54,6 +55,7 @@ type PendingDocumentGeneration = {
   templateName: string;
   renderedContent: string;
   previewUrl?: string;
+  previewKind?: "PDF" | "HTML";
 };
 
 function getValueByPath(payload: Record<string, unknown>, rawPath: string) {
@@ -204,17 +206,19 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
     const previewJson = await previewResponse.json();
     const previewUrl = previewJson?.data?.previewUrl;
     const renderedContent = previewJson?.data?.renderedContent;
+    const previewKind = previewJson?.data?.previewKind;
 
     setPendingTemplateCreate({
       ...draft,
       previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
       renderedContent: typeof renderedContent === "string" ? renderedContent : undefined,
+      previewKind: previewKind === "HTML" ? "HTML" : "PDF",
     });
 
     if (typeof previewUrl === "string" && previewUrl) {
       const didOpen = openPreviewWindow(previewUrl);
       if (!didOpen) {
-        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le PDF de prévisualisation.");
+        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le visuel de prévisualisation.");
         return;
       }
     }
@@ -355,6 +359,7 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
     const previewJson = await previewResponse.json();
     const previewUrl = previewJson?.data?.previewUrl;
     const renderedContent = previewJson?.data?.renderedContent;
+    const previewKind = previewJson?.data?.previewKind;
 
     setPendingDocumentGeneration({
       request: {
@@ -369,12 +374,13 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       templateName: template.name,
       renderedContent: typeof renderedContent === "string" ? renderedContent : renderTemplatePreview(template.content, payload),
       previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
+      previewKind: previewKind === "HTML" ? "HTML" : "PDF",
     });
 
     if (typeof previewUrl === "string" && previewUrl) {
       const didOpen = openPreviewWindow(previewUrl);
       if (!didOpen) {
-        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le PDF de prévisualisation.");
+        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le visuel de prévisualisation.");
         return;
       }
     }
@@ -518,8 +524,11 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
                   rel="noreferrer"
                   className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
                 >
-                  Ouvrir le PDF de prévisualisation
+                  Ouvrir le visuel de prévisualisation
                 </a>
+              ) : null}
+              {pendingTemplateCreate.previewKind === "HTML" ? (
+                <p className="w-full text-xs text-ms-ink/65">Astuce: dans l'onglet d'aperçu, utilisez l'impression du navigateur pour un rendu PDF identique.</p>
               ) : null}
               <button
                 type="button"
@@ -622,8 +631,11 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
                   rel="noreferrer"
                   className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
                 >
-                  Ouvrir le PDF de prévisualisation
+                  Ouvrir le visuel de prévisualisation
                 </a>
+              ) : null}
+              {pendingDocumentGeneration.previewKind === "HTML" ? (
+                <p className="w-full text-xs text-ms-ink/65">Astuce: dans l'onglet d'aperçu, utilisez l'impression du navigateur pour un rendu PDF identique.</p>
               ) : null}
               <button
                 type="button"

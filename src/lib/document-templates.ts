@@ -5,6 +5,12 @@ import { getStorageRoot } from "@/lib/storage-paths";
 
 type TemplatePayload = Record<string, unknown>;
 
+const htmlTagRegex = /<\s*(html|head|body|style|table|div|section|article|p|h1|h2|h3|h4|h5|h6|ul|ol|li|header|footer)\b/i;
+
+export function isHtmlTemplate(content: string) {
+  return htmlTagRegex.test(content);
+}
+
 function getValueByPath(payload: TemplatePayload, rawPath: string) {
   const pathSegments = rawPath.split(".").filter(Boolean);
   let current: unknown = payload;
@@ -30,6 +36,72 @@ function getValueByPath(payload: TemplatePayload, rawPath: string) {
 
 export function renderTemplateContent(content: string, payload: TemplatePayload) {
   return content.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, token: string) => getValueByPath(payload, token));
+}
+
+export function buildHtmlPreviewDocument(content: string, title: string) {
+  if (/<\s*html[\s>]/i.test(content)) {
+    return content;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f4f6f8;
+      color: #1b2533;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    .sheet {
+      max-width: 840px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #dbe3ea;
+      border-radius: 10px;
+      padding: 28px;
+      box-shadow: 0 10px 35px rgba(15, 32, 67, 0.08);
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">${content}</div>
+</body>
+</html>`;
+}
+
+function decodeBasicHtmlEntities(content: string) {
+  return content
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function htmlToPdfText(content: string) {
+  const withBreaks = content
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\s*\/p\s*>/gi, "\n\n")
+    .replace(/<\s*\/div\s*>/gi, "\n")
+    .replace(/<\s*\/tr\s*>/gi, "\n")
+    .replace(/<\s*\/li\s*>/gi, "\n")
+    .replace(/<\s*\/h[1-6]\s*>/gi, "\n\n");
+
+  const withoutTags = withBreaks.replace(/<[^>]+>/g, " ");
+  const decoded = decodeBasicHtmlEntities(withoutTags);
+
+  return decoded
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function parseDataUrl(signatureData: string) {
@@ -95,6 +167,7 @@ export async function generateTemplatePdf(input: {
   outputBucket?: "documents" | "previews";
   outputFileName?: string;
 }) {
+  const pdfContent = isHtmlTemplate(input.content) ? htmlToPdfText(input.content) : input.content;
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -121,7 +194,7 @@ export async function generateTemplatePdf(input: {
 
   const contentBottom = drawWrappedText({
     page,
-    text: input.content,
+    text: pdfContent,
     x: 50,
     y: 710,
     maxWidth: 495,

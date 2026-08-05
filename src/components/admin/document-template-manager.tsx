@@ -44,6 +44,7 @@ const emptyTemplateForm = {
 export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerProps) {
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocumentItem[]>([]);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [generateForm, setGenerateForm] = useState({
     templateId: "",
@@ -229,6 +230,32 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
     await loadData();
   }
 
+  async function deleteGeneratedDocument(document: GeneratedDocumentItem) {
+    if (!window.confirm(`Supprimer le document ${document.documentNumber} ?`)) {
+      return;
+    }
+
+    setDeletingDocumentId(document.id);
+    try {
+      const response = await fetch("/api/admin/generated-documents", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: document.id }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        onStatus(payload?.error?.formErrors?.[0] ?? payload?.error ?? "Suppression du document impossible.");
+        return;
+      }
+
+      onStatus("Document supprimé.");
+      setGeneratedDocuments((prev) => prev.filter((item) => item.id !== document.id));
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  }
+
   return (
     <>
       <SectionBlock title="Modèles de documents" subtitle="Créer, modifier et activer les modèles direction">
@@ -359,7 +386,7 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
                 <th className="pb-3">Modèle</th>
                 <th className="pb-3">Client</th>
                 <th className="pb-3">Signature</th>
-                <th className="pb-3">PDF</th>
+                <th className="pb-3">Actions</th>
                 <th className="pb-3">Date</th>
               </tr>
             </thead>
@@ -372,7 +399,17 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
                   <td className="py-3">{doc.client?.fullName ?? "-"}</td>
                   <td className="py-3">{doc.signatureMethod ?? "-"}</td>
                   <td className="py-3">
-                    <a href={doc.pdfUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-ms-navy px-3 py-1.5 text-xs font-semibold text-white">Ouvrir</a>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a href={doc.pdfUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-ms-navy px-3 py-1.5 text-xs font-semibold text-white">Ouvrir</a>
+                      <button
+                        type="button"
+                        onClick={() => deleteGeneratedDocument(doc)}
+                        disabled={deletingDocumentId === doc.id}
+                        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingDocumentId === doc.id ? "Suppression..." : "Supprimer"}
+                      </button>
+                    </div>
                   </td>
                   <td className="py-3">{new Date(doc.createdAt).toLocaleString("fr-FR")}</td>
                 </tr>

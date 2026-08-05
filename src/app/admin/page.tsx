@@ -2,6 +2,7 @@
 
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { DocumentTemplateManager } from "@/components/admin/document-template-manager";
 import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
@@ -534,6 +535,8 @@ export default function AdminPage() {
             </table>
           </div>
         </SectionBlock>
+
+        <DocumentTemplateManager onStatus={setStatus} />
       </div>
     </main>
   );

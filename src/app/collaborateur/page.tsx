@@ -232,6 +232,7 @@ export default function CollaborateurPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("ALL");
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [openedContactConversationId, setOpenedContactConversationId] = useState<string | null>(null);
   const [contractProposalForm, setContractProposalForm] = useState<ContractProposalForm>({
     category: ContractCategory.HEALTH,
@@ -331,6 +332,38 @@ export default function CollaborateurPage() {
       void audio.play().catch(() => null);
     } catch {
       // Ignore audio errors (autoplay restrictions, unsupported format, etc.)
+    }
+  }
+
+  async function uploadAttachment(file: File, targetField: string, apply: (url: string) => void, scope: "claims" | "contact") {
+    setUploadingField(targetField);
+    try {
+      const formData = new FormData();
+      formData.append("scope", scope);
+      formData.append("file", file);
+
+      const response = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        setStatus(payload?.error ?? "Upload impossible.");
+        return;
+      }
+
+      const payload = await response.json();
+      const uploadedUrl = payload?.data?.publicUrl;
+      if (typeof uploadedUrl !== "string" || !uploadedUrl.trim()) {
+        setStatus("Aucun lien de fichier n'a été renvoyé.");
+        return;
+      }
+
+      apply(uploadedUrl);
+      setStatus("Pièce jointe uploadée.");
+    } finally {
+      setUploadingField(null);
     }
   }
 
@@ -1361,6 +1394,20 @@ export default function CollaborateurPage() {
                   placeholder="Lien document (optionnel)"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+
+                    void uploadAttachment(file, "collab-contact-message", (url) => setContactForm((prev) => ({ ...prev, documentLink: url })), "contact");
+                  }}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                {uploadingField === "collab-contact-message" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
                 <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                   Envoyer au client
                 </button>
@@ -1820,6 +1867,20 @@ export default function CollaborateurPage() {
                     placeholder="Lien document (optionnel)"
                     className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                   />
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) {
+                        return;
+                      }
+
+                      void uploadAttachment(file, "collab-claim-message", (url) => setMessageForm((prev) => ({ ...prev, documentLink: url })), "claims");
+                    }}
+                    className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                  />
+                  {uploadingField === "collab-claim-message" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
                   <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                     Envoyer au client
                   </button>

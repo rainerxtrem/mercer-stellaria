@@ -162,6 +162,7 @@ export default function ClientPage() {
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
   const [feedUnreadCount, setFeedUnreadCount] = useState(0);
   const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
   const [contactConversationId, setContactConversationId] = useState<string | null>(null);
   const contactMessageIdsRef = useRef<string[]>([]);
@@ -244,6 +245,37 @@ export default function ClientPage() {
     }
 
     return fallback;
+  }
+
+  async function uploadAttachment(file: File, targetField: string, apply: (url: string) => void, scope: "claims" | "contact") {
+    setUploadingField(targetField);
+    try {
+      const formData = new FormData();
+      formData.append("scope", scope);
+      formData.append("file", file);
+
+      const response = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        notifyError(await extractErrorMessage(response, "Upload impossible."));
+        return;
+      }
+
+      const payload = await response.json();
+      const uploadedUrl = payload?.data?.publicUrl;
+      if (typeof uploadedUrl !== "string" || !uploadedUrl.trim()) {
+        notifyError("Aucun lien de fichier n'a été renvoyé.");
+        return;
+      }
+
+      apply(uploadedUrl);
+      notifySuccess("Pièce jointe uploadée.");
+    } finally {
+      setUploadingField(null);
+    }
   }
 
   const overview = useMemo(() => {
@@ -983,6 +1015,20 @@ export default function ClientPage() {
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
               <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+
+                  void uploadAttachment(file, "claim-evidence", (url) => setClaimForm((prev) => ({ ...prev, evidenceLink: url })), "claims");
+                }}
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 text-sm"
+              />
+              {uploadingField === "claim-evidence" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
+              <input
                 value={claimForm.lspdReportLink}
                 onChange={(event) => setClaimForm((prev) => ({ ...prev, lspdReportLink: event.target.value }))}
                 placeholder="Lien plainte LSPD"
@@ -1100,6 +1146,20 @@ export default function ClientPage() {
                   placeholder="Lien document (optionnel)"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+
+                    void uploadAttachment(file, "contact-general-message", (url) => setContactForm((prev) => ({ ...prev, documentLink: url })), "contact");
+                  }}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                {uploadingField === "contact-general-message" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
                 <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                   Envoyer au conseiller
                 </button>
@@ -1234,6 +1294,20 @@ export default function ClientPage() {
                   className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
                 />
                 <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+
+                    void uploadAttachment(file, "claim-complement-evidence", (url) => setComplementForm((prev) => ({ ...prev, evidenceLink: url })), "claims");
+                  }}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 text-sm"
+                />
+                {uploadingField === "claim-complement-evidence" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
+                <input
                   value={complementForm.lspdReportLink}
                   onChange={(event) => setComplementForm((prev) => ({ ...prev, lspdReportLink: event.target.value }))}
                   placeholder="Lien plainte LSPD"
@@ -1311,6 +1385,20 @@ export default function ClientPage() {
                   placeholder="Lien document (optionnel)"
                   className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
                 />
+                <input
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+
+                    void uploadAttachment(file, "claim-thread-message", (url) => setMessageForm((prev) => ({ ...prev, documentLink: url })), "claims");
+                  }}
+                  className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                />
+                {uploadingField === "claim-thread-message" ? <p className="text-xs text-ms-navy-soft">Upload en cours...</p> : null}
                 <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                   Envoyer
                 </button>

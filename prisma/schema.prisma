@@ -119,6 +119,10 @@ model User {
   reviewedSubscriptionRequests SubscriptionRequest[] @relation("SubscriptionReviewer")
   appNotifications             AppNotification[]
   auditLogs                    AuditLog[] @relation("AuditActor")
+  createdDocumentTemplates     DocumentTemplate[] @relation("DocumentTemplateCreator")
+  updatedDocumentTemplates     DocumentTemplate[] @relation("DocumentTemplateUpdater")
+  generatedDocumentsCreated    GeneratedDocument[] @relation("GeneratedDocumentCreator")
+  generatedDocumentsAsClient   GeneratedDocument[] @relation("GeneratedDocumentClient")
 }
 
 model SubscriptionRequest {
@@ -168,6 +172,7 @@ model Contract {
   agent    User      @relation("AgentContracts", fields: [agentId], references: [id])
   invoices Invoice[]
   claims   Claim[]
+  generatedDocuments GeneratedDocument[]
 
   @@index([clientId])
   @@index([agentId])
@@ -313,4 +318,49 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, createdAt])
   @@index([actorId, createdAt])
+}
+
+model DocumentTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  content     String
+  isActive    Boolean  @default(true)
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation("DocumentTemplateCreator", fields: [createdById], references: [id])
+  updatedBy User @relation("DocumentTemplateUpdater", fields: [updatedById], references: [id])
+  generatedDocuments GeneratedDocument[]
+
+  @@index([isActive, createdAt])
+}
+
+model GeneratedDocument {
+  id              String          @id @default(uuid())
+  documentNumber  String          @unique
+  title           String
+  templateId      String
+  clientId        String?
+  contractId      String?
+  contentSnapshot String
+  payloadSnapshot Json?
+  signatureMethod SignatureMethod?
+  signatureData   String?
+  signedAt        DateTime?
+  pdfUrl          String
+  createdById     String
+  createdAt       DateTime        @default(now())
+
+  template  DocumentTemplate @relation(fields: [templateId], references: [id])
+  creator   User             @relation("GeneratedDocumentCreator", fields: [createdById], references: [id])
+  client    User?            @relation("GeneratedDocumentClient", fields: [clientId], references: [id])
+  contract  Contract?        @relation(fields: [contractId], references: [id])
+
+  @@index([templateId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([createdById, createdAt])
 }

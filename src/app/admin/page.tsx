@@ -43,6 +43,25 @@ type AccessUser = {
   discordHandle: string | null;
 };
 
+type AppNotification = {
+  id: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
+type AuditItem = {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  createdAt: string;
+  actorRole: string | null;
+  actor: { id: string; fullName: string; email: string } | null;
+};
+
 export default function AdminPage() {
   const { data: session } = useSession();
   const isOwner = Boolean(session?.user?.isOwner);
@@ -52,6 +71,9 @@ export default function AdminPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
+  const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
+  const [feedUnreadCount, setFeedUnreadCount] = useState(0);
+  const [auditTrail, setAuditTrail] = useState<AuditItem[]>([]);
   const [teamForm, setTeamForm] = useState({ userId: "", fullName: "", email: "" });
   const [accessForm, setAccessForm] = useState({ userId: "", role: "COLLABORATOR" as AccessUser["role"], isActive: true });
 
@@ -73,11 +95,13 @@ export default function AdminPage() {
   }, [contracts]);
 
   async function loadData() {
-    const [kpiRes, teamRes, claimsRes, contractsRes] = await Promise.all([
+    const [kpiRes, teamRes, claimsRes, contractsRes, notificationsRes, auditRes] = await Promise.all([
       fetch("/api/admin/kpis"),
       fetch("/api/admin/team"),
       fetch("/api/claims"),
       fetch("/api/contracts"),
+      fetch("/api/notifications"),
+      fetch("/api/admin/audit"),
     ]);
 
     if (kpiRes.ok) {
@@ -98,6 +122,17 @@ export default function AdminPage() {
     if (contractsRes.ok) {
       const json = await contractsRes.json();
       setContracts(json.data ?? []);
+    }
+
+    if (notificationsRes.ok) {
+      const json = await notificationsRes.json();
+      setNotificationFeed(Array.isArray(json?.data?.notifications) ? json.data.notifications : []);
+      setFeedUnreadCount(Number(json?.data?.feedUnreadCount ?? 0));
+    }
+
+    if (auditRes.ok) {
+      const json = await auditRes.json();
+      setAuditTrail(json.data ?? []);
     }
 
     if (isOwner) {
@@ -211,11 +246,28 @@ export default function AdminPage() {
     await loadData();
   }
 
+  async function markNotificationsAsRead() {
+    const response = await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    });
+
+    if (!response.ok) {
+      setStatus("Impossible de marquer les notifications comme lues.");
+      return;
+    }
+
+    setNotificationFeed((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setFeedUnreadCount(0);
+    setStatus("Notifications marquées comme lues.");
+  }
+
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
       <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
-          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
+          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
               <div className="flex items-start justify-between gap-3">
                 <p>{status}</p>
@@ -330,6 +382,54 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </SectionBlock>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <SectionBlock
+            title="Centre notifications"
+            subtitle="Alertes opérationnelles et suivi quotidien"
+            actions={
+              <button
+                type="button"
+                className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+                onClick={() => void markNotificationsAsRead()}
+              >
+                Tout marquer lu ({feedUnreadCount})
+              </button>
+            }
+          >
+            <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+              {notificationFeed.length === 0 ? (
+                <p className="text-sm text-ms-ink/65">Aucune notification disponible.</p>
+              ) : (
+                notificationFeed.slice(0, 10).map((item) => (
+                  <article key={item.id} className={`rounded-lg border p-3 ${item.isRead ? "border-ms-navy/10 bg-ms-cream/40" : "border-ms-gold/35 bg-ms-gold/10"}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.title}</p>
+                    <p className="mt-1 text-sm text-ms-ink/85">{item.body}</p>
+                    <p className="mt-1 text-xs text-ms-ink/60">{new Date(item.createdAt).toLocaleString("fr-FR")}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </SectionBlock>
+
+          <SectionBlock title="Journal d'audit" subtitle="Traçabilité des actions sensibles">
+            <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+              {auditTrail.length === 0 ? (
+                <p className="text-sm text-ms-ink/65">Aucune entrée d'audit.</p>
+              ) : (
+                auditTrail.slice(0, 15).map((item) => (
+                  <article key={item.id} className="rounded-lg border border-ms-navy/10 bg-ms-cream/40 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.action}</p>
+                    <p className="mt-1 text-sm text-ms-ink/85">{item.summary}</p>
+                    <p className="mt-1 text-xs text-ms-ink/60">
+                      {new Date(item.createdAt).toLocaleString("fr-FR")} · {item.actor?.fullName ?? "Système"}
+                    </p>
+                  </article>
+                ))
+              )}
             </div>
           </SectionBlock>
         </section>

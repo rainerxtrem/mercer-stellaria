@@ -2,6 +2,7 @@ import { UserRole } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 function isCounselor(role: UserRole | "PUBLIC") {
   return role === "COLLABORATOR" || role === "ADMIN";
@@ -86,10 +87,28 @@ export async function GET() {
       return hasUnreadContact || hasUnreadClaimMessage;
     });
 
+    const notifications = await prisma.appNotification.findMany({
+      where: { recipientId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        type: true,
+        severity: true,
+        title: true,
+        body: true,
+        link: true,
+        isRead: true,
+        createdAt: true,
+      },
+    });
+
     return NextResponse.json({
       data: {
         hasUnread: unreadClients.length > 0,
         unreadClientIds: unreadClients.map((client) => client.id),
+        feedUnreadCount: notifications.filter((item) => !item.isRead).length,
+        notifications,
       },
     });
   }
@@ -157,11 +176,77 @@ export async function GET() {
     return latestStaffMessage.createdAt.getTime() > claim.clientLastReadAt.getTime();
   });
 
+  const notifications = await prisma.appNotification.findMany({
+    where: { recipientId: clientId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      type: true,
+      severity: true,
+      title: true,
+      body: true,
+      link: true,
+      isRead: true,
+      createdAt: true,
+    },
+  });
+
   return NextResponse.json({
     data: {
       hasUnread: unreadContact || unreadClaims.length > 0,
       unreadContact,
       unreadClaimsCount: unreadClaims.length,
+      feedUnreadCount: notifications.filter((item) => !item.isRead).length,
+      notifications,
     },
   });
+}
+
+const markNotificationSchema = z.object({
+  notificationId: z.string().uuid().optional(),
+  markAll: z.boolean().optional(),
+});
+
+export async function PATCH(request: Request) {
+  const user = await getCurrentUser();
+  if (!user || user.role === "PUBLIC") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const parsed = markNotificationSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  if (parsed.data.markAll) {
+    await prisma.appNotification.updateMany({
+      where: { recipientId: user.id, isRead: false },
+      data: { isRead: true, readAt: new Date() },
+    });
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (!parsed.data.notificationId) {
+    return NextResponse.json({ error: "notificationId requis." }, { status: 400 });
+  }
+
+  const target = await prisma.appNotification.findUnique({
+    where: { id: parsed.data.notificationId },
+    select: { id: true, recipientId: true },
+  });
+
+  if (!target || target.recipientId !== user.id) {
+    return NextResponse.json({ error: "Notification introuvable." }, { status: 404 });
+  }
+
+  await prisma.appNotification.update({
+    where: { id: target.id },
+    data: { isRead: true, readAt: new Date() },
+  });
+
+  return NextResponse.json({ success: true });
 }

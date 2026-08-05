@@ -1,4 +1,7 @@
 import { ContractCategory, SubscriptionRequestStatus, SubscriptionRequestType } from "@/generated/prisma/enums";
+import { NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildNumber } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
@@ -75,6 +78,31 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: user.id,
+      type: NotificationType.REQUEST,
+      severity: NotificationSeverity.INFO,
+      title: "Demande enregistrée",
+      body: `La demande ${created.requestNumber} a bien été envoyée.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "SUBSCRIPTION_REQUEST_CREATED",
+      entityType: "SubscriptionRequest",
+      entityId: created.id,
+      summary: `Demande ${created.requestNumber} créée`,
+      details: {
+        type: created.type,
+        requestedCategory: created.requestedCategory,
+        requestedFormula: created.requestedFormula,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
+
   return NextResponse.json({ data: created }, { status: 201 });
 }
 
@@ -106,6 +134,31 @@ export async function PATCH(request: NextRequest) {
       reviewedAt: new Date(),
     },
   });
+
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: existing.clientId,
+      type: NotificationType.REQUEST,
+      severity: parsed.data.status === SubscriptionRequestStatus.REJECTED ? NotificationSeverity.WARNING : NotificationSeverity.INFO,
+      title: "Mise à jour de demande",
+      body: `Votre demande ${existing.requestNumber} est désormais au statut ${updated.status}.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "SUBSCRIPTION_REQUEST_UPDATED",
+      entityType: "SubscriptionRequest",
+      entityId: updated.id,
+      summary: `Demande ${existing.requestNumber} mise à jour vers ${updated.status}`,
+      details: {
+        previousStatus: existing.status,
+        nextStatus: updated.status,
+        advisorValidated: updated.advisorValidated,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
 
   return NextResponse.json({ data: updated });
 }

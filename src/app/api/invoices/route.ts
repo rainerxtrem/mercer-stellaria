@@ -1,4 +1,6 @@
-import { InvoiceStatus } from "@/generated/prisma/enums";
+import { InvoiceStatus, NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -104,6 +106,54 @@ export async function PATCH(request: NextRequest) {
       paidAt,
       reminderSentAt,
     },
+  });
+
+  if (parsed.data.action === "mark_paid") {
+    await createAppNotificationSafe({
+      recipientId: invoice.clientId,
+      type: NotificationType.BILLING,
+      severity: NotificationSeverity.SUCCESS,
+      title: "Facture réglée",
+      body: `La facture ${invoice.invoiceNumber} est marquée comme payée.`,
+      link: "/client",
+    });
+  }
+
+  if (parsed.data.action === "mark_late") {
+    await createAppNotificationSafe({
+      recipientId: invoice.clientId,
+      type: NotificationType.BILLING,
+      severity: NotificationSeverity.WARNING,
+      title: "Facture en retard",
+      body: `La facture ${invoice.invoiceNumber} est désormais en retard.`,
+      link: "/client",
+    });
+  }
+
+  if (parsed.data.action === "send_reminder") {
+    await createAppNotificationSafe({
+      recipientId: invoice.clientId,
+      type: NotificationType.BILLING,
+      severity: NotificationSeverity.INFO,
+      title: "Rappel de paiement",
+      body: `Un rappel a été envoyé pour la facture ${invoice.invoiceNumber}.`,
+      link: "/client",
+    });
+  }
+
+  await writeAuditLogSafe({
+    actorId: user.id,
+    actorRole: user.role,
+    action: `INVOICE_${parsed.data.action.toUpperCase()}`,
+    entityType: "Invoice",
+    entityId: invoice.id,
+    summary: `Action ${parsed.data.action} sur facture ${invoice.invoiceNumber}`,
+    details: {
+      status: updated.status,
+      amount: updated.amount,
+      dueDate: updated.dueDate.toISOString(),
+    },
+    ipAddress: request.headers.get("x-forwarded-for"),
   });
 
   return NextResponse.json({ data: updated });

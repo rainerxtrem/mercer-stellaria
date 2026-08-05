@@ -1,13 +1,16 @@
-import { UserRole } from "@/generated/prisma/enums";
+import { NotificationSeverity, NotificationType, UserRole } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
+import { optionalHttpUrlSchema } from "@/lib/url-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const createMessageSchema = z.object({
   claimId: z.string().uuid(),
   body: z.string().min(2),
-  documentLink: z.string().optional().or(z.literal("")),
+  documentLink: optionalHttpUrlSchema,
 });
 
 function canReviewClaim(userRole: UserRole | "PUBLIC") {
@@ -144,6 +147,32 @@ export async function POST(request: NextRequest) {
     } else {
       await prisma.claim.update({ where: { id: parsed.data.claimId }, data: { clientLastReadAt: new Date() } });
     }
+
+    const recipientId = canReviewClaim(user.role) ? claim.clientId : null;
+    if (recipientId) {
+      await createAppNotificationSafe({
+        recipientId,
+        type: NotificationType.MESSAGE,
+        severity: NotificationSeverity.INFO,
+        title: "Nouveau message dossier",
+        body: `Un nouveau message est disponible dans le dossier ${claim.id}.`,
+        link: "/client",
+      });
+    }
+
+    await writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "CLAIM_MESSAGE_SENT",
+      entityType: "ClaimMessage",
+      entityId: message.id,
+      summary: `Message envoyé sur dossier ${claim.id}`,
+      details: {
+        claimId: claim.id,
+        senderRole: user.role,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    });
 
     return NextResponse.json({ data: message }, { status: 201 });
   } catch (error) {

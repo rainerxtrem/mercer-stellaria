@@ -1,4 +1,7 @@
 import { SignatureMethod, ContractStatus } from "@/generated/prisma/enums";
+import { NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { generateContractPdf } from "@/lib/contract-documents";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
@@ -62,6 +65,37 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       pdfUrl,
     },
   });
+
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: contract.clientId,
+      type: NotificationType.CONTRACT,
+      severity: NotificationSeverity.SUCCESS,
+      title: "Contrat activé",
+      body: `Le contrat ${contract.contractNumber} est signé et actif.`,
+      link: "/client",
+    }),
+    createAppNotificationSafe({
+      recipientId: contract.agentId,
+      type: NotificationType.CONTRACT,
+      severity: NotificationSeverity.SUCCESS,
+      title: "Contrat signé par le client",
+      body: `${contract.client.fullName} a signé le contrat ${contract.contractNumber}.`,
+      link: "/collaborateur",
+    }),
+    writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "CONTRACT_SIGNED",
+      entityType: "Contract",
+      entityId: contract.id,
+      summary: `Contrat ${contract.contractNumber} signé`,
+      details: {
+        method: parsed.data.method,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
 
   return NextResponse.json({ data: updated });
 }

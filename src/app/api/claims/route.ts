@@ -1,8 +1,11 @@
-import { ClaimStatus } from "@/generated/prisma/enums";
+import { ClaimStatus, NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildNumber } from "@/lib/ids";
 import { toNumber } from "@/lib/parsers";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
+import { optionalHttpUrlSchema } from "@/lib/url-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -10,8 +13,8 @@ const createClaimSchema = z.object({
   contractId: z.string().uuid().optional(),
   incidentType: z.string().min(2),
   description: z.string().min(5),
-  evidenceLink: z.string().optional().or(z.literal("")),
-  lspdReportLink: z.string().optional().or(z.literal("")),
+  evidenceLink: optionalHttpUrlSchema,
+  lspdReportLink: optionalHttpUrlSchema,
   incidentDate: z.string().min(1),
   requestedAmount: z.union([z.number(), z.string()]).optional(),
 });
@@ -34,8 +37,8 @@ const complementClaimSchema = z.object({
   claimId: z.string().uuid(),
   incidentType: z.string().min(2),
   description: z.string().min(5),
-  evidenceLink: z.string().optional().or(z.literal("")),
-  lspdReportLink: z.string().optional().or(z.literal("")),
+  evidenceLink: optionalHttpUrlSchema,
+  lspdReportLink: optionalHttpUrlSchema,
   incidentDate: z.string().min(1),
   requestedAmount: z.union([z.number(), z.string()]).optional(),
 });
@@ -97,6 +100,30 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: user.id,
+      type: NotificationType.CLAIM,
+      severity: NotificationSeverity.SUCCESS,
+      title: "Sinistre déclaré",
+      body: `Votre dossier ${claim.claimNumber} a bien été enregistré.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "CLAIM_CREATED",
+      entityType: "Claim",
+      entityId: claim.id,
+      summary: `Sinistre ${claim.claimNumber} créé`,
+      details: {
+        incidentType: claim.incidentType,
+        requestedAmount: claim.requestedAmount,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
+
   return NextResponse.json({ data: claim }, { status: 201 });
 }
 
@@ -157,6 +184,31 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    await Promise.all([
+      createAppNotificationSafe({
+        recipientId: existing.clientId,
+        type: NotificationType.CLAIM,
+        severity: parsed.data.status === ClaimStatus.REJECTED ? NotificationSeverity.WARNING : NotificationSeverity.INFO,
+        title: "Mise à jour sinistre",
+        body: `Votre dossier ${updated.claimNumber} est maintenant au statut ${updated.status}.`,
+        link: "/client",
+      }),
+      writeAuditLogSafe({
+        actorId: user.id,
+        actorRole: user.role,
+        action: "CLAIM_STATUS_UPDATED",
+        entityType: "Claim",
+        entityId: updated.id,
+        summary: `Sinistre ${updated.claimNumber} mis à jour vers ${updated.status}`,
+        details: {
+          previousStatus: existing.status,
+          nextStatus: updated.status,
+          approvedAmount: updated.approvedAmount,
+        },
+        ipAddress: request.headers.get("x-forwarded-for"),
+      }),
+    ]);
+
     if (parsed.data.status === ClaimStatus.WAITING_DETAILS && process.env.DISCORD_WEBHOOK_URL) {
       const target = existing.client.discordHandle ?? existing.client.email ?? existing.client.fullName;
       await fetch(process.env.DISCORD_WEBHOOK_URL, {
@@ -208,6 +260,26 @@ export async function PATCH(request: NextRequest) {
       reimbursedAt: null,
     },
   });
+
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: user.id,
+      type: NotificationType.CLAIM,
+      severity: NotificationSeverity.INFO,
+      title: "Compléments envoyés",
+      body: `Les informations du dossier ${updated.claimNumber} ont été transmises au conseiller.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "CLAIM_COMPLEMENT_SUBMITTED",
+      entityType: "Claim",
+      entityId: updated.id,
+      summary: `Compléments envoyés pour ${updated.claimNumber}`,
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
 
   return NextResponse.json({ data: updated });
 }

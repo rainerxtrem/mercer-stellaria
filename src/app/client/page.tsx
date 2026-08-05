@@ -74,6 +74,17 @@ type ContactMessage = {
   createdAt: string;
 };
 
+type AppNotification = {
+  id: string;
+  type: string;
+  severity: "INFO" | "SUCCESS" | "WARNING" | "ERROR";
+  title: string;
+  body: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+};
+
 type ClientTab = "OVERVIEW" | "CONTRACTS" | "CLAIMS" | "MESSAGES" | "REQUESTS" | "BILLING";
 
 const clientTabs: Array<{ id: ClientTab; label: string }> = [
@@ -101,6 +112,34 @@ function formatSenderRole(role: string) {
   return role;
 }
 
+function getClaimJourney(status: string) {
+  if (status === "SUBMITTED") {
+    return { step: "1/5 Déclaration reçue", nextAction: "Aucune action requise. Analyse conseiller en cours." };
+  }
+
+  if (status === "UNDER_REVIEW") {
+    return { step: "2/5 Analyse en cours", nextAction: "Aucune action requise. Préparez les pièces justificatives si demandées." };
+  }
+
+  if (status === "WAITING_DETAILS") {
+    return { step: "3/5 Compléments demandés", nextAction: "Ouvrez le dossier et envoyez les compléments demandés." };
+  }
+
+  if (status === "APPROVED") {
+    return { step: "4/5 Validé", nextAction: "Suivez le remboursement et la facturation associée." };
+  }
+
+  if (status === "PAID") {
+    return { step: "5/5 Remboursé", nextAction: "Dossier clôturé. Historique disponible." };
+  }
+
+  if (status === "REJECTED") {
+    return { step: "Décision rendue", nextAction: "Contactez un conseiller pour comprendre la décision." };
+  }
+
+  return { step: "En cours", nextAction: "Consultez le dossier pour les prochaines actions." };
+}
+
 export default function ClientPage() {
   const { data: session } = useSession();
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -121,6 +160,8 @@ export default function ClientPage() {
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
   const [hasUnreadAdvisorMessage, setHasUnreadAdvisorMessage] = useState(false);
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
+  const [feedUnreadCount, setFeedUnreadCount] = useState(0);
+  const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
   const [contactConversationId, setContactConversationId] = useState<string | null>(null);
   const contactMessageIdsRef = useRef<string[]>([]);
@@ -270,6 +311,8 @@ export default function ClientPage() {
       const json = await notificationsRes.json();
       setHasUnreadAdvisorMessage(Boolean(json?.data?.hasUnread));
       setUnreadAdvisorClaimsCount(Number(json?.data?.unreadClaimsCount ?? 0));
+      setFeedUnreadCount(Number(json?.data?.feedUnreadCount ?? 0));
+      setNotificationFeed(Array.isArray(json?.data?.notifications) ? json.data.notifications : []);
     }
 
     setLoading(false);
@@ -288,6 +331,23 @@ export default function ClientPage() {
     const timeout = window.setTimeout(() => setToast(null), 4500);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  async function markNotificationsAsRead() {
+    const response = await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    });
+
+    if (!response.ok) {
+      notifyError("Impossible de marquer les notifications comme lues.");
+      return;
+    }
+
+    setNotificationFeed((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setFeedUnreadCount(0);
+    notifySuccess("Notifications marquées comme lues.");
+  }
 
   useEffect(() => {
     if (activeTab !== "MESSAGES") {
@@ -573,7 +633,7 @@ export default function ClientPage() {
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
       <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {toast ? (
-          <div className="fixed right-5 top-5 z-[70] w-full max-w-sm">
+          <div className="fixed right-5 top-5 z-[70] w-full max-w-sm" aria-live="polite">
             <div
               className={`rounded-xl border px-4 py-3 text-sm font-semibold shadow-lg ${
                 toast.tone === "success"
@@ -671,6 +731,34 @@ export default function ClientPage() {
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("MESSAGES")}>Contacter un conseiller</button>
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("CONTRACTS")}>Contrats</button>
                   <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("BILLING")}>Facturation</button>
+                </div>
+              </SectionBlock>
+
+              <SectionBlock
+                title="Centre notifications"
+                subtitle="Contrats, factures, messages et suivi"
+                actions={
+                  <button
+                    type="button"
+                    className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+                    onClick={() => void markNotificationsAsRead()}
+                  >
+                    Tout marquer lu ({feedUnreadCount})
+                  </button>
+                }
+              >
+                <div className="max-h-60 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+                  {notificationFeed.length === 0 ? (
+                    <p className="text-sm text-ms-ink/65">Aucune notification pour le moment.</p>
+                  ) : (
+                    notificationFeed.slice(0, 8).map((item) => (
+                      <article key={item.id} className={`rounded-lg border p-3 ${item.isRead ? "border-ms-navy/10 bg-ms-cream/40" : "border-ms-gold/35 bg-ms-gold/10"}`}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.title}</p>
+                        <p className="mt-1 text-sm text-ms-ink/85">{item.body}</p>
+                        <p className="mt-1 text-xs text-ms-ink/60">{new Date(item.createdAt).toLocaleString("fr-FR")}</p>
+                      </article>
+                    ))
+                  )}
                 </div>
               </SectionBlock>
             </section>
@@ -912,6 +1000,8 @@ export default function ClientPage() {
                       <th className="pb-3">Numéro</th>
                       <th className="pb-3">Type</th>
                       <th className="pb-3">Statut</th>
+                      <th className="pb-3">Étape</th>
+                      <th className="pb-3">Prochaine action</th>
                       <th className="pb-3">Montant demandé</th>
                       <th className="pb-3">Date</th>
                       <th className="pb-3">Action</th>
@@ -919,10 +1009,15 @@ export default function ClientPage() {
                   </thead>
                   <tbody className="text-ms-ink/85">
                     {claims.map((claim) => (
+                      (() => {
+                        const journey = getClaimJourney(claim.status);
+                        return (
                       <tr key={claim.id} className="border-t border-ms-navy/10">
                         <td className="py-3">{claim.claimNumber}</td>
                         <td className="py-3">{claim.incidentType}</td>
                         <td className="py-3"><StatusBadge {...getClaimStatusLabel(claim.status)} /></td>
+                        <td className="py-3 text-xs font-semibold text-ms-navy">{journey.step}</td>
+                        <td className="py-3 text-xs text-ms-ink/75">{journey.nextAction}</td>
                         <td className="py-3">{claim.requestedAmount ?? "-"}</td>
                         <td className="py-3">{new Date(claim.declaredAt).toLocaleDateString("fr-FR")}</td>
                         <td className="py-3">
@@ -954,6 +1049,8 @@ export default function ClientPage() {
                           )}
                         </td>
                       </tr>
+                        );
+                      })()
                     ))}
                   </tbody>
                 </table>

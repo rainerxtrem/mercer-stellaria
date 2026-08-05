@@ -66,6 +66,17 @@ type ContactMessage = {
   createdAt: string;
 };
 
+type AppNotification = {
+  id: string;
+  type: string;
+  severity: "INFO" | "SUCCESS" | "WARNING" | "ERROR";
+  title: string;
+  body: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+};
+
 type SubscriptionRequest = {
   id: string;
   requestNumber: string;
@@ -216,6 +227,11 @@ export default function CollaborateurPage() {
   const [openConversationClients, setOpenConversationClients] = useState<Client[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [liveUnreadClientIds, setLiveUnreadClientIds] = useState<string[]>([]);
+  const [feedUnreadCount, setFeedUnreadCount] = useState(0);
+  const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [riskFilter, setRiskFilter] = useState("ALL");
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
   const [openedContactConversationId, setOpenedContactConversationId] = useState<string | null>(null);
   const [contractProposalForm, setContractProposalForm] = useState<ContractProposalForm>({
     category: ContractCategory.HEALTH,
@@ -278,6 +294,32 @@ export default function CollaborateurPage() {
     });
   }, [clients, contactSearch, openConversationClients]);
 
+  const filteredClientRows = useMemo(() => {
+    const normalizedQuery = clientSearch.trim().toLowerCase();
+
+    return clients.filter((client) => {
+      if (showArchivedOnly && !client.isArchived) {
+        return false;
+      }
+
+      if (!showArchivedOnly && client.isArchived) {
+        return false;
+      }
+
+      if (riskFilter !== "ALL" && (client.riskLabel ?? "NON_EVALUE") !== riskFilter) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [client.firstName, client.lastName, client.fullName, client.email, client.phone]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+  }, [clients, clientSearch, riskFilter, showArchivedOnly]);
+
   function playNewContactMessageSound() {
     try {
       if (!newContactMessageAudioRef.current) {
@@ -335,6 +377,25 @@ export default function CollaborateurPage() {
     const payload = await response.json();
     const unreadClientIds = Array.isArray(payload?.data?.unreadClientIds) ? payload.data.unreadClientIds : [];
     setLiveUnreadClientIds(unreadClientIds);
+    setFeedUnreadCount(Number(payload?.data?.feedUnreadCount ?? 0));
+    setNotificationFeed(Array.isArray(payload?.data?.notifications) ? payload.data.notifications : []);
+  }
+
+  async function markNotificationsAsRead() {
+    const response = await fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markAll: true }),
+    });
+
+    if (!response.ok) {
+      setStatus("Impossible de marquer les notifications comme lues.");
+      return;
+    }
+
+    setNotificationFeed((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setFeedUnreadCount(0);
+    setStatus("Notifications marquées comme lues.");
   }
 
   useEffect(() => {
@@ -857,7 +918,7 @@ export default function CollaborateurPage() {
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
       <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
-          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
+          <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
               <div className="flex items-start justify-between gap-3">
                 <p>{status}</p>
@@ -909,9 +970,63 @@ export default function CollaborateurPage() {
           </div>
         ) : null}
 
+        <SectionBlock
+          title="Centre notifications"
+          subtitle="Messages, contrats, sinistres et facturation"
+          actions={
+            <button
+              type="button"
+              className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+              onClick={() => void markNotificationsAsRead()}
+            >
+              Tout marquer lu ({feedUnreadCount})
+            </button>
+          }
+        >
+          <div className="max-h-56 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+            {notificationFeed.length === 0 ? (
+              <p className="text-sm text-ms-ink/65">Aucune notification pour le moment.</p>
+            ) : (
+              notificationFeed.slice(0, 10).map((item) => (
+                <article key={item.id} className={`rounded-lg border p-3 ${item.isRead ? "border-ms-navy/10 bg-ms-cream/40" : "border-ms-gold/35 bg-ms-gold/10"}`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.title}</p>
+                  <p className="mt-1 text-sm text-ms-ink/85">{item.body}</p>
+                  <p className="mt-1 text-xs text-ms-ink/60">{new Date(item.createdAt).toLocaleString("fr-FR")}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </SectionBlock>
+
         <div className="tab-panel">
         {activeTab === "CLIENTS" ? (
         <SectionBlock title="Fiches clients" subtitle="Ouverture des dossiers individuels et archivage sans suppression">
+          <div className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 md:grid-cols-3">
+            <input
+              value={clientSearch}
+              onChange={(event) => setClientSearch(event.target.value)}
+              placeholder="Recherche nom, email, téléphone"
+              className="rounded-xl border border-ms-navy/15 bg-ms-pearl px-3 py-2 text-sm"
+            />
+            <select
+              value={riskFilter}
+              onChange={(event) => setRiskFilter(event.target.value)}
+              className="rounded-xl border border-ms-navy/15 bg-ms-pearl px-3 py-2 text-sm"
+            >
+              <option value="ALL">Tous risques</option>
+              <option value="NON_EVALUE">Non évalué</option>
+              <option value="FAIBLE">Faible</option>
+              <option value="MODERE">Modéré</option>
+              <option value="ELEVE">Élevé</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowArchivedOnly((prev) => !prev)}
+              className={`rounded-xl px-3 py-2 text-sm font-semibold ${showArchivedOnly ? "bg-ms-navy text-white" : "border border-ms-navy/20 text-ms-navy"}`}
+            >
+              {showArchivedOnly ? "Voir actifs" : "Voir archivés"}
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="text-ms-navy-soft">
@@ -927,14 +1042,14 @@ export default function CollaborateurPage() {
                 </tr>
               </thead>
               <tbody className="text-ms-ink/85">
-                {clients.length === 0 ? (
+                {filteredClientRows.length === 0 ? (
                   <tr>
                     <td className="py-5 text-sm text-ms-ink/70" colSpan={8}>
-                      Aucun assuré visible pour le moment. Tous les comptes métiers apparaissent ici automatiquement après connexion.
+                      Aucun dossier ne correspond aux filtres actuels.
                     </td>
                   </tr>
                 ) : (
-                  clients.map((client) => (
+                  filteredClientRows.map((client) => (
                     <tr key={client.id} className="border-t border-ms-navy/10">
                       <td className="py-3">{client.firstName ?? "Non renseigné"}</td>
                       <td className="py-3">{client.lastName ?? client.fullName}</td>

@@ -1,13 +1,16 @@
-import { UserRole } from "@/generated/prisma/enums";
+import { NotificationSeverity, NotificationType, UserRole } from "@/generated/prisma/enums";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
+import { optionalHttpUrlSchema } from "@/lib/url-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const createContactMessageSchema = z.object({
   clientId: z.string().uuid().optional(),
   body: z.string().min(2),
-  documentLink: z.string().optional().or(z.literal("")),
+  documentLink: optionalHttpUrlSchema,
 });
 
 function isCounselor(role: UserRole | "PUBLIC") {
@@ -295,6 +298,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const recipientId = isCounselor(persistedUser.role) ? finalTargetClientId : null;
+    if (recipientId) {
+      await createAppNotificationSafe({
+        recipientId,
+        type: NotificationType.MESSAGE,
+        severity: NotificationSeverity.INFO,
+        title: "Nouveau message conseiller",
+        body: "Un conseiller a répondu à votre conversation de contact.",
+        link: "/client",
+      });
+    }
+
+    await writeAuditLogSafe({
+      actorId: persistedUser.id,
+      actorRole: persistedUser.role,
+      action: "CONTACT_MESSAGE_SENT",
+      entityType: "ContactMessage",
+      entityId: message.id,
+      summary: `Message contact envoyé pour le client ${finalTargetClientId}`,
+      details: {
+        conversationId,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    });
+
     return NextResponse.json({ data: message, meta: { conversationId } }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -354,6 +382,26 @@ export async function DELETE(request: NextRequest) {
         staffArchivedAt: new Date(),
       },
     });
+
+    await Promise.all([
+      createAppNotificationSafe({
+        recipientId: resolvedTarget.clientId,
+        type: NotificationType.MESSAGE,
+        severity: NotificationSeverity.WARNING,
+        title: "Discussion clôturée",
+        body: "La discussion avec votre conseiller a été clôturée.",
+        link: "/client",
+      }),
+      writeAuditLogSafe({
+        actorId: persistedUser.id,
+        actorRole: persistedUser.role,
+        action: "CONTACT_CONVERSATION_CLOSED",
+        entityType: "ContactConversationState",
+        entityId: resolvedTarget.clientId,
+        summary: `Discussion contact clôturée pour le client ${resolvedTarget.clientId}`,
+        ipAddress: request.headers.get("x-forwarded-for"),
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

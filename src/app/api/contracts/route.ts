@@ -1,5 +1,7 @@
-import { ContractCategory, ContractStatus } from "@/generated/prisma/enums";
+import { ContractCategory, ContractStatus, NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
+import { createAppNotificationSafe } from "@/lib/app-notifications";
+import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildNumber } from "@/lib/ids";
 import { toNumber } from "@/lib/parsers";
 import { prisma } from "@/lib/prisma";
@@ -110,6 +112,31 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: contract.clientId,
+      type: NotificationType.CONTRACT,
+      severity: NotificationSeverity.INFO,
+      title: "Nouveau contrat à signer",
+      body: `Le contrat ${contract.contractNumber} (${contract.formulaName}) attend votre signature.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: authResult.user.id,
+      actorRole: authResult.user.role,
+      action: "CONTRACT_CREATED",
+      entityType: "Contract",
+      entityId: contract.id,
+      summary: `Contrat ${contract.contractNumber} proposé au client ${contract.clientId}`,
+      details: {
+        category: contract.category,
+        formulaName: contract.formulaName,
+        weeklyPremium,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
+
   return NextResponse.json({ data: contract }, { status: 201 });
 }
 
@@ -145,6 +172,26 @@ export async function PATCH(request: NextRequest) {
         expirationDate: new Date(),
       },
     });
+
+    await Promise.all([
+      createAppNotificationSafe({
+        recipientId: deletedContract.clientId,
+        type: NotificationType.CONTRACT,
+        severity: NotificationSeverity.WARNING,
+        title: "Contrat clôturé",
+        body: `Le contrat ${deletedContract.contractNumber} a été clôturé par votre conseiller.`,
+        link: "/client",
+      }),
+      writeAuditLogSafe({
+        actorId: authResult.user.id,
+        actorRole: authResult.user.role,
+        action: "CONTRACT_TERMINATED",
+        entityType: "Contract",
+        entityId: deletedContract.id,
+        summary: `Contrat ${deletedContract.contractNumber} clôturé`,
+        ipAddress: request.headers.get("x-forwarded-for"),
+      }),
+    ]);
 
     return NextResponse.json({ data: deletedContract });
   }
@@ -190,6 +237,31 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    await Promise.all([
+      createAppNotificationSafe({
+        recipientId: upgradedContract.clientId,
+        type: NotificationType.CONTRACT,
+        severity: NotificationSeverity.INFO,
+        title: "Proposition d'upgrade",
+        body: `Une nouvelle proposition (${upgradedContract.formulaName}) attend votre signature.`,
+        link: "/client",
+      }),
+      writeAuditLogSafe({
+        actorId: authResult.user.id,
+        actorRole: authResult.user.role,
+        action: "CONTRACT_UPGRADE_PROPOSED",
+        entityType: "Contract",
+        entityId: upgradedContract.id,
+        summary: `Upgrade proposé depuis ${existing.contractNumber} vers ${upgradedContract.contractNumber}`,
+        details: {
+          sourceContractId: existing.id,
+          newFormula: nextFormulaName,
+          weeklyPremium: nextWeeklyPremium,
+        },
+        ipAddress: request.headers.get("x-forwarded-for"),
+      }),
+    ]);
+
     return NextResponse.json({ data: upgradedContract });
   }
 
@@ -209,6 +281,31 @@ export async function PATCH(request: NextRequest) {
       pdfUrl: null,
     },
   });
+
+  await Promise.all([
+    createAppNotificationSafe({
+      recipientId: modifiedContract.clientId,
+      type: NotificationType.CONTRACT,
+      severity: NotificationSeverity.INFO,
+      title: "Contrat modifié",
+      body: `Le contrat ${modifiedContract.contractNumber} a été mis à jour et nécessite une nouvelle signature.`,
+      link: "/client",
+    }),
+    writeAuditLogSafe({
+      actorId: authResult.user.id,
+      actorRole: authResult.user.role,
+      action: "CONTRACT_MODIFIED",
+      entityType: "Contract",
+      entityId: modifiedContract.id,
+      summary: `Contrat ${modifiedContract.contractNumber} modifié`,
+      details: {
+        category: nextCategory,
+        formulaName: nextFormulaName,
+        weeklyPremium: nextWeeklyPremium,
+      },
+      ipAddress: request.headers.get("x-forwarded-for"),
+    }),
+  ]);
 
   return NextResponse.json({ data: modifiedContract });
 }

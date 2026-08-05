@@ -31,6 +31,55 @@ type DocumentTemplateManagerProps = {
   onStatus: (message: string) => void;
 };
 
+type PendingTemplateCreate = {
+  name: string;
+  slug: string;
+  description?: string;
+  content: string;
+  isActive: boolean;
+};
+
+type PendingDocumentGeneration = {
+  request: {
+    templateId: string;
+    title: string;
+    clientId?: string;
+    contractId?: string;
+    payload: Record<string, unknown>;
+    signatureMethod?: "CERTIFIED_CLICK" | "DRAWN_CANVAS";
+    signatureData?: string;
+  };
+  templateName: string;
+  renderedContent: string;
+};
+
+function getValueByPath(payload: Record<string, unknown>, rawPath: string) {
+  const pathSegments = rawPath.split(".").filter(Boolean);
+  let current: unknown = payload;
+
+  for (const segment of pathSegments) {
+    if (typeof current !== "object" || current === null || !(segment in current)) {
+      return "";
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  if (current === null || current === undefined) {
+    return "";
+  }
+
+  if (typeof current === "object") {
+    return JSON.stringify(current);
+  }
+
+  return String(current);
+}
+
+function renderTemplatePreview(content: string, payload: Record<string, unknown>) {
+  return content.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, token: string) => getValueByPath(payload, token));
+}
+
 const emptyTemplateForm = {
   templateId: "",
   name: "",
@@ -45,6 +94,10 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocumentItem[]>([]);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
+  const [pendingTemplateCreate, setPendingTemplateCreate] = useState<PendingTemplateCreate | null>(null);
+  const [pendingDocumentGeneration, setPendingDocumentGeneration] = useState<PendingDocumentGeneration | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [generatingDocument, setGeneratingDocument] = useState(false);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [generateForm, setGenerateForm] = useState({
     templateId: "",
@@ -115,27 +168,50 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
   async function createTemplate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    setPendingTemplateCreate({
+      name: templateForm.name.trim(),
+      slug: templateForm.slug.trim(),
+      description: templateForm.description.trim() || undefined,
+      content: templateForm.content,
+      isActive: templateForm.isActive,
+    });
+    onStatus("Prévisualisez puis confirmez la création du modèle.");
+  }
+
+  async function confirmCreateTemplate() {
+    if (!pendingTemplateCreate) {
+      onStatus("Aucune création en attente.");
+      return;
+    }
+
+    setCreatingTemplate(true);
+
     const response = await fetch("/api/admin/document-templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: templateForm.name,
-        slug: templateForm.slug,
-        description: templateForm.description || undefined,
-        content: templateForm.content,
-        isActive: templateForm.isActive,
+        name: pendingTemplateCreate.name,
+        slug: pendingTemplateCreate.slug,
+        description: pendingTemplateCreate.description,
+        content: pendingTemplateCreate.content,
+        isActive: pendingTemplateCreate.isActive,
       }),
     });
 
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      onStatus(payload?.error?.formErrors?.[0] ?? "Création du modèle impossible.");
-      return;
-    }
+    try {
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        onStatus(payload?.error?.formErrors?.[0] ?? "Création du modèle impossible.");
+        return;
+      }
 
-    onStatus("Modèle de document créé.");
-    setTemplateForm(emptyTemplateForm);
-    await loadData();
+      onStatus("Modèle de document créé.");
+      setTemplateForm(emptyTemplateForm);
+      setPendingTemplateCreate(null);
+      await loadData();
+    } finally {
+      setCreatingTemplate(false);
+    }
   }
 
   async function updateTemplate() {
@@ -205,10 +281,14 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
-    const response = await fetch("/api/admin/document-templates/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const template = templates.find((item) => item.id === generateForm.templateId);
+    if (!template) {
+      onStatus("Modèle introuvable pour la prévisualisation.");
+      return;
+    }
+
+    setPendingDocumentGeneration({
+      request: {
         templateId: generateForm.templateId,
         title: generateForm.title,
         clientId: generateForm.clientId || undefined,
@@ -216,18 +296,41 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
         payload,
         signatureMethod: generateForm.signatureMethod || undefined,
         signatureData: generateForm.signatureMethod === "DRAWN_CANVAS" ? generateForm.signatureData || undefined : undefined,
-      }),
+      },
+      templateName: template.name,
+      renderedContent: renderTemplatePreview(template.content, payload),
     });
+    onStatus("Prévisualisez puis confirmez la génération du document.");
+  }
 
-    if (!response.ok) {
-      const payloadError = await response.json().catch(() => null);
-      onStatus(payloadError?.error?.formErrors?.[0] ?? payloadError?.error ?? "Génération du document impossible.");
+  async function confirmGenerateDocument() {
+    if (!pendingDocumentGeneration) {
+      onStatus("Aucune génération en attente.");
       return;
     }
 
-    onStatus("Document généré avec succès.");
-    setGenerateForm((prev) => ({ ...prev, title: "", clientId: "", contractId: "" }));
-    await loadData();
+    setGeneratingDocument(true);
+
+    const response = await fetch("/api/admin/document-templates/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pendingDocumentGeneration.request),
+    });
+
+    try {
+      if (!response.ok) {
+        const payloadError = await response.json().catch(() => null);
+        onStatus(payloadError?.error?.formErrors?.[0] ?? payloadError?.error ?? "Génération du document impossible.");
+        return;
+      }
+
+      onStatus("Document généré avec succès.");
+      setGenerateForm((prev) => ({ ...prev, title: "", clientId: "", contractId: "", signatureData: "" }));
+      setPendingDocumentGeneration(null);
+      await loadData();
+    } finally {
+      setGeneratingDocument(false);
+    }
   }
 
   async function deleteGeneratedDocument(document: GeneratedDocumentItem) {
@@ -309,11 +412,44 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
           </label>
 
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className="rounded-full bg-ms-navy px-4 py-2 font-semibold text-white">Créer</button>
+            <button type="submit" className="rounded-full bg-ms-navy px-4 py-2 font-semibold text-white">Prévisualiser avant création</button>
             <button type="button" onClick={updateTemplate} className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy">Modifier</button>
             <button type="button" onClick={deleteTemplate} className="rounded-full border border-red-300 px-4 py-2 font-semibold text-red-700">Supprimer</button>
           </div>
         </form>
+
+        {pendingTemplateCreate ? (
+          <div className="mt-4 rounded-2xl border border-ms-navy/15 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">Prévisualisation avant création</p>
+            <div className="mt-3 grid gap-2 text-sm text-ms-ink/85">
+              <p><span className="font-semibold text-ms-navy">Nom:</span> {pendingTemplateCreate.name}</p>
+              <p><span className="font-semibold text-ms-navy">Slug:</span> {pendingTemplateCreate.slug}</p>
+              <p><span className="font-semibold text-ms-navy">Actif:</span> {pendingTemplateCreate.isActive ? "Oui" : "Non"}</p>
+              <p><span className="font-semibold text-ms-navy">Description:</span> {pendingTemplateCreate.description ?? "-"}</p>
+              <div>
+                <p className="font-semibold text-ms-navy">Contenu:</p>
+                <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-ms-navy/10 bg-ms-cloud px-3 py-2 text-xs">{pendingTemplateCreate.content}</pre>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={confirmCreateTemplate}
+                disabled={creatingTemplate}
+                className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {creatingTemplate ? "Création..." : "Confirmer la création"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingTemplateCreate(null)}
+                className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : null}
       </SectionBlock>
 
       <SectionBlock title="Génération de document" subtitle="Produire un PDF à partir d'un modèle avec signature optionnelle">
@@ -372,8 +508,42 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
             className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5 font-mono text-xs"
           />
 
-          <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 font-semibold text-white">Générer le PDF</button>
+          <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 font-semibold text-white">Prévisualiser avant génération</button>
         </form>
+
+        {pendingDocumentGeneration ? (
+          <div className="mt-4 rounded-2xl border border-ms-navy/15 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">Prévisualisation avant génération</p>
+            <div className="mt-3 grid gap-2 text-sm text-ms-ink/85">
+              <p><span className="font-semibold text-ms-navy">Titre:</span> {pendingDocumentGeneration.request.title}</p>
+              <p><span className="font-semibold text-ms-navy">Modèle:</span> {pendingDocumentGeneration.templateName}</p>
+              <p><span className="font-semibold text-ms-navy">Client ID:</span> {pendingDocumentGeneration.request.clientId ?? "-"}</p>
+              <p><span className="font-semibold text-ms-navy">Contrat ID:</span> {pendingDocumentGeneration.request.contractId ?? "-"}</p>
+              <p><span className="font-semibold text-ms-navy">Signature:</span> {pendingDocumentGeneration.request.signatureMethod ?? "Sans signature"}</p>
+              <div>
+                <p className="font-semibold text-ms-navy">Rendu du document:</p>
+                <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-ms-navy/10 bg-ms-cloud px-3 py-2 text-xs">{pendingDocumentGeneration.renderedContent}</pre>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={confirmGenerateDocument}
+                disabled={generatingDocument}
+                className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generatingDocument ? "Génération..." : "Confirmer la génération"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingDocumentGeneration(null)}
+                className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : null}
       </SectionBlock>
 
       <SectionBlock title="Documents générés" subtitle="Historique de génération et signatures">

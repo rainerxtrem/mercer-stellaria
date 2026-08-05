@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
-const allowedBuckets = new Set(["contracts", "documents", "uploads"]);
+const allowedBuckets = new Set(["contracts", "documents", "uploads", "previews"]);
 
 function detectContentType(fileName: string) {
   const extension = path.extname(fileName).toLowerCase();

@@ -37,6 +37,8 @@ type PendingTemplateCreate = {
   description?: string;
   content: string;
   isActive: boolean;
+  previewUrl?: string;
+  renderedContent?: string;
 };
 
 type PendingDocumentGeneration = {
@@ -51,6 +53,7 @@ type PendingDocumentGeneration = {
   };
   templateName: string;
   renderedContent: string;
+  previewUrl?: string;
 };
 
 function getValueByPath(payload: Record<string, unknown>, rawPath: string) {
@@ -78,6 +81,11 @@ function getValueByPath(payload: Record<string, unknown>, rawPath: string) {
 
 function renderTemplatePreview(content: string, payload: Record<string, unknown>) {
   return content.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, token: string) => getValueByPath(payload, token));
+}
+
+function openPreviewWindow(url: string) {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  return Boolean(opened);
 }
 
 const emptyTemplateForm = {
@@ -168,13 +176,49 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
   async function createTemplate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setPendingTemplateCreate({
+    const draft = {
       name: templateForm.name.trim(),
       slug: templateForm.slug.trim(),
       description: templateForm.description.trim() || undefined,
       content: templateForm.content,
       isActive: templateForm.isActive,
+    };
+
+    const previewResponse = await fetch("/api/admin/document-templates/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "TEMPLATE_CREATE",
+        title: draft.name,
+        content: draft.content,
+        payload: {},
+      }),
     });
+
+    if (!previewResponse.ok) {
+      const payload = await previewResponse.json().catch(() => null);
+      onStatus(payload?.error?.formErrors?.[0] ?? payload?.error ?? "Prévisualisation impossible.");
+      return;
+    }
+
+    const previewJson = await previewResponse.json();
+    const previewUrl = previewJson?.data?.previewUrl;
+    const renderedContent = previewJson?.data?.renderedContent;
+
+    setPendingTemplateCreate({
+      ...draft,
+      previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
+      renderedContent: typeof renderedContent === "string" ? renderedContent : undefined,
+    });
+
+    if (typeof previewUrl === "string" && previewUrl) {
+      const didOpen = openPreviewWindow(previewUrl);
+      if (!didOpen) {
+        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le PDF de prévisualisation.");
+        return;
+      }
+    }
+
     onStatus("Prévisualisez puis confirmez la création du modèle.");
   }
 
@@ -287,6 +331,31 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
+    const requestPayload = {
+      mode: "DOCUMENT_GENERATE",
+      title: generateForm.title,
+      templateId: generateForm.templateId,
+      payload,
+      signatureMethod: generateForm.signatureMethod || undefined,
+      signatureData: generateForm.signatureMethod === "DRAWN_CANVAS" ? generateForm.signatureData || undefined : undefined,
+    };
+
+    const previewResponse = await fetch("/api/admin/document-templates/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload),
+    });
+
+    if (!previewResponse.ok) {
+      const payloadError = await previewResponse.json().catch(() => null);
+      onStatus(payloadError?.error?.formErrors?.[0] ?? payloadError?.error ?? "Prévisualisation impossible.");
+      return;
+    }
+
+    const previewJson = await previewResponse.json();
+    const previewUrl = previewJson?.data?.previewUrl;
+    const renderedContent = previewJson?.data?.renderedContent;
+
     setPendingDocumentGeneration({
       request: {
         templateId: generateForm.templateId,
@@ -298,8 +367,18 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
         signatureData: generateForm.signatureMethod === "DRAWN_CANVAS" ? generateForm.signatureData || undefined : undefined,
       },
       templateName: template.name,
-      renderedContent: renderTemplatePreview(template.content, payload),
+      renderedContent: typeof renderedContent === "string" ? renderedContent : renderTemplatePreview(template.content, payload),
+      previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
     });
+
+    if (typeof previewUrl === "string" && previewUrl) {
+      const didOpen = openPreviewWindow(previewUrl);
+      if (!didOpen) {
+        onStatus("Prévisualisation prête. Cliquez sur Ouvrir le PDF de prévisualisation.");
+        return;
+      }
+    }
+
     onStatus("Prévisualisez puis confirmez la génération du document.");
   }
 
@@ -428,10 +507,20 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
               <p><span className="font-semibold text-ms-navy">Description:</span> {pendingTemplateCreate.description ?? "-"}</p>
               <div>
                 <p className="font-semibold text-ms-navy">Contenu:</p>
-                <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-ms-navy/10 bg-ms-cloud px-3 py-2 text-xs">{pendingTemplateCreate.content}</pre>
+                <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-ms-navy/10 bg-ms-cloud px-3 py-2 text-xs">{pendingTemplateCreate.renderedContent ?? pendingTemplateCreate.content}</pre>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
+              {pendingTemplateCreate.previewUrl ? (
+                <a
+                  href={pendingTemplateCreate.previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
+                >
+                  Ouvrir le PDF de prévisualisation
+                </a>
+              ) : null}
               <button
                 type="button"
                 onClick={confirmCreateTemplate}
@@ -526,6 +615,16 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
+              {pendingDocumentGeneration.previewUrl ? (
+                <a
+                  href={pendingDocumentGeneration.previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy"
+                >
+                  Ouvrir le PDF de prévisualisation
+                </a>
+              ) : null}
               <button
                 type="button"
                 onClick={confirmGenerateDocument}

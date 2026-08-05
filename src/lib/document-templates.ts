@@ -92,6 +92,8 @@ export async function generateTemplatePdf(input: {
   content: string;
   signatureMethod?: "DRAWN_CANVAS" | "CERTIFIED_CLICK";
   signatureData?: string | null;
+  outputBucket?: "documents" | "previews";
+  outputFileName?: string;
 }) {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([595, 842]);
@@ -156,13 +158,14 @@ export async function generateTemplatePdf(input: {
     }
   }
 
-  const outputDirectory = path.join(getStorageRoot(), "documents");
+  const outputBucket = input.outputBucket ?? "documents";
+  const outputDirectory = path.join(getStorageRoot(), outputBucket);
   await mkdir(outputDirectory, { recursive: true });
 
-  const fileName = `${input.documentNumber}.pdf`;
+  const fileName = input.outputFileName ?? `${input.documentNumber}.pdf`;
   const filePath = path.join(outputDirectory, fileName);
 
   await writeFile(filePath, await pdfDoc.save());
 
-  return `/storage/documents/${fileName}`;
+  return `/storage/${outputBucket}/${fileName}`;
 }

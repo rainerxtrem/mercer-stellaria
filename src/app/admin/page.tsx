@@ -487,7 +487,20 @@ export default function AdminPage() {
                 Mettre à jour les accès
               </button>
 
-              <div className="overflow-x-auto">
+              <div className="space-y-3 md:hidden">
+                {accessUsers.map((user) => (
+                  <article key={user.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                    <p className="text-sm font-semibold text-ms-navy">{user.fullName}</p>
+                    <p className="mt-1 text-xs text-ms-ink/70">{user.email}</p>
+                    <div className="mt-3 grid gap-1 text-sm text-ms-ink/80">
+                      <p>Discord: {user.discordHandle ?? "-"}</p>
+                      <p>Rôle: {user.role}</p>
+                      <p>Statut: {user.isActive ? "Actif" : "Désactivé"}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[720px] text-left text-sm">
                   <thead className="text-ms-navy-soft">
                     <tr>
@@ -514,7 +527,18 @@ export default function AdminPage() {
         ) : null}
 
         <SectionBlock title="Performance par agent" subtitle="Qui a fait signer le plus de contrats ?">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {performance.map((agent) => (
+              <article key={agent.name} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <p className="text-sm font-semibold text-ms-navy">{agent.name}</p>
+                <div className="mt-3 grid gap-1 text-sm text-ms-ink/80">
+                  <p>Contrats signés: {agent.signedContracts}</p>
+                  <p>Taux de conversion: {agent.conversionRate}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[620px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>

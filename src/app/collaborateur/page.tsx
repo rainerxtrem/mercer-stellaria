@@ -1063,7 +1063,50 @@ export default function CollaborateurPage() {
               {showArchivedOnly ? "Voir actifs" : "Voir archivés"}
             </button>
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {filteredClientRows.length === 0 ? (
+              <p className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm text-ms-ink/70">
+                Aucun dossier ne correspond aux filtres actuels.
+              </p>
+            ) : (
+              filteredClientRows.map((client) => (
+                <article key={client.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ms-navy">{client.fullName}</p>
+                      <p className="text-xs text-ms-ink/70">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Date non renseignée"}</p>
+                    </div>
+                    <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
+                      {client.riskLabel ?? "Non évalué"}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-1 text-sm text-ms-ink/80">
+                    <p>Téléphone: {client.phone ?? "Non renseigné"}</p>
+                    <p>ID Citoyen: {client.citizenUniqueId ?? "Non renseigné"}</p>
+                    <p>Dossier: {client.isArchived ? "Archivé" : "Actif"}</p>
+                    <p>
+                      Alerte: {client.hasUnreadClientMessage || liveUnreadClientIds.includes(client.id) ? "Nouveau message client" : "Aucune"}
+                    </p>
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    <button className="rounded-xl border border-ms-navy/20 px-3 py-2 text-sm font-semibold text-ms-navy" onClick={() => openDossier(client.id)}>
+                      Gérer le dossier
+                    </button>
+                    <Link href={`/collaborateur/clients/${client.id}`} className="rounded-xl border border-ms-navy/20 px-3 py-2 text-center text-sm font-semibold text-ms-navy">
+                      Fiche détaillée
+                    </Link>
+                    <button className="rounded-xl border border-ms-navy/20 px-3 py-2 text-sm font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
+                      Contact
+                    </button>
+                    <button className="rounded-xl bg-ms-navy px-3 py-2 text-sm font-semibold text-white" onClick={() => toggleArchive(client.id)}>
+                      {client.isArchived ? "Restaurer" : "Archiver"}
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
@@ -1133,7 +1176,53 @@ export default function CollaborateurPage() {
 
         {activeTab === "CLAIMS" ? (
         <SectionBlock title="Sinistres déclarés" subtitle="Traitement avec statuts métier et règle direction > 15 000$">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {filteredClaims.map((claim) => (
+              <article key={claim.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ms-navy">{claim.claimNumber}</p>
+                    <p className="text-xs text-ms-ink/70">{claim.client.fullName}</p>
+                  </div>
+                  <StatusBadge {...getClaimStatusLabel(claim.status)} />
+                </div>
+                <p className="mt-3 text-sm text-ms-ink/80">Montant demandé: {claim.requestedAmount ?? "-"} $</p>
+                <div className="mt-4 grid gap-2">
+                  <select
+                    value={claimUpdates[claim.id] ?? claim.status}
+                    onChange={(event) =>
+                      setClaimUpdates((prev) => ({
+                        ...prev,
+                        [claim.id]: event.target.value as ClaimStatus,
+                      }))
+                    }
+                    className="rounded-xl border border-ms-navy/20 bg-white px-3 py-2 text-sm"
+                    disabled={!isAdmin && Number(claim.requestedAmount ?? 0) > 15000}
+                  >
+                    {claimStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="rounded-xl bg-ms-navy px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => updateClaimStatus(claim.id)}
+                    disabled={!isAdmin && Number(claim.requestedAmount ?? 0) > 15000}
+                  >
+                    Enregistrer le statut
+                  </button>
+                  <button className="rounded-xl border border-ms-navy/20 px-3 py-2 text-sm font-semibold text-ms-navy" onClick={() => openClaimPopup(claim)}>
+                    Gérer le dossier
+                  </button>
+                  {!isAdmin && Number(claim.requestedAmount ?? 0) > 15000 ? (
+                    <p className="text-xs text-rose-700">Direction requise (montant &gt; 15 000$).</p>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[840px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
@@ -1200,7 +1289,42 @@ export default function CollaborateurPage() {
 
         {activeTab === "REQUESTS" ? (
         <SectionBlock title="Demandes de souscription / upgrade" subtitle="Validation physique obligatoire par un conseiller">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {filteredRequests.map((request) => (
+              <article key={request.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ms-navy">{request.requestNumber}</p>
+                    <p className="text-xs text-ms-ink/70">{request.client.fullName} • {request.requestedFormula}</p>
+                  </div>
+                  <StatusBadge {...getSubscriptionRequestStatusLabel(request.status)} />
+                </div>
+                <p className="mt-3 text-xs text-ms-ink/65">{request.advisorValidated ? "Validée conseiller" : "Validation conseiller requise"}</p>
+                <div className="mt-4 grid gap-2">
+                  <select
+                    value={requestUpdates[request.id] ?? request.status}
+                    onChange={(event) =>
+                      setRequestUpdates((prev) => ({
+                        ...prev,
+                        [request.id]: event.target.value as SubscriptionRequestStatus,
+                      }))
+                    }
+                    className="rounded-xl border border-ms-navy/20 bg-white px-3 py-2 text-sm"
+                  >
+                    {requestStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rounded-xl bg-ms-navy px-3 py-2 text-sm font-semibold text-white" onClick={() => updateRequestStatus(request.id)}>
+                    Enregistrer
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
@@ -1256,7 +1380,26 @@ export default function CollaborateurPage() {
 
         {activeTab === "BILLING" ? (
         <SectionBlock title="Paiements et relances" subtitle="Vue simplifiée des cotisations clients">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {invoices
+              .filter((invoice) => (selectedClientId ? invoice.client.id === selectedClientId : true))
+              .map((item) => (
+                <article key={item.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ms-navy">{item.client.fullName}</p>
+                      <p className="text-xs text-ms-ink/70">{item.contract.formulaName}</p>
+                    </div>
+                    <StatusBadge {...getInvoiceStatusLabel(item.status)} />
+                  </div>
+                  <p className="mt-3 text-sm text-ms-ink/80">Prime: {item.amount} $</p>
+                  <button className="mt-4 w-full rounded-xl border border-ms-navy/20 px-3 py-2 text-sm font-semibold text-ms-navy" onClick={() => sendReminder(item.id)}>
+                    Relancer
+                  </button>
+                </article>
+              ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[650px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>
@@ -1300,7 +1443,30 @@ export default function CollaborateurPage() {
               className="w-full rounded-xl border border-ms-navy/15 bg-ms-pearl px-3 py-2 text-sm"
             />
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {contactClients.length === 0 ? (
+              <p className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm text-ms-ink/70">Aucune cliente trouvée.</p>
+            ) : contactClients.map((client) => (
+              <article key={client.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ms-navy">{client.fullName}</p>
+                    <p className="text-xs text-ms-ink/70">{client.phone ?? "Téléphone non renseigné"}</p>
+                  </div>
+                  <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
+                    {client.riskLabel ?? "Non évalué"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm text-ms-ink/80">
+                  {client.hasOpenContactConversation ? "Discussion ouverte" : "Pas de discussion ouverte"}
+                </p>
+                <button className="mt-4 w-full rounded-xl border border-ms-navy/20 px-3 py-2 text-sm font-semibold text-ms-navy" onClick={() => openConversationFromList(client)}>
+                  Ouvrir conversation
+                </button>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="text-ms-navy-soft">
                 <tr>

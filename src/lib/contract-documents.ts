@@ -69,5 +69,6 @@ export async function generateContractPdf(input: ContractPdfInput) {
 
   await writeFile(filePath, renderedHtml, "utf-8");
 
-  return `/storage/contracts/${fileName}`;
+  // Return PDF endpoint URL
+  return `/api/contracts/${input.contractNumber}/pdf`;
 }

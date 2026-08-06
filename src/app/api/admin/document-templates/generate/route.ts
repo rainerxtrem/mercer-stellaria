@@ -81,7 +81,8 @@ export async function POST(request: NextRequest) {
     const fileName = `${documentNumber}.html`;
     const filePath = path.join(outputDirectory, fileName);
     await writeFile(filePath, htmlDocument, "utf-8");
-    pdfUrl = `/storage/documents/${fileName}`;
+    // Return PDF endpoint URL instead of HTML storage URL
+    pdfUrl = `/api/documents/${documentNumber}/pdf`;
   } else {
     // Generate PDF for text-based templates
     const { generateTemplatePdf } = await import("@/lib/document-templates");

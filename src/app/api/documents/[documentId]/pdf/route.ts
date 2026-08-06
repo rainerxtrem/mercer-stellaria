@@ -21,13 +21,18 @@ export async function GET(
 
     const content = await readFile(htmlPath, "utf-8");
 
-    // Return as PDF with proper headers
-    return new NextResponse(content, {
+    // Inject print script into HTML
+    const htmlWithPrint = content.replace(
+      "</head>",
+      `<script>window.addEventListener('load', () => { setTimeout(() => window.print(), 500); });</script></head>`
+    );
+
+    // Return as HTML that triggers print dialog
+    return new NextResponse(htmlWithPrint, {
       status: 200,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${documentId}.pdf"`,
-        "Cache-Control": "public, max-age=3600",
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Disposition": `inline; filename="${documentId}.html"`,
       },
     });
   } catch (error) {

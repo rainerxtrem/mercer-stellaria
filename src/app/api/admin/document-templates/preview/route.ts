@@ -1,6 +1,7 @@
 import { SignatureMethod } from "@/generated/prisma/enums";
 import { buildNumber } from "@/lib/ids";
-import { generateTemplatePdf, renderTemplateContent } from "@/lib/document-templates";
+import { buildHtmlPreviewDocument, isHtmlTemplate, renderTemplateContent } from "@/lib/document-templates";
+import { generateHtmlToPdf } from "@/lib/html-to-pdf";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -63,19 +64,33 @@ export async function POST(request: NextRequest) {
   const previewTitle = `${parsed.data.title} (prévisualisation)`;
 
   try {
-    const previewUrl = await generateTemplatePdf({
-      documentNumber: previewNumber,
-      title: previewTitle,
-      content: rendered,
-      signatureMethod: parsed.data.signatureMethod,
-      signatureData: parsed.data.signatureData,
-      outputBucket: "previews",
-      outputFileName: `${previewNumber}.pdf`,
-    });
+    let previewUrl = "";
+
+    if (isHtmlTemplate(rendered)) {
+      const htmlContent = buildHtmlPreviewDocument(rendered, previewTitle);
+      previewUrl = await generateHtmlToPdf({
+        htmlContent,
+        documentNumber: previewNumber,
+        outputBucket: "previews",
+        outputFileName: `${previewNumber}.pdf`,
+      });
+    } else {
+      const { generateTemplatePdf } = await import("@/lib/document-templates");
+      previewUrl = await generateTemplatePdf({
+        documentNumber: previewNumber,
+        title: previewTitle,
+        content: rendered,
+        signatureMethod: parsed.data.signatureMethod,
+        signatureData: parsed.data.signatureData,
+        outputBucket: "previews",
+        outputFileName: `${previewNumber}.pdf`,
+      });
+    }
 
     return NextResponse.json({ data: { previewUrl, renderedContent: rendered, previewKind: "PDF" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Prévisualisation impossible.";
+    console.error("Preview generation error:", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

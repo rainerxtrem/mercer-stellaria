@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -12,10 +12,15 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Runtime stage - includes Chromium for Puppeteer
-FROM ghcr.io/puppeteer/puppeteer:22.6.0
+# Runtime stage - Node 22 with Puppeteer support
+FROM node:22-alpine
 
 WORKDIR /app
+
+# Install Puppeteer system dependencies
+RUN apk add --no-cache \
+  chromium \
+  font-noto-cjk
 
 # Copy built app from builder
 COPY --from=builder /app/.next ./.next
@@ -29,6 +34,7 @@ EXPOSE 3000
 # Set environment variables for Railway
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 CMD ["npm", "start"]

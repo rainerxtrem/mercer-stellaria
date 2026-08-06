@@ -96,6 +96,18 @@ const clientTabs: Array<{ id: ClientTab; label: string }> = [
   { id: "BILLING", label: "Facturation" },
 ];
 
+type ArchivedContactConversation = {
+  id: string;
+  conversationId: string;
+  openedAt: string;
+  closedAt: string | null;
+  handledByName: string | null;
+  closureReason: string | null;
+  closedByName: string | null;
+  closedByRole: string | null;
+  messages: ContactMessage[];
+};
+
 function formatSenderRole(role: string) {
   if (role === "ADMIN") {
     return "Direction";
@@ -157,6 +169,7 @@ export default function ClientPage() {
   const [claimMessages, setClaimMessages] = useState<ClaimMessage[]>([]);
   const [messageForm, setMessageForm] = useState({ body: "", documentLink: "" });
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [contactHistory, setContactHistory] = useState<ArchivedContactConversation[]>([]);
   const [contactForm, setContactForm] = useState({ body: "", documentLink: "" });
   const [hasUnreadAdvisorMessage, setHasUnreadAdvisorMessage] = useState(false);
   const [unreadAdvisorClaimsCount, setUnreadAdvisorClaimsCount] = useState(0);
@@ -165,6 +178,7 @@ export default function ClientPage() {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
   const [contactConversationId, setContactConversationId] = useState<string | null>(null);
+  const [closingContactConversation, setClosingContactConversation] = useState(false);
   const contactMessageIdsRef = useRef<string[]>([]);
   const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -387,6 +401,7 @@ export default function ClientPage() {
     }
 
     loadGeneralContactMessages().catch(() => notifyError("Impossible de charger la conversation conseiller."));
+    loadArchivedContactHistory().catch(() => notifyError("Impossible de charger l'historique des conversations."));
     const interval = window.setInterval(() => {
       loadGeneralContactMessages().catch(() => null);
     }, 2500);
@@ -565,6 +580,18 @@ export default function ClientPage() {
     setContactLoadedOnce(true);
   }
 
+  async function loadArchivedContactHistory() {
+    const query = session?.user?.id ? `?clientId=${session.user.id}&history=1` : "?history=1";
+    const response = await fetch(`/api/contact/messages${query}`);
+    if (!response.ok) {
+      notifyError(await extractErrorMessage(response, "Impossible de charger l'historique des conversations."));
+      return;
+    }
+
+    const payload = await response.json();
+    setContactHistory(Array.isArray(payload?.data) ? payload.data : []);
+  }
+
   async function sendGeneralContactMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const response = await fetch("/api/contact/messages", {
@@ -585,6 +612,36 @@ export default function ClientPage() {
     setContactForm({ body: "", documentLink: "" });
     notifySuccess("Message envoyé au conseiller.");
     await loadGeneralContactMessages();
+    await loadArchivedContactHistory();
+  }
+
+  async function closeGeneralContactConversation() {
+    if (!contactConversationId) {
+      notifyError("Aucune conversation active à clôturer.");
+      return;
+    }
+
+    const reason = window.prompt("Motif de clôture (optionnel)")?.trim() ?? "";
+    setClosingContactConversation(true);
+
+    const response = await fetch(`/api/contact/messages?clientId=${session?.user?.id ?? ""}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: reason || undefined }),
+    });
+
+    setClosingContactConversation(false);
+
+    if (!response.ok) {
+      notifyError(await extractErrorMessage(response, "Impossible de clôturer la conversation."));
+      return;
+    }
+
+    notifySuccess("Conversation archivée.");
+    setContactMessages([]);
+    setContactConversationId(null);
+    await loadGeneralContactMessages();
+    await loadArchivedContactHistory();
   }
 
   function closeClaimMessages() {
@@ -1233,7 +1290,58 @@ export default function ClientPage() {
                 <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
                   Envoyer au conseiller
                 </button>
+                {contactConversationId ? (
+                  <button
+                    type="button"
+                    className="w-fit rounded-full border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700"
+                    onClick={closeGeneralContactConversation}
+                    disabled={closingContactConversation}
+                  >
+                    {closingContactConversation ? "Clôture..." : "Clôturer la conversation"}
+                  </button>
+                ) : null}
               </form>
+
+              <div className="mt-5 grid gap-3">
+                <p className="text-sm font-semibold text-ms-navy">Historique des conversations</p>
+                {contactHistory.length === 0 ? (
+                  <p className="rounded-xl border border-ms-navy/10 bg-white p-4 text-sm text-ms-ink/70">Aucune conversation archivée.</p>
+                ) : (
+                  contactHistory.map((conversation) => (
+                    <article key={conversation.id} className="rounded-xl border border-ms-navy/10 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-ms-navy">Discussion {conversation.conversationId}</p>
+                        <p className="text-xs text-ms-ink/60">
+                          Ouverte le {new Date(conversation.openedAt).toLocaleString("fr-FR")} • Clôturée le {conversation.closedAt ? new Date(conversation.closedAt).toLocaleString("fr-FR") : "-"}
+                        </p>
+                      </div>
+                      <div className="mt-2 grid gap-1 text-sm text-ms-ink/80">
+                        <p>Conseiller en charge: {conversation.handledByName ?? "Non renseigné"}</p>
+                        <p>Clôturée par: {conversation.closedByName ?? "Non renseigné"}{conversation.closedByRole ? ` (${formatSenderRole(conversation.closedByRole)})` : ""}</p>
+                        <p>Motif: {conversation.closureReason ?? "Aucun motif renseigné"}</p>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        {conversation.messages.map((message) => (
+                          <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-ms-pearl p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
+                                {message.senderName} ({formatSenderRole(message.senderRole)})
+                              </p>
+                              <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                            </div>
+                            <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
+                            {message.documentLink ? (
+                              <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
+                                Voir pièce jointe
+                              </a>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
             </SectionBlock>
 
             <SectionBlock title="Messagerie dossiers sinistres" subtitle="Conversations reliees a un dossier sinistre">

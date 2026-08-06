@@ -696,8 +696,12 @@ export default function CollaborateurPage() {
       return;
     }
 
+    const reason = window.prompt("Motif de clôture (optionnel)")?.trim() ?? "";
+
     const response = await fetch(`/api/contact/messages?clientId=${openedContactClient.id}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: reason || undefined }),
     });
 
     if (!response.ok) {

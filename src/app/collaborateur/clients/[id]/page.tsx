@@ -68,6 +68,26 @@ type DossierResponse = {
   }>;
 };
 
+type ArchivedContactConversation = {
+  id: string;
+  conversationId: string;
+  openedAt: string;
+  closedAt: string | null;
+  handledByName: string | null;
+  closureReason: string | null;
+  closedByName: string | null;
+  closedByRole: string | null;
+  messages: Array<{
+    id: string;
+    senderId: string;
+    senderRole: string;
+    senderName: string;
+    body: string;
+    documentLink: string | null;
+    createdAt: string;
+  }>;
+};
+
 const riskQuestions: Array<{ key: RiskQuestionKey; label: string }> = [
   { key: "medicalHistoryRisk", label: "Antécédents médicaux" },
   { key: "lifestyleRisk", label: "Mode de vie" },
@@ -83,6 +103,7 @@ export default function CollaborateurClientDossierPage() {
   const clientId = params.id;
   const [status, setStatus] = useState("");
   const [data, setData] = useState<DossierResponse | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<ArchivedContactConversation[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
@@ -101,7 +122,10 @@ export default function CollaborateurClientDossierPage() {
   });
 
   const loadDossier = useCallback(async () => {
-    const response = await fetch(`/api/clients/${clientId}`);
+    const [response, historyResponse] = await Promise.all([
+      fetch(`/api/clients/${clientId}`),
+      fetch(`/api/contact/messages?clientId=${clientId}&history=1`),
+    ]);
     if (!response.ok) {
       setStatus("Impossible de charger la fiche client.");
       return;
@@ -110,6 +134,10 @@ export default function CollaborateurClientDossierPage() {
     const payload = await response.json();
     const nextData = payload.data as DossierResponse;
     setData(nextData);
+    if (historyResponse.ok) {
+      const historyPayload = await historyResponse.json();
+      setConversationHistory(Array.isArray(historyPayload?.data) ? historyPayload.data : []);
+    }
     setForm({
       fullName: nextData.client.fullName,
       phone: nextData.client.phone ?? "",
@@ -360,6 +388,48 @@ export default function CollaborateurClientDossierPage() {
                       <p className="text-xs uppercase tracking-[0.18em] text-ms-navy-soft">Nouvelles valeurs</p>
                       <pre className="mt-2 overflow-auto rounded-lg bg-ms-pearl p-3 text-xs text-ms-ink/85">{JSON.stringify(entry.newAnswers, null, 2)}</pre>
                     </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </SectionBlock>
+
+        <SectionBlock title="Historique des conversations" subtitle="Archives en lecture seule des échanges client / conseiller">
+          <div className="space-y-3">
+            {conversationHistory.length === 0 ? (
+              <p className="text-sm text-ms-ink/70">Aucune conversation archivée.</p>
+            ) : (
+              conversationHistory.map((conversation) => (
+                <article key={conversation.id} className="rounded-xl border border-ms-navy/10 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-ms-navy">Discussion {conversation.conversationId}</p>
+                    <p className="text-xs text-ms-ink/60">
+                      Ouverte le {new Date(conversation.openedAt).toLocaleString("fr-FR")} • Clôturée le {conversation.closedAt ? new Date(conversation.closedAt).toLocaleString("fr-FR") : "-"}
+                    </p>
+                  </div>
+                  <div className="mt-2 grid gap-1 text-sm text-ms-ink/80">
+                    <p>Collaborateur en charge: {conversation.handledByName ?? "Non renseigné"}</p>
+                    <p>Clôturée par: {conversation.closedByName ?? "Non renseigné"}{conversation.closedByRole ? ` (${conversation.closedByRole})` : ""}</p>
+                    <p>Motif: {conversation.closureReason ?? "Aucun motif renseigné"}</p>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {conversation.messages.map((message) => (
+                      <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-ms-pearl p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">
+                            {message.senderName} ({message.senderRole})
+                          </p>
+                          <p className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                        </div>
+                        <p className="mt-1 text-sm text-ms-ink/85">{message.body}</p>
+                        {message.documentLink ? (
+                          <a href={message.documentLink} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-ms-navy underline">
+                            Voir pièce jointe
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 </article>
               ))

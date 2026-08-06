@@ -114,6 +114,8 @@ model User {
   reviewedClaims  Claim[]    @relation("ClaimReviewer")
   claimMessages   ClaimMessage[]
   contactConversationState ContactConversationState?
+  contactConversationArchives ContactConversationArchive[] @relation("ContactConversationArchiveClient")
+  contactConversationArchivesClosed ContactConversationArchive[] @relation("ContactConversationArchiveCloser")
   sentContactMessages ContactMessage[] @relation("ContactSender")
   clientContactMessages ContactMessage[] @relation("ContactClient")
   subscriptionRequests         SubscriptionRequest[] @relation("SubscriptionClient")
@@ -246,6 +248,28 @@ model ContactConversationState {
   updatedAt       DateTime @updatedAt
 
   client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ContactConversationArchive {
+  id             String   @id @default(uuid())
+  clientId       String
+  conversationId String   @unique
+  openedAt       DateTime
+  closedAt       DateTime?
+  handledById    String?
+  handledByName  String?
+  closureReason  String?
+  closedById     String?
+  closedByRole   UserRole?
+  closedByName   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client   User  @relation("ContactConversationArchiveClient", fields: [clientId], references: [id], onDelete: Cascade)
+  closedBy User? @relation("ContactConversationArchiveCloser", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@index([clientId, closedAt])
+  @@index([closedById, createdAt])
 }
 
 model ClaimMessage {

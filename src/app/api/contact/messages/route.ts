@@ -13,6 +13,10 @@ const createContactMessageSchema = z.object({
   documentLink: optionalHttpUrlSchema,
 });
 
+const closeContactConversationSchema = z.object({
+  reason: z.string().trim().min(2).max(500).optional(),
+});
+
 function isCounselor(role: UserRole | "PUBLIC") {
   return role === "COLLABORATOR" || role === "ADMIN";
 }
@@ -99,6 +103,7 @@ export async function GET(request: NextRequest) {
 
     const clientIdParam = request.nextUrl.searchParams.get("clientId");
     const peek = request.nextUrl.searchParams.get("peek") === "1";
+    const history = request.nextUrl.searchParams.get("history") === "1";
 
     const resolved = await resolveTargetClientIdForRead(
       { id: persistedUser.id, role: persistedUser.role },
@@ -128,6 +133,55 @@ export async function GET(request: NextRequest) {
 
     if (!targetClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    }
+
+    if (history) {
+      const archives = await prisma.contactConversationArchive.findMany({
+        where: { clientId: resolvedClientId, closedAt: { not: null } },
+        orderBy: { closedAt: "desc" },
+        select: {
+          id: true,
+          conversationId: true,
+          openedAt: true,
+          closedAt: true,
+          handledByName: true,
+          closureReason: true,
+          closedByName: true,
+          closedByRole: true,
+        },
+      });
+
+      const conversationIds = archives.map((archive) => archive.conversationId);
+      const historyMessages = conversationIds.length
+        ? await contactModel.findMany({
+            where: { clientId: resolvedClientId, conversationId: { in: conversationIds } },
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              conversationId: true,
+              senderId: true,
+              senderRole: true,
+              senderName: true,
+              body: true,
+              documentLink: true,
+              createdAt: true,
+            },
+          })
+        : [];
+
+      const groupedMessages = historyMessages.reduce<Record<string, typeof historyMessages>>((accumulator, message) => {
+        const key = message.conversationId ?? "";
+        accumulator[key] ??= [];
+        accumulator[key].push(message);
+        return accumulator;
+      }, {});
+
+      return NextResponse.json({
+        data: archives.map((archive) => ({
+          ...archive,
+          messages: groupedMessages[archive.conversationId] ?? [],
+        })),
+      });
     }
 
     if (isArchivedForViewer) {
@@ -281,6 +335,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await prisma.contactConversationArchive.upsert({
+      where: { conversationId },
+      create: {
+        clientId: finalTargetClientId,
+        conversationId,
+        openedAt: message.createdAt,
+      },
+      update: {},
+    });
+
     if (conversationStateModel) {
       await conversationStateOps.upsert({
         where: { clientId: finalTargetClientId },
@@ -334,11 +398,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const contactModel = (prisma as unknown as { contactMessage?: typeof prisma.contactMessage }).contactMessage;
     const conversationStateModel = (prisma as unknown as { contactConversationState?: typeof prisma.contactConversationState }).contactConversationState;
     const conversationStateOps = conversationStateModel as unknown as {
       upsert: (args: unknown) => Promise<unknown>;
     };
-    if (!conversationStateModel) {
+    if (!conversationStateModel || !contactModel) {
       return NextResponse.json({ error: "Contact messaging not initialized. Reload server." }, { status: 503 });
     }
 
@@ -352,8 +417,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Session invalide. Reconnectez-vous." }, { status: 401 });
     }
 
-    if (!isCounselor(persistedUser.role)) {
-      return NextResponse.json({ error: "Seul un conseiller peut cloturer la discussion." }, { status: 403 });
+    if (!isCounselor(persistedUser.role) && persistedUser.role !== UserRole.CLIENT) {
+      return NextResponse.json({ error: "Seul un client ou un conseiller peut cloturer la discussion." }, { status: 403 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const closePayload = closeContactConversationSchema.safeParse(body);
+    if (!closePayload.success) {
+      return NextResponse.json({ error: closePayload.error.flatten() }, { status: 400 });
     }
 
     const clientIdParam = request.nextUrl.searchParams.get("clientId") ?? undefined;
@@ -370,10 +441,71 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
+    const currentState = await conversationStateModel.findUnique({
+      where: { clientId: resolvedTarget.clientId },
+      select: { conversationId: true, clientArchivedAt: true, staffArchivedAt: true },
+    });
+
+    if (!currentState?.conversationId || currentState.clientArchivedAt || currentState.staffArchivedAt) {
+      return NextResponse.json({ error: "Aucune conversation active à clôturer." }, { status: 409 });
+    }
+
+    const [firstMessage, latestCounselorMessage] = await Promise.all([
+      contactModel.findFirst({
+        where: { clientId: resolvedTarget.clientId, conversationId: currentState.conversationId },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true },
+      }),
+      contactModel.findFirst({
+        where: {
+          clientId: resolvedTarget.clientId,
+          conversationId: currentState.conversationId,
+          senderRole: { in: [UserRole.COLLABORATOR, UserRole.ADMIN] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { senderId: true, senderName: true },
+      }),
+    ]);
+
+    const closerName =
+      [persistedUser.firstName, persistedUser.lastName].filter(Boolean).join(" ").trim() ||
+      persistedUser.fullName ||
+      persistedUser.email ||
+      "Utilisateur";
+
+    const handledById = latestCounselorMessage?.senderId ?? (isCounselor(persistedUser.role) ? persistedUser.id : null);
+    const handledByName = latestCounselorMessage?.senderName ?? (isCounselor(persistedUser.role) ? closerName : null);
+
+    await prisma.contactConversationArchive.upsert({
+      where: { conversationId: currentState.conversationId },
+      create: {
+        clientId: resolvedTarget.clientId,
+        conversationId: currentState.conversationId,
+        openedAt: firstMessage?.createdAt ?? new Date(),
+        closedAt: new Date(),
+        handledById,
+        handledByName,
+        closureReason: closePayload.data.reason || null,
+        closedById: persistedUser.id,
+        closedByRole: persistedUser.role,
+        closedByName: closerName,
+      },
+      update: {
+        closedAt: new Date(),
+        handledById,
+        handledByName,
+        closureReason: closePayload.data.reason || null,
+        closedById: persistedUser.id,
+        closedByRole: persistedUser.role,
+        closedByName: closerName,
+      },
+    });
+
     await conversationStateOps.upsert({
       where: { clientId: resolvedTarget.clientId },
       create: {
         clientId: resolvedTarget.clientId,
+        conversationId: currentState.conversationId,
         clientArchivedAt: new Date(),
         staffArchivedAt: new Date(),
       },
@@ -384,21 +516,31 @@ export async function DELETE(request: NextRequest) {
     });
 
     await Promise.all([
-      createAppNotificationSafe({
-        recipientId: resolvedTarget.clientId,
-        type: NotificationType.MESSAGE,
-        severity: NotificationSeverity.WARNING,
-        title: "Discussion clôturée",
-        body: "La discussion avec votre conseiller a été clôturée.",
-        link: "/client",
-      }),
+      ...(isCounselor(persistedUser.role)
+        ? [
+            createAppNotificationSafe({
+              recipientId: resolvedTarget.clientId,
+              type: NotificationType.MESSAGE,
+              severity: NotificationSeverity.WARNING,
+              title: "Discussion clôturée",
+              body: "La discussion avec votre conseiller a été clôturée.",
+              link: "/client",
+            }),
+          ]
+        : []),
       writeAuditLogSafe({
         actorId: persistedUser.id,
         actorRole: persistedUser.role,
         action: "CONTACT_CONVERSATION_CLOSED",
         entityType: "ContactConversationState",
         entityId: resolvedTarget.clientId,
-        summary: `Discussion contact clôturée pour le client ${resolvedTarget.clientId}`,
+        summary: `Discussion contact archivée pour le client ${resolvedTarget.clientId}`,
+        details: {
+          conversationId: currentState.conversationId,
+          closureReason: closePayload.data.reason || null,
+          handledByName,
+          closedByName: closerName,
+        },
         ipAddress: request.headers.get("x-forwarded-for"),
       }),
     ]);

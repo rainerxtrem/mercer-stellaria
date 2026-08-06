@@ -198,14 +198,24 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
-    const previewJson = await previewResponse.json();
-    const previewUrl = previewJson?.data?.previewUrl;
-    const renderedContent = previewJson?.data?.renderedContent;
+    // Check if response is HTML or JSON
+    const contentType = previewResponse.headers.get("content-type") || "";
+    let previewUrl: string | undefined;
+
+    if (contentType.includes("text/html")) {
+      // HTML response - create blob URL
+      const htmlContent = await previewResponse.text();
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      previewUrl = URL.createObjectURL(blob);
+    } else {
+      // JSON response (for text templates)
+      const previewJson = await previewResponse.json();
+      previewUrl = previewJson?.data?.previewUrl;
+    }
 
     setPendingTemplateCreate({
       ...draft,
       previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
-      renderedContent: typeof renderedContent === "string" ? renderedContent : undefined,
       previewKind: "PDF",
     });
 
@@ -350,9 +360,23 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
-    const previewJson = await previewResponse.json();
-    const previewUrl = previewJson?.data?.previewUrl;
-    const renderedContent = previewJson?.data?.renderedContent;
+    // Check if response is HTML or JSON
+    const contentType = previewResponse.headers.get("content-type") || "";
+    let previewUrl: string | undefined;
+    let renderedContent: string | undefined;
+
+    if (contentType.includes("text/html")) {
+      // HTML response - create blob URL
+      const htmlContent = await previewResponse.text();
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      previewUrl = URL.createObjectURL(blob);
+      renderedContent = htmlContent;
+    } else {
+      // JSON response (for text templates)
+      const previewJson = await previewResponse.json();
+      previewUrl = previewJson?.data?.previewUrl;
+      renderedContent = previewJson?.data?.renderedContent;
+    }
 
     setPendingDocumentGeneration({
       request: {

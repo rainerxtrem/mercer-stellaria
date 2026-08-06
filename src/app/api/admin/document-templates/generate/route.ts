@@ -2,11 +2,13 @@ import { NotificationSeverity, NotificationType, SignatureMethod } from "@/gener
 import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildHtmlPreviewDocument, isHtmlTemplate, renderTemplateContent } from "@/lib/document-templates";
-import { generateHtmlToPdf } from "@/lib/html-to-pdf";
 import { buildNumber } from "@/lib/ids";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/server-auth";
+import { getStorageRoot } from "@/lib/storage-paths";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -71,14 +73,17 @@ export async function POST(request: NextRequest) {
   let pdfUrl = "";
 
   if (isHtmlTemplate(renderedContent)) {
+    // Save HTML documents with full styling preserved
     const htmlDocument = buildHtmlPreviewDocument(renderedContent, parsed.data.title);
-    pdfUrl = await generateHtmlToPdf({
-      htmlContent: htmlDocument,
-      documentNumber,
-      outputBucket: "documents",
-      outputFileName: `${documentNumber}.pdf`,
-    });
+    const outputDirectory = path.join(getStorageRoot(), "documents");
+    await mkdir(outputDirectory, { recursive: true });
+
+    const fileName = `${documentNumber}.html`;
+    const filePath = path.join(outputDirectory, fileName);
+    await writeFile(filePath, htmlDocument, "utf-8");
+    pdfUrl = `/storage/documents/${fileName}`;
   } else {
+    // Generate PDF for text-based templates
     const { generateTemplatePdf } = await import("@/lib/document-templates");
     pdfUrl = await generateTemplatePdf({
       documentNumber,

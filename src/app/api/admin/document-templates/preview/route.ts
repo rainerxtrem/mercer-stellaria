@@ -1,7 +1,5 @@
 import { SignatureMethod } from "@/generated/prisma/enums";
-import { buildNumber } from "@/lib/ids";
 import { buildHtmlPreviewDocument, isHtmlTemplate, renderTemplateContent } from "@/lib/document-templates";
-import { generateHtmlToPdf } from "@/lib/html-to-pdf";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -60,34 +58,28 @@ export async function POST(request: NextRequest) {
   }
 
   const rendered = renderTemplateContent(templateContent, parsed.data.payload);
-  const previewNumber = buildNumber("PREVIEW");
   const previewTitle = `${parsed.data.title} (prévisualisation)`;
 
   try {
-    let previewUrl = "";
-
     if (isHtmlTemplate(rendered)) {
+      // Return HTML directly for browser rendering and print-to-PDF
       const htmlContent = buildHtmlPreviewDocument(rendered, previewTitle);
-      previewUrl = await generateHtmlToPdf({
-        htmlContent,
-        documentNumber: previewNumber,
-        outputBucket: "previews",
-        outputFileName: `${previewNumber}.pdf`,
+      return new NextResponse(htmlContent, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Content-Disposition": 'inline; filename="preview.html"',
+        },
       });
     } else {
-      const { generateTemplatePdf } = await import("@/lib/document-templates");
-      previewUrl = await generateTemplatePdf({
-        documentNumber: previewNumber,
-        title: previewTitle,
-        content: rendered,
-        signatureMethod: parsed.data.signatureMethod,
-        signatureData: parsed.data.signatureData,
-        outputBucket: "previews",
-        outputFileName: `${previewNumber}.pdf`,
+      // For text templates, return as JSON with rendered content
+      return NextResponse.json({
+        data: {
+          renderedContent: rendered,
+          previewKind: "TEXT",
+        },
       });
     }
-
-    return NextResponse.json({ data: { previewUrl, renderedContent: rendered, previewKind: "PDF" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Prévisualisation impossible.";
     console.error("Preview generation error:", error);

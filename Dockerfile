@@ -1,10 +1,12 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies for native modules
-RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma/ ./prisma/
@@ -15,15 +17,19 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Runtime stage - Node 22 with Puppeteer support
-FROM node:22-alpine
+# Runtime stage - Node 22 slim with Chromium support
+FROM node:22-slim
 
 WORKDIR /app
 
-# Install Puppeteer system dependencies
-RUN apk add --no-cache \
+# Install runtime dependencies for Chromium and fonts
+RUN apt-get update && apt-get install -y --no-install-recommends \
   chromium \
-  font-noto-cjk
+  chromium-common \
+  libnss3 \
+  libxss1 \
+  fonts-noto-cjk \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy built app from builder
 COPY --from=builder /app/.next ./.next
@@ -38,6 +44,6 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 CMD ["npm", "start"]

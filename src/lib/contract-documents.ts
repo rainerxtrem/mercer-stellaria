@@ -1,9 +1,6 @@
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
-import { mkdir } from "node:fs/promises";
 import { BASE_DOCUMENT_TEMPLATE_HTML, TRANSPARENT_IMAGE_DATA_URL } from "./document-template-base";
 import { renderTemplateContent } from "./document-templates";
-import { getStorageRoot } from "./storage-paths";
+import { generateHtmlToPdf } from "./html-to-pdf";
 
 type ContractPdfInput = {
   contractNumber: string;
@@ -61,14 +58,10 @@ export async function generateContractPdf(input: ContractPdfInput) {
     },
   });
 
-  const outputDirectory = path.join(getStorageRoot(), "contracts");
-  await mkdir(outputDirectory, { recursive: true });
-
-  const fileName = `${input.contractNumber}.html`;
-  const filePath = path.join(outputDirectory, fileName);
-
-  await writeFile(filePath, renderedHtml, "utf-8");
-
-  // Return PDF endpoint URL
-  return `/api/contracts/${input.contractNumber}/pdf`;
+  return generateHtmlToPdf({
+    htmlContent: renderedHtml,
+    documentNumber: input.contractNumber,
+    outputBucket: "contracts",
+    outputFileName: `${input.contractNumber}.pdf`,
+  });
 }

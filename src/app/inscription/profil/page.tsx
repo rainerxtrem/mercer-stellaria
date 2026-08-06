@@ -35,6 +35,95 @@ const riskOptions = [
   { value: 3, label: "Niveau 3 - Eleve" },
 ];
 
+const fieldLabels: Record<string, string> = {
+  firstName: "Prenom",
+  lastName: "Nom",
+  birthDate: "Date de naissance",
+  phone: "Numero de telephone",
+  medicalHistoryRisk: "Question 1 - antecedents medicaux",
+  lifestyleRisk: "Question 2 - mode de vie",
+  occupationRisk: "Question 3 - activite professionnelle",
+  drivingExposure: "Question 4 - conduite",
+  homeSecurityRisk: "Question 5 - securite du domicile",
+  claimsHistoryRisk: "Question 6 - historique de sinistres",
+  highValueAssetsRisk: "Question 7 - biens de valeur",
+};
+
+function getFieldLabel(field: string) {
+  return fieldLabels[field] ?? field;
+}
+
+function getLocalValidationError(form: {
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  phone: string;
+  answers: Record<string, number>;
+}) {
+  const firstName = form.firstName.trim();
+  const lastName = form.lastName.trim();
+  const phone = form.phone.trim();
+
+  if (firstName.length < 2) {
+    return "Le champ Prenom doit contenir au moins 2 caracteres.";
+  }
+
+  if (lastName.length < 2) {
+    return "Le champ Nom doit contenir au moins 2 caracteres.";
+  }
+
+  if (!form.birthDate) {
+    return "Le champ Date de naissance est obligatoire.";
+  }
+
+  if (Number.isNaN(new Date(form.birthDate).getTime())) {
+    return "La date de naissance est invalide.";
+  }
+
+  if (phone.length < 6) {
+    return "Le champ Numero de telephone doit contenir au moins 6 caracteres.";
+  }
+
+  if (phone.length > 40) {
+    return "Le champ Numero de telephone ne peut pas depasser 40 caracteres.";
+  }
+
+  for (const [key, value] of Object.entries(form.answers)) {
+    if (!Number.isInteger(value) || value < 0 || value > 3) {
+      return `${getFieldLabel(key)} est invalide.`;
+    }
+  }
+
+  return null;
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  if (payload && typeof payload === "object") {
+    if ("error" in payload && typeof payload.error === "string") {
+      return payload.error;
+    }
+
+    if ("fieldErrors" in payload && payload.fieldErrors && typeof payload.fieldErrors === "object") {
+      for (const [field, messages] of Object.entries(payload.fieldErrors as Record<string, unknown>)) {
+        if (Array.isArray(messages) && typeof messages[0] === "string") {
+          return `${getFieldLabel(field)}: ${messages[0]}`;
+        }
+      }
+    }
+
+    if ("issues" in payload && Array.isArray(payload.issues)) {
+      for (const issue of payload.issues as Array<{ path?: unknown; message?: unknown }>) {
+        if (typeof issue?.message === "string") {
+          const field = Array.isArray(issue.path) && typeof issue.path.at(-1) === "string" ? issue.path.at(-1) : null;
+          return field ? `${getFieldLabel(field)}: ${issue.message}` : issue.message;
+        }
+      }
+    }
+  }
+
+  return fallback;
+}
+
 export default function OnboardingProfilePage() {
   const router = useRouter();
   const { data: session, status: sessionStatus, update } = useSession();
@@ -59,8 +148,8 @@ export default function OnboardingProfilePage() {
   });
 
   const canSubmit = useMemo(() => {
-    return Boolean(form.firstName && form.lastName && form.birthDate && form.phone);
-  }, [form.firstName, form.lastName, form.birthDate, form.phone]);
+    return getLocalValidationError(form) === null;
+  }, [form]);
 
   useEffect(() => {
     if (sessionStatus === "loading") {
@@ -106,19 +195,32 @@ export default function OnboardingProfilePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!canSubmit) {
-      setStatus("Veuillez remplir tous les champs obligatoires.");
+    const validationError = getLocalValidationError(form);
+
+    if (validationError) {
+      console.warn("[onboarding/profile] validation bloquee cote client", { validationError, form });
+      setStatus(validationError);
       return;
     }
+
+    const submissionPayload = {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      birthDate: form.birthDate,
+      phone: form.phone.trim(),
+      answers: form.answers,
+    };
 
     setSubmitting(true);
     setStatus("Enregistrement du profil et evaluation du risque...");
 
     try {
+      console.info("[onboarding/profile] requete envoyee", submissionPayload);
+
       const response = await fetch("/api/onboarding/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(submissionPayload),
       });
 
       let payload: unknown = null;
@@ -128,14 +230,14 @@ export default function OnboardingProfilePage() {
         payload = null;
       }
 
+      console.info("[onboarding/profile] reponse API", {
+        status: response.status,
+        ok: response.ok,
+        payload,
+      });
+
       if (!response.ok) {
-        const apiError =
-          payload &&
-          typeof payload === "object" &&
-          "error" in payload &&
-          typeof payload.error === "string"
-            ? payload.error
-            : "Echec de validation du formulaire.";
+        const apiError = getApiErrorMessage(payload, `Echec de validation du formulaire (HTTP ${response.status}).`);
 
         setStatus(apiError);
         return;
@@ -153,14 +255,17 @@ export default function OnboardingProfilePage() {
           : null;
 
       if (redirectTo) {
+        setStatus("Profil enregistre avec succes.");
         await update();
         router.replace(redirectTo);
         return;
       }
 
+      setStatus("Profil enregistre avec succes.");
       await update();
       router.replace("/client");
-    } catch {
+    } catch (error) {
+      console.error("[onboarding/profile] erreur reseau", error);
       setStatus("Erreur reseau pendant la validation. Reessayez dans quelques secondes.");
     } finally {
       setSubmitting(false);

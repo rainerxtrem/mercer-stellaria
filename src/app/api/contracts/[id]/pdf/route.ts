@@ -5,19 +5,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ contractId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { contractId } = await params;
+  const { id } = await params;
 
   // Sanitize to prevent path traversal
-  if (!contractId || !/^[A-Z0-9-]+$/.test(contractId)) {
+  if (!id || !/^[A-Z0-9-]+$/.test(id)) {
     return NextResponse.json({ error: "Invalid contract ID" }, { status: 400 });
   }
 
   try {
     // Try to read HTML file
     const storageRoot = getStorageRoot();
-    const htmlPath = path.join(storageRoot, "contracts", `${contractId}.html`);
+    const htmlPath = path.join(storageRoot, "contracts", `${id}.html`);
 
     const content = await readFile(htmlPath, "utf-8");
 
@@ -32,7 +32,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `inline; filename="${contractId}.html"`,
+        "Content-Disposition": `inline; filename="${id}.html"`,
       },
     });
   } catch (error) {

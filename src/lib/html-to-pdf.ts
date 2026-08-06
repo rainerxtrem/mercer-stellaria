@@ -6,7 +6,7 @@ import { getStorageRoot } from "@/lib/storage-paths";
 function transformPublicUrls(htmlContent: string): string {
   const projectRoot = /*turbopackIgnore: true*/ process.cwd();
   return htmlContent.replace(/src="\/([^"]+)"/g, (match, filename) => {
-    const filePath = path.resolve(projectRoot, "public", filename);
+    const filePath = /*turbopackIgnore: true*/ path.resolve(projectRoot, "public", filename);
     return `src="file://${filePath}"`;
   });
 }
@@ -42,11 +42,11 @@ export async function generateHtmlToPdf(input: {
     });
 
     const outputBucket = input.outputBucket ?? "documents";
-    const outputDirectory = path.join(getStorageRoot(), outputBucket);
+    const outputDirectory = /*turbopackIgnore: true*/ path.join(getStorageRoot(), outputBucket);
     await mkdir(outputDirectory, { recursive: true });
 
     const fileName = input.outputFileName ?? `${input.documentNumber}.pdf`;
-    const filePath = path.join(outputDirectory, fileName);
+    const filePath = /*turbopackIgnore: true*/ path.join(outputDirectory, fileName);
 
     await writeFile(filePath, pdfBuffer);
 

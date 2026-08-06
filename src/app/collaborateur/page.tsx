@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ClaimStatus, ContractCategory, SubscriptionRequestStatus } from "@/generated/prisma/enums";
@@ -21,6 +22,7 @@ type Client = {
   lastName: string | null;
   email: string;
   phone: string | null;
+  citizenUniqueId: string | null;
   birthDate: string | null;
   riskLabel: string | null;
   isArchived: boolean;
@@ -102,6 +104,7 @@ type DossierDetail = {
     fullName: string;
     email: string;
     phone: string | null;
+    citizenUniqueId: string | null;
     riskLabel: string | null;
     riskScore: number | null;
     isArchived: boolean;
@@ -1068,6 +1071,7 @@ export default function CollaborateurPage() {
                   <th className="pb-3">Nom</th>
                   <th className="pb-3">Date de naissance</th>
                   <th className="pb-3">Téléphone</th>
+                  <th className="pb-3">ID Citoyen</th>
                   <th className="pb-3">Risque</th>
                   <th className="pb-3">Alertes</th>
                   <th className="pb-3">État dossier</th>
@@ -1077,7 +1081,7 @@ export default function CollaborateurPage() {
               <tbody className="text-ms-ink/85">
                 {filteredClientRows.length === 0 ? (
                   <tr>
-                    <td className="py-5 text-sm text-ms-ink/70" colSpan={8}>
+                    <td className="py-5 text-sm text-ms-ink/70" colSpan={9}>
                       Aucun dossier ne correspond aux filtres actuels.
                     </td>
                   </tr>
@@ -1088,6 +1092,7 @@ export default function CollaborateurPage() {
                       <td className="py-3">{client.lastName ?? client.fullName}</td>
                       <td className="py-3">{client.birthDate ? new Date(client.birthDate).toLocaleDateString("fr-FR") : "Non renseignée"}</td>
                       <td className="py-3">{client.phone ?? "Non renseigné"}</td>
+                      <td className="py-3">{client.citizenUniqueId ?? "Non renseigné"}</td>
                       <td className="py-3">
                         <span className="rounded-full border border-ms-gold/45 bg-ms-gold/10 px-2.5 py-1 text-xs font-semibold text-ms-navy">
                           {client.riskLabel ?? "Non évalué"}
@@ -1107,6 +1112,9 @@ export default function CollaborateurPage() {
                         <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openDossier(client.id)}>
                           Gérer le dossier
                         </button>
+                        <Link href={`/collaborateur/clients/${client.id}`} className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy">
+                          Fiche détaillée
+                        </Link>
                         <button className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy" onClick={() => openContactClientPopup(client)}>
                           Contact
                         </button>
@@ -1432,6 +1440,7 @@ export default function CollaborateurPage() {
                   <p className="text-xs uppercase tracking-[0.22em] text-ms-navy-soft">Popup dossier client</p>
                   <h2 className="mt-2 font-display text-4xl text-ms-navy">{selectedDossier.client.fullName}</h2>
                   <p className="mt-1 text-sm text-ms-ink/75">{selectedDossier.client.phone ?? "Téléphone non renseigné"}</p>
+                  <p className="mt-1 text-sm text-ms-ink/75">ID Citoyen Unique: {selectedDossier.client.citizenUniqueId ?? "Non renseigné"}</p>
                 </div>
                 <button className="rounded-full border border-ms-navy/20 px-4 py-2 text-sm font-semibold text-ms-navy" onClick={closeDossier}>
                   Fermer

@@ -40,6 +40,7 @@ const fieldLabels: Record<string, string> = {
   lastName: "Nom",
   birthDate: "Date de naissance",
   phone: "Numero de telephone",
+  citizenUniqueId: "ID Citoyen Unique",
   medicalHistoryRisk: "Question 1 - antecedents medicaux",
   lifestyleRisk: "Question 2 - mode de vie",
   occupationRisk: "Question 3 - activite professionnelle",
@@ -58,11 +59,13 @@ function getLocalValidationError(form: {
   lastName: string;
   birthDate: string;
   phone: string;
+  citizenUniqueId: string;
   answers: Record<string, number>;
 }) {
   const firstName = form.firstName.trim();
   const lastName = form.lastName.trim();
   const phone = form.phone.trim();
+  const citizenUniqueId = form.citizenUniqueId.trim();
 
   if (firstName.length < 2) {
     return "Le champ Prenom doit contenir au moins 2 caracteres.";
@@ -86,6 +89,10 @@ function getLocalValidationError(form: {
 
   if (phone.length > 40) {
     return "Le champ Numero de telephone ne peut pas depasser 40 caracteres.";
+  }
+
+  if (citizenUniqueId.length < 3) {
+    return "Le champ ID Citoyen Unique doit contenir au moins 3 caracteres.";
   }
 
   for (const [key, value] of Object.entries(form.answers)) {
@@ -136,6 +143,7 @@ export default function OnboardingProfilePage() {
     lastName: "",
     birthDate: "",
     phone: "",
+    citizenUniqueId: "",
     answers: {
       medicalHistoryRisk: 0,
       lifestyleRisk: 0,
@@ -186,6 +194,7 @@ export default function OnboardingProfilePage() {
           lastName: data?.lastName ?? "",
           birthDate: data?.birthDate ?? "",
           phone: data?.phone ?? "",
+          citizenUniqueId: data?.citizenUniqueId ?? "",
         }));
       })
       .catch(() => setStatus("Impossible de charger votre dossier."))
@@ -208,6 +217,7 @@ export default function OnboardingProfilePage() {
       lastName: form.lastName.trim(),
       birthDate: form.birthDate,
       phone: form.phone.trim(),
+      citizenUniqueId: form.citizenUniqueId.trim(),
       answers: form.answers,
     };
 
@@ -358,6 +368,15 @@ export default function OnboardingProfilePage() {
                 required
                 value={form.phone}
                 onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+              />
+            </label>
+            <label className="grid gap-1 text-sm text-ms-ink/85">
+              ID Citoyen Unique
+              <input
+                required
+                value={form.citizenUniqueId}
+                onChange={(event) => setForm((prev) => ({ ...prev, citizenUniqueId: event.target.value }))}
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
             </label>

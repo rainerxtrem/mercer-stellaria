@@ -89,6 +89,7 @@ model User {
   avatarUrl     String?
   birthDate     DateTime?
   phone         String?
+  citizenUniqueId String? @unique
   discordHandle String?
   profileCompleted  Boolean @default(false)
   riskQuestionnaire Json?
@@ -119,6 +120,8 @@ model User {
   reviewedSubscriptionRequests SubscriptionRequest[] @relation("SubscriptionReviewer")
   appNotifications             AppNotification[]
   auditLogs                    AuditLog[] @relation("AuditActor")
+  riskQuestionnaireHistoryAsClient RiskQuestionnaireHistory[] @relation("RiskHistoryClient")
+  riskQuestionnaireHistoryAsActor  RiskQuestionnaireHistory[] @relation("RiskHistoryActor")
   createdDocumentTemplates     DocumentTemplate[] @relation("DocumentTemplateCreator")
   updatedDocumentTemplates     DocumentTemplate[] @relation("DocumentTemplateUpdater")
   generatedDocumentsCreated    GeneratedDocument[] @relation("GeneratedDocumentCreator")
@@ -317,6 +320,25 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([entityType, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model RiskQuestionnaireHistory {
+  id             String   @id @default(uuid())
+  clientId       String
+  actorId        String?
+  oldAnswers     Json?
+  newAnswers     Json
+  oldScore       Int?
+  newScore       Int
+  oldLabel       String?
+  newLabel       String
+  createdAt      DateTime @default(now())
+
+  client User  @relation("RiskHistoryClient", fields: [clientId], references: [id], onDelete: Cascade)
+  actor  User? @relation("RiskHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, createdAt])
   @@index([actorId, createdAt])
 }
 

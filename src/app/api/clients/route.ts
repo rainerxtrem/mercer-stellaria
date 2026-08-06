@@ -8,6 +8,7 @@ const createClientSchema = z.object({
   fullName: z.string().min(2),
   email: z.email(),
   phone: z.string().optional(),
+  citizenUniqueId: z.string().trim().min(3).max(80),
 });
 
 export async function GET() {
@@ -28,6 +29,7 @@ export async function GET() {
       lastName: true,
       email: true,
       phone: true,
+      citizenUniqueId: true,
       birthDate: true,
       riskLabel: true,
       isArchived: true,
@@ -101,6 +103,7 @@ export async function GET() {
       lastName: client.lastName,
       email: client.email,
       phone: client.phone,
+      citizenUniqueId: client.citizenUniqueId,
       birthDate: client.birthDate,
       riskLabel: client.riskLabel,
       isArchived: client.isArchived,
@@ -133,11 +136,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Un utilisateur existe deja avec cet email." }, { status: 409 });
   }
 
+  const existingCitizen = await prisma.user.findFirst({ where: { citizenUniqueId: parsed.data.citizenUniqueId } });
+  if (existingCitizen) {
+    return NextResponse.json({ error: "Un utilisateur existe deja avec cet ID Citoyen Unique." }, { status: 409 });
+  }
+
   const client = await prisma.user.create({
     data: {
       fullName: parsed.data.fullName,
       email: parsed.data.email,
       phone: parsed.data.phone,
+      citizenUniqueId: parsed.data.citizenUniqueId,
       role: UserRole.CLIENT,
       accountManagerId: authResult.user.role === "ADMIN" ? undefined : authResult.user.id,
     },
@@ -146,6 +155,7 @@ export async function POST(request: NextRequest) {
       fullName: true,
       email: true,
       phone: true,
+      citizenUniqueId: true,
       createdAt: true,
     },
   });

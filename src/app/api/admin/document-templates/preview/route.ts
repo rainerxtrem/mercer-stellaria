@@ -1,5 +1,7 @@
 import { SignatureMethod } from "@/generated/prisma/enums";
 import { buildHtmlPreviewDocument, isHtmlTemplate, renderTemplateContent } from "@/lib/document-templates";
+import { generateHtmlToPdf } from "@/lib/html-to-pdf";
+import { buildNumber } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -58,27 +60,31 @@ export async function POST(request: NextRequest) {
   }
 
   const rendered = renderTemplateContent(templateContent, parsed.data.payload);
+  const previewNumber = buildNumber("PREVIEW");
   const previewTitle = `${parsed.data.title} (prévisualisation)`;
 
   try {
     if (isHtmlTemplate(rendered)) {
-      // Return HTML directly for browser rendering and print-to-PDF
       const htmlContent = buildHtmlPreviewDocument(rendered, previewTitle);
-      return new NextResponse(htmlContent, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Content-Disposition": 'inline; filename="preview.html"',
-        },
+      const previewUrl = await generateHtmlToPdf({
+        htmlContent,
+        documentNumber: previewNumber,
+        outputBucket: "previews",
+        outputFileName: `${previewNumber}.pdf`,
       });
+      return NextResponse.json({ data: { previewUrl, previewKind: "PDF" } });
     } else {
-      // For text templates, return as JSON with rendered content
-      return NextResponse.json({
-        data: {
-          renderedContent: rendered,
-          previewKind: "TEXT",
-        },
+      const { generateTemplatePdf } = await import("@/lib/document-templates");
+      const previewUrl = await generateTemplatePdf({
+        documentNumber: previewNumber,
+        title: previewTitle,
+        content: rendered,
+        signatureMethod: parsed.data.signatureMethod,
+        signatureData: parsed.data.signatureData,
+        outputBucket: "previews",
+        outputFileName: `${previewNumber}.pdf`,
       });
+      return NextResponse.json({ data: { previewUrl, previewKind: "PDF" } });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Prévisualisation impossible.";

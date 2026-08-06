@@ -198,20 +198,8 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
-    // Check if response is HTML or JSON
-    const contentType = previewResponse.headers.get("content-type") || "";
-    let previewUrl: string | undefined;
-
-    if (contentType.includes("text/html")) {
-      // HTML response - create blob URL
-      const htmlContent = await previewResponse.text();
-      const blob = new Blob([htmlContent], { type: "text/html" });
-      previewUrl = URL.createObjectURL(blob);
-    } else {
-      // JSON response (for text templates)
-      const previewJson = await previewResponse.json();
-      previewUrl = previewJson?.data?.previewUrl;
-    }
+    const previewJson = await previewResponse.json();
+    const previewUrl: string | undefined = previewJson?.data?.previewUrl;
 
     setPendingTemplateCreate({
       ...draft,
@@ -227,7 +215,7 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       }
     }
 
-    onStatus("Prévisualisez puis confirmez la création du modèle.");
+    onStatus("Prévisualises puis confirmez la création du modèle.");
   }
 
   async function confirmCreateTemplate() {
@@ -360,23 +348,8 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
       return;
     }
 
-    // Check if response is HTML or JSON
-    const contentType = previewResponse.headers.get("content-type") || "";
-    let previewUrl: string | undefined;
-    let renderedContent: string | undefined;
-
-    if (contentType.includes("text/html")) {
-      // HTML response - create blob URL
-      const htmlContent = await previewResponse.text();
-      const blob = new Blob([htmlContent], { type: "text/html" });
-      previewUrl = URL.createObjectURL(blob);
-      renderedContent = htmlContent;
-    } else {
-      // JSON response (for text templates)
-      const previewJson = await previewResponse.json();
-      previewUrl = previewJson?.data?.previewUrl;
-      renderedContent = previewJson?.data?.renderedContent;
-    }
+    const previewJson = await previewResponse.json();
+    const previewUrl: string | undefined = previewJson?.data?.previewUrl;
 
     setPendingDocumentGeneration({
       request: {
@@ -389,7 +362,7 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
         signatureData: generateForm.signatureMethod === "DRAWN_CANVAS" ? generateForm.signatureData || undefined : undefined,
       },
       templateName: template.name,
-      renderedContent: typeof renderedContent === "string" ? renderedContent : renderTemplatePreview(template.content, payload),
+      renderedContent: renderTemplatePreview(template.content, payload),
       previewUrl: typeof previewUrl === "string" ? previewUrl : undefined,
       previewKind: "PDF",
     });

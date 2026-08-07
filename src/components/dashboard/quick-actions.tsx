@@ -16,8 +16,8 @@ export function QuickActions({ actions }: QuickActionsProps) {
     <div className="flex flex-wrap gap-2">
       {actions.map((action) => {
         const toneClass = action.tone === "secondary"
-          ? "border border-ms-navy/20 text-ms-navy bg-white"
-          : "bg-ms-navy text-white";
+          ? "border border-[color:var(--app-border)] text-[color:var(--app-text)] bg-[color:var(--app-surface-elevated)]"
+          : "bg-[color:var(--app-accent-strong)] text-[color:var(--app-surface)]";
         const className = `rounded-full px-4 py-2 text-xs font-semibold ${toneClass}`;
 
         if (action.href) {

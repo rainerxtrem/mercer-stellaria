@@ -117,7 +117,7 @@ export function WorkspaceSidebar({ space, currentPath }: WorkspaceSidebarProps) 
     <>
       <button
         type="button"
-        className="fixed left-4 top-4 z-[95] rounded-full border border-ms-navy/20 bg-white px-4 py-2 text-sm font-semibold text-ms-navy shadow lg:hidden"
+        className="fixed left-4 top-4 z-[95] rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-surface-elevated)] px-4 py-2 text-sm font-semibold text-[color:var(--app-text)] shadow lg:hidden"
         onClick={() => setOpen((prev) => !prev)}
       >
         {open ? "Fermer" : "Menu"}
@@ -126,11 +126,11 @@ export function WorkspaceSidebar({ space, currentPath }: WorkspaceSidebarProps) 
       {open ? <button type="button" className="fixed inset-0 z-[90] bg-ms-navy/25 lg:hidden" onClick={() => setOpen(false)} aria-label="Fermer le menu" /> : null}
 
       <aside
-        className={`fixed left-0 top-0 z-[92] h-screen w-[18rem] border-r border-ms-navy/10 bg-white/95 p-4 shadow-xl backdrop-blur transition-transform lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-[92] h-screen w-[18rem] border-r border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-4 shadow-xl backdrop-blur transition-transform lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-3">
+        <div className="rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-card)] p-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ms-navy-soft">Navigation</p>
           <p className="mt-1 text-sm font-semibold text-ms-navy">{space === "admin" ? "Espace Direction" : "Espace Collaborateur"}</p>
         </div>
@@ -145,8 +145,8 @@ export function WorkspaceSidebar({ space, currentPath }: WorkspaceSidebarProps) 
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                   active
-                    ? "bg-ms-navy text-white shadow"
-                    : "border border-transparent text-ms-navy hover:border-ms-navy/15 hover:bg-ms-cream/60"
+                    ? "bg-[color:var(--app-accent-strong)] text-[color:var(--app-surface)] shadow"
+                    : "border border-transparent text-[color:var(--app-text)] hover:border-[color:var(--app-border)] hover:bg-[color:var(--app-card)]"
                 }`}
               >
                 <Icon kind={item.icon} />

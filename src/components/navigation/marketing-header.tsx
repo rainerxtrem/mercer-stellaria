@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
+import { ThemeToggle } from "@/components/theme/theme-provider";
 import { ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
 
 type MarketingHeaderTab = "HOME" | "CABINET" | "ASSURANCES" | "INVESTMENT";
@@ -58,7 +59,7 @@ export function MarketingHeader() {
   const brand = resolveBranding(pathname);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-[color:var(--app-surface)]/85 backdrop-blur">
       <div className="mx-auto grid w-full max-w-[1500px] items-center gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
         <div className="flex items-center gap-3 lg:justify-self-start">
           <Image
@@ -84,6 +85,7 @@ export function MarketingHeader() {
 
         {!session?.user ? (
           <div className="row-start-3 flex w-full flex-col items-stretch justify-center gap-2 lg:row-start-auto lg:w-auto lg:flex-row lg:items-center lg:justify-self-end">
+            <ThemeToggle />
             <div className="group relative hidden lg:block">
               <button
                 type="button"
@@ -135,6 +137,7 @@ export function MarketingHeader() {
           </div>
         ) : (
           <div className="row-start-3 flex items-center justify-center gap-2 lg:row-start-auto lg:justify-self-end">
+            <ThemeToggle />
             <Link href={requiresOnboarding ? "/inscription/profil" : roleTarget} className="marketing-header-action marketing-header-action-primary">
               Mon espace
             </Link>

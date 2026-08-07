@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Montserrat } from "next/font/google";
 import { AppSessionProvider } from "@/components/auth/session-provider";
 import { InternalNavigationShell } from "@/components/navigation/internal-navigation-shell";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -32,9 +33,11 @@ export default function RootLayout({
       className={`${montserrat.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AppSessionProvider>
-          <InternalNavigationShell>{children}</InternalNavigationShell>
-        </AppSessionProvider>
+        <ThemeProvider>
+          <AppSessionProvider>
+            <InternalNavigationShell>{children}</InternalNavigationShell>
+          </AppSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

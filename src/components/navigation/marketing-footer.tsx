@@ -21,7 +21,7 @@ const trustItems = [
 
 export function MarketingFooter() {
   return (
-    <footer className="mt-8 border-t border-ms-navy/12 bg-gradient-to-b from-[#f4f8ff] via-[#f8fbff] to-[#eef4ff]">
+    <footer className="mt-8 border-t border-[color:var(--app-border)] bg-[linear-gradient(180deg,var(--app-surface)_0%,var(--app-card)_100%)]">
       <div className="mx-auto w-full max-w-[1500px] px-4 py-9 lg:px-8 lg:py-12">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <section>
@@ -38,7 +38,7 @@ export function MarketingFooter() {
 
           <section className="grid gap-3 sm:grid-cols-3">
             {trustItems.map(({ title, text, Icon }) => (
-              <article key={title} className="rounded-2xl border border-ms-navy/12 bg-white/92 p-4 shadow-[0_14px_32px_rgba(15,32,67,0.08)]">
+              <article key={title} className="rounded-2xl border border-[color:var(--app-border)] bg-[color:var(--app-surface-elevated)] p-4 shadow-[0_14px_32px_rgba(15,32,67,0.08)]">
                 <div className="inline-flex rounded-full border border-ms-navy/18 bg-ms-navy/5 p-2 text-ms-navy">
                   <Icon size={16} />
                 </div>

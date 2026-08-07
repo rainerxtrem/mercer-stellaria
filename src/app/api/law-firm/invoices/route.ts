@@ -5,6 +5,7 @@ import { buildChronologicalNumber } from "@/lib/numbering";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -25,7 +26,7 @@ const createInvoiceSchema = z.object({
 
 const updateInvoiceSchema = z.object({
   invoiceId: z.string().uuid(),
-  action: z.enum(["update", "duplicate", "archive", "delete", "send", "mark_paid", "mark_billed", "expire"]),
+  action: z.enum(["update", "duplicate", "archive", "delete", "send", "mark_paid", "mark_billed", "expire", "create_share_link", "revoke_share_link"]),
   matterId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   issueDate: z.string().optional(),
@@ -182,7 +183,38 @@ export async function PATCH(request: NextRequest) {
 
   if (parsed.data.action === "delete") {
     await prisma.lawInvoice.delete({ where: { id: invoice.id } });
+    await prisma.lawMatter.update({ where: { id: invoice.matterId }, data: { lastActivityAt: new Date() } });
     return NextResponse.json({ success: true });
+  }
+
+  if (parsed.data.action === "create_share_link") {
+    const rawToken = randomBytes(24).toString("base64url");
+    const shareTokenHash = createHash("sha256").update(rawToken).digest("hex");
+    const shareTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const linked = await prisma.lawInvoice.update({
+      where: { id: invoice.id },
+      data: { shareTokenHash, shareTokenExpiresAt, updatedById: user.id },
+      select: { id: true, invoiceNumber: true, shareTokenExpiresAt: true },
+    });
+
+    const baseUrl = process.env.NEXTAUTH_URL ?? request.nextUrl.origin;
+    return NextResponse.json({
+      data: {
+        invoiceId: linked.id,
+        invoiceNumber: linked.invoiceNumber,
+        shareTokenExpiresAt: linked.shareTokenExpiresAt,
+        shareUrl: `${baseUrl}/cabinet/espace/signature/${linked.id}?share=${rawToken}`,
+      },
+    });
+  }
+
+  if (parsed.data.action === "revoke_share_link") {
+    const revoked = await prisma.lawInvoice.update({
+      where: { id: invoice.id },
+      data: { shareTokenHash: null, shareTokenExpiresAt: null, updatedById: user.id },
+      select: { id: true, invoiceNumber: true },
+    });
+    return NextResponse.json({ data: revoked });
   }
 
   if (parsed.data.action === "duplicate") {
@@ -219,11 +251,14 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    await prisma.lawMatter.update({ where: { id: duplicated.matter.id }, data: { lastActivityAt: new Date() } });
+
     return NextResponse.json({ data: duplicated }, { status: 201 });
   }
 
   if (parsed.data.action === "archive") {
     const archived = await prisma.lawInvoice.update({ where: { id: invoice.id }, data: { archivedAt: new Date(), updatedById: user.id } });
+    await prisma.lawMatter.update({ where: { id: invoice.matterId }, data: { lastActivityAt: new Date() } });
     return NextResponse.json({ data: archived });
   }
 

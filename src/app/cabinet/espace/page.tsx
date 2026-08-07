@@ -19,10 +19,20 @@ type LawMatter = {
   status: "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED";
   isArchived: boolean;
   client: { id: string; fullName: string; email: string; phone: string | null };
-  messages: Array<{ id: string }>;
+  messages: Array<{ id: string; senderName?: string; body?: string; createdAt?: string }>;
   invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; updatedAt: string }>;
   tasks: Array<{ id: string; status: string }>;
   documents: Array<{ id: string; documentNumber: string; title: string; signedAt: string | null }>;
+};
+
+type MatterMessage = {
+  id: string;
+  senderName: string;
+  senderRole: string;
+  body: string;
+  createdAt: string;
+  documentLink: string | null;
+  signatureLink: string | null;
 };
 
 type LawInvoice = {
@@ -39,6 +49,7 @@ type LawInvoice = {
 type Task = {
   id: string;
   title: string;
+  description?: string | null;
   status: string;
   dueDate: string | null;
   matter: { id: string; title: string; matterNumber: string };
@@ -65,10 +76,19 @@ export default function LawFirmWorkspacePage() {
   const [matters, setMatters] = useState<LawMatter[]>([]);
   const [invoices, setInvoices] = useState<LawInvoice[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskForm, setTaskForm] = useState({
+    matterId: "",
+    title: "",
+    description: "",
+    dueDate: "",
+  });
+  const [taskSaving, setTaskSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
   const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [matterMessages, setMatterMessages] = useState<MatterMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -124,6 +144,25 @@ export default function LawFirmWorkspacePage() {
   const selectedMatter = useMemo(() => matters.find((matter) => matter.id === selectedMatterId) ?? null, [matters, selectedMatterId]);
   const selectedInvoice = useMemo(() => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null, [invoices, selectedInvoiceId]);
 
+  useEffect(() => {
+    if (!selectedMatterId) {
+      setMatterMessages([]);
+      return;
+    }
+
+    setMessagesLoading(true);
+    fetch(`/api/law-firm/matters/${selectedMatterId}/messages`)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("messages_error");
+        }
+        const payload = await response.json();
+        setMatterMessages(payload.data ?? []);
+      })
+      .catch(() => setStatusMessage("Impossible de charger les messages du dossier."))
+      .finally(() => setMessagesLoading(false));
+  }, [selectedMatterId]);
+
   const metrics = [
     { label: "Dossiers actifs", value: String(dashboard?.metrics.activeMatters ?? 0), detail: "En cours" },
     { label: "Dossiers en attente", value: String(dashboard?.metrics.pendingMatters ?? 0), detail: "À traiter" },
@@ -157,7 +196,148 @@ export default function LawFirmWorkspacePage() {
     if (response.ok) {
       setMessageBody("");
       await loadWorkspace();
+      if (selectedMatterId) {
+        const messagesResponse = await fetch(`/api/law-firm/matters/${selectedMatterId}/messages`);
+        if (messagesResponse.ok) {
+          setMatterMessages((await messagesResponse.json()).data ?? []);
+        }
+      }
     }
+  }
+
+  async function updateMatter(matterId: string, action: "rename" | "update" | "archive" | "restore" | "delete", payload?: { title?: string; summary?: string | null; status?: LawMatter["status"] }) {
+    const response = await fetch("/api/law-firm/matters", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ matterId, action, ...payload }),
+    });
+
+    if (!response.ok) {
+      setStatusMessage("Action dossier impossible.");
+      return;
+    }
+
+    setStatusMessage(
+      action === "archive"
+        ? "Dossier archivé."
+        : action === "restore"
+          ? "Dossier restauré."
+          : action === "delete"
+            ? "Dossier supprimé."
+            : "Dossier mis à jour.",
+    );
+
+    if (action === "delete" && selectedMatterId === matterId) {
+      setSelectedMatterId(null);
+      setMatterMessages([]);
+    }
+
+    await loadWorkspace();
+  }
+
+  async function duplicateInvoice(invoiceId: string) {
+    const response = await fetch("/api/law-firm/invoices", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoiceId, action: "duplicate" }),
+    });
+    setStatusMessage(response.ok ? "Facture dupliquée." : "Duplication impossible.");
+    await loadWorkspace();
+  }
+
+  async function archiveInvoice(invoiceId: string) {
+    const response = await fetch("/api/law-firm/invoices", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoiceId, action: "archive" }),
+    });
+    setStatusMessage(response.ok ? "Facture archivée." : "Archivage impossible.");
+    await loadWorkspace();
+  }
+
+  async function createTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!taskForm.matterId || !taskForm.title.trim()) {
+      setStatusMessage("Renseignez au minimum le dossier et le titre de tâche.");
+      return;
+    }
+
+    setTaskSaving(true);
+    const response = await fetch("/api/law-firm/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        matterId: taskForm.matterId,
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || undefined,
+        dueDate: taskForm.dueDate || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      setStatusMessage("Création de tâche impossible.");
+      setTaskSaving(false);
+      return;
+    }
+
+    setTaskForm({ matterId: "", title: "", description: "", dueDate: "" });
+    setStatusMessage("Tâche créée.");
+    await loadWorkspace();
+    setTaskSaving(false);
+  }
+
+  async function updateTaskStatus(taskId: string, nextStatus: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE") {
+    const response = await fetch("/api/law-firm/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, action: "update", status: nextStatus }),
+    });
+    setStatusMessage(response.ok ? "Tâche mise à jour." : "Mise à jour de tâche impossible.");
+    if (response.ok) {
+      await loadWorkspace();
+    }
+  }
+
+  async function deleteTask(taskId: string) {
+    const response = await fetch("/api/law-firm/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, action: "delete" }),
+    });
+    setStatusMessage(response.ok ? "Tâche supprimée." : "Suppression de tâche impossible.");
+    if (response.ok) {
+      await loadWorkspace();
+    }
+  }
+
+  async function createShareLink(invoiceId: string) {
+    const response = await fetch("/api/law-firm/invoices", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoiceId, action: "create_share_link" }),
+    });
+
+    if (!response.ok) {
+      setStatusMessage("Génération du lien impossible.");
+      return;
+    }
+
+    const payload = (await response.json()).data as { shareUrl: string; shareTokenExpiresAt: string };
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload.shareUrl);
+      setStatusMessage(`Lien sécurisé copié (expire le ${new Date(payload.shareTokenExpiresAt).toLocaleDateString("fr-FR")}).`);
+    } else {
+      setStatusMessage(`Lien sécurisé généré: ${payload.shareUrl}`);
+    }
+  }
+
+  async function revokeShareLink(invoiceId: string) {
+    const response = await fetch("/api/law-firm/invoices", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoiceId, action: "revoke_share_link" }),
+    });
+    setStatusMessage(response.ok ? "Lien sécurisé révoqué." : "Révocation impossible.");
   }
 
   async function sendInvoice(invoiceId: string) {
@@ -222,7 +402,23 @@ export default function LawFirmWorkspacePage() {
                       <p className="text-xs text-ms-ink/70">{matter.client.fullName} - {matter.status} {matter.isArchived ? "- archivé" : ""}</p>
                     </button>
                     <div className="flex gap-2 text-xs">
-                      <button className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => sendInvoice(matter.invoices[0]?.id ?? "")}>Envoyer</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => setSelectedMatterId(matter.id)}>Ouvrir</button>
+                      {matter.isArchived ? (
+                        <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void updateMatter(matter.id, "restore")}>Restaurer</button>
+                      ) : (
+                        <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void updateMatter(matter.id, "archive")}>Archiver</button>
+                      )}
+                      <button
+                        type="button"
+                        className="rounded-full border border-red-200 px-3 py-1 text-red-700"
+                        onClick={() => {
+                          if (window.confirm("Supprimer ce dossier définitivement ?")) {
+                            void updateMatter(matter.id, "delete");
+                          }
+                        }}
+                      >
+                        Supprimer
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -236,9 +432,40 @@ export default function LawFirmWorkspacePage() {
                 <div className="space-y-3 text-sm">
                   <p className="font-semibold text-ms-navy">{selectedMatter.title}</p>
                   <p className="text-ms-ink/75">{selectedMatter.summary ?? "Aucun résumé."}</p>
+                  <div className="grid gap-2 md:grid-cols-[1fr,auto]">
+                    <select
+                      className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                      value={selectedMatter.status}
+                      onChange={(event) => void updateMatter(selectedMatter.id, "update", { status: event.target.value as LawMatter["status"] })}
+                    >
+                      <option value="IN_PROGRESS">En cours</option>
+                      <option value="PENDING">En attente</option>
+                      <option value="HOLD">En pause</option>
+                      <option value="CLOSED">Clôturé</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="rounded-full border border-ms-navy/20 px-4 py-2"
+                      onClick={() => {
+                        const nextTitle = window.prompt("Nouveau titre du dossier", selectedMatter.title);
+                        if (nextTitle && nextTitle.trim().length >= 3) {
+                          void updateMatter(selectedMatter.id, "rename", { title: nextTitle.trim() });
+                        }
+                      }}
+                    >
+                      Renommer
+                    </button>
+                  </div>
                   <div className="max-h-56 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ms-navy-soft">Messages</p>
-                    {selectedMatter.messages.length === 0 ? <p className="text-sm text-ms-ink/65">Aucun message.</p> : selectedMatter.messages.map((message) => <p key={message.id} className="text-sm">Message #{message.id}</p>)}
+                    {messagesLoading ? <p className="text-sm text-ms-ink/65">Chargement des messages...</p> : null}
+                    {!messagesLoading && matterMessages.length === 0 ? <p className="text-sm text-ms-ink/65">Aucun message.</p> : null}
+                    {!messagesLoading && matterMessages.map((message) => (
+                      <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-ms-sand/20 p-2">
+                        <p className="text-xs font-semibold text-ms-navy">{message.senderName} - {new Date(message.createdAt).toLocaleString("fr-FR")}</p>
+                        <p className="text-sm text-ms-ink/80">{message.body}</p>
+                      </div>
+                    ))}
                   </div>
                   <textarea value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder="Écrire un message..." className="w-full rounded-xl border border-ms-navy/15 bg-white px-4 py-3" />
                   <button type="button" onClick={sendMessage} className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Envoyer</button>
@@ -256,8 +483,12 @@ export default function LawFirmWorkspacePage() {
                       <p className="text-sm">Total: {invoice.total.toLocaleString("fr-FR")} € - {invoice.status}</p>
                     </button>
                     <div className="mt-2 flex gap-2 text-xs">
-                      <button className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => sendInvoice(invoice.id)}>Envoyer</button>
-                      <button className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => signInvoice(invoice.id)}>Signer</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => sendInvoice(invoice.id)}>Envoyer</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => signInvoice(invoice.id)}>Signer</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => duplicateInvoice(invoice.id)}>Dupliquer</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => archiveInvoice(invoice.id)}>Archiver</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => createShareLink(invoice.id)}>Lien sécurisé</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => revokeShareLink(invoice.id)}>Révoquer lien</button>
                       <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/cabinet/espace/signature/${invoice.id}`}>Consulter et signer</a>
                     </div>
                   </article>
@@ -273,11 +504,69 @@ export default function LawFirmWorkspacePage() {
         </SectionBlock>
 
         <SectionBlock title="Tâches" subtitle="Suivi opérationnel partagé">
+          <form className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createTask}>
+            <select
+              value={taskForm.matterId}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, matterId: event.target.value }))}
+              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+            >
+              <option value="">Sélectionner un dossier</option>
+              {matters.filter((matter) => !matter.isArchived).map((matter) => (
+                <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
+              ))}
+            </select>
+            <input
+              value={taskForm.title}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))}
+              placeholder="Titre de la tâche"
+              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+            />
+            <textarea
+              value={taskForm.description}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
+              placeholder="Description (optionnelle)"
+              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+            />
+            <input
+              type="date"
+              value={taskForm.dueDate}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, dueDate: event.target.value }))}
+              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+            />
+            <button type="submit" disabled={taskSaving} className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white disabled:opacity-60">
+              {taskSaving ? "Création..." : "Créer la tâche"}
+            </button>
+          </form>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {tasks.map((task) => (
               <article key={task.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
                 <p className="font-semibold text-ms-navy">{task.title}</p>
-                <p className="text-ms-ink/70">{task.matter.title} - {task.status}</p>
+                <p className="text-ms-ink/70">{task.matter.title}</p>
+                {task.description ? <p className="mt-1 text-ms-ink/75">{task.description}</p> : null}
+                <p className="mt-1 text-xs text-ms-ink/60">Échéance: {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <select
+                    value={task.status}
+                    onChange={(event) => void updateTaskStatus(task.id, event.target.value as "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE")}
+                    className="rounded-full border border-ms-navy/20 px-3 py-1"
+                  >
+                    <option value="TODO">À faire</option>
+                    <option value="IN_PROGRESS">En cours</option>
+                    <option value="BLOCKED">Bloquée</option>
+                    <option value="DONE">Terminée</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="rounded-full border border-red-200 px-3 py-1 text-red-700"
+                    onClick={() => {
+                      if (window.confirm("Supprimer cette tâche ?")) {
+                        void deleteTask(task.id);
+                      }
+                    }}
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </article>
             ))}
           </div>

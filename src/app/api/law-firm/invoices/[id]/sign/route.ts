@@ -3,15 +3,18 @@ import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 
-export async function POST(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission("feature:law_firm.signature");
-  if (!auth.ok) {
+  const shareToken = request.nextUrl.searchParams.get("share");
+  const user = await getCurrentUser();
+
+  if (!auth.ok && !shareToken) {
     return auth.response;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
+  if (!user && !shareToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -22,21 +25,33 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json({ error: "Facture introuvable." }, { status: 404 });
   }
 
+  if (!auth.ok && shareToken) {
+    const tokenHash = createHash("sha256").update(shareToken).digest("hex");
+    const isValid = invoice.shareTokenHash === tokenHash && (!invoice.shareTokenExpiresAt || invoice.shareTokenExpiresAt > new Date());
+    if (!isValid) {
+      return NextResponse.json({ error: "Lien de signature invalide ou expiré." }, { status: 403 });
+    }
+  }
+
+  const actorId = user?.id ?? invoice.clientId;
+  const actorRole = user?.role ?? invoice.client.role;
+  const actorName = user?.email ?? invoice.client.email ?? "Client";
+
   const signed = await prisma.lawInvoice.update({
     where: { id: invoice.id },
     data: {
       status: "SIGNED",
       signedAt: new Date(),
-      updatedById: user.id,
+      updatedById: actorId,
     },
   });
 
   await prisma.lawMatterMessage.create({
     data: {
       matterId: invoice.matterId,
-      senderId: user.id,
-      senderRole: user.role as never,
-      senderName: user.email ?? "Client",
+      senderId: actorId,
+      senderRole: actorRole as never,
+      senderName: actorName,
       body: `Signature confirmée pour ${invoice.invoiceNumber}.`,
       documentLink: invoice.pdfUrl ?? undefined,
       signatureLink: `/cabinet/espace/signature/${invoice.id}`,

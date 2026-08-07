@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 export default function InvoiceSignaturePage({ params }: { params: { invoiceId: string } }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { status } = useSession();
   const [invoiceId, setInvoiceId] = useState<string>(params.invoiceId);
   const [statusMessage, setStatusMessage] = useState("");
@@ -21,7 +22,11 @@ export default function InvoiceSignaturePage({ params }: { params: { invoiceId: 
   }, [router, status]);
 
   async function signInvoice() {
-    const response = await fetch(`/api/law-firm/invoices/${invoiceId}/sign`, { method: "POST" });
+    const shareToken = searchParams.get("share");
+    const endpoint = shareToken
+      ? `/api/law-firm/invoices/${invoiceId}/sign?share=${encodeURIComponent(shareToken)}`
+      : `/api/law-firm/invoices/${invoiceId}/sign`;
+    const response = await fetch(endpoint, { method: "POST" });
     setStatusMessage(response.ok ? "Document signé." : "Signature impossible.");
   }
 

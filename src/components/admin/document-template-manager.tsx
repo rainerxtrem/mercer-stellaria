@@ -146,8 +146,12 @@ export function DocumentTemplateManager({ onStatus }: DocumentTemplateManagerPro
   }
 
   useEffect(() => {
-    loadData().catch(() => onStatus("Impossible de charger les modèles de documents."));
-  }, []);
+    const timeout = window.setTimeout(() => {
+      void loadData().catch(() => onStatus("Impossible de charger les modèles de documents."));
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [onStatus]);
 
   function selectTemplate(templateId: string) {
     if (!templateId) {

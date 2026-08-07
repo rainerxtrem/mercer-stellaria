@@ -1,4 +1,3 @@
-import { NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/server-auth";
 import { NextResponse } from "next/server";

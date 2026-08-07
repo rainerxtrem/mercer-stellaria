@@ -55,6 +55,15 @@ function getRulePriority(rule: TokenRouteRule) {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const shareToken = request.nextUrl.searchParams.get("share");
+
+  // Public access is allowed for secure signature links. The token is validated in the API route.
+  if (shareToken && (pathname.startsWith("/cabinet/espace/signature/") || pathname.startsWith("/api/law-firm/invoices/"))) {
+    if (pathname.endsWith("/sign") || pathname.startsWith("/cabinet/espace/signature/")) {
+      return NextResponse.next();
+    }
+  }
+
   const routeGuard = protectedRoutes.find((entry) => pathname.startsWith(entry.prefix));
 
   if (!routeGuard) {
@@ -122,5 +131,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/investment/dashboard/:path*", "/assurances/dashboard/:path*", "/collaborateur/:path*", "/cabinet/espace/:path*", "/admin/:path*", "/api/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
 };

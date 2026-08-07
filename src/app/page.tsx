@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MarketingFooter } from "@/components/navigation/marketing-footer";
 import { MarketingHeader } from "@/components/navigation/marketing-header";
-import { ArrowRight, FileText, Landmark, ShieldCheck, Sparkles, TriangleAlert, Wallet } from "lucide-react";
+import { ArrowRight, FileText, Landmark, Lock, ShieldCheck, Sparkles, TrendingUp, TriangleAlert, Wallet } from "lucide-react";
 
 const entities = [
   {
@@ -60,6 +60,39 @@ const insuranceQuickActions = [
     hint: "Lancez votre dossier et joignez les pièces nécessaires.",
     href: "/connexion?service=assurance",
     Icon: TriangleAlert,
+  },
+];
+
+const valueCards = [
+  {
+    kicker: "ACCOMPAGNEMENT GLOBAL",
+    title: "Sécurité Juridique & Assurantielle",
+    description: "Bénéficiez d'une protection totale. Nos avocats et experts en assurance travaillent de concert pour blinder vos structures, vos contrats et vos actifs.",
+    href: "/cabinet",
+    cta: "En savoir plus",
+    Icon: ShieldCheck,
+    surfaceClass: "border-slate-100 bg-gradient-to-br from-white via-[#f7fbff] to-[#edf4ff]",
+    iconClass: "border-ms-sky/35 bg-ms-sky/12 text-ms-navy",
+  },
+  {
+    kicker: "GESTION DE PATRIMOINE",
+    title: "Valorisation & Private Equity",
+    description: "Accédez à des opportunités d'investissement exclusives. Des solutions sur-mesure de Private Equity et d'allocation d'actifs pilotées par nos gestionnaires.",
+    href: "/investment",
+    cta: "En savoir plus",
+    Icon: TrendingUp,
+    surfaceClass: "border-slate-100 bg-gradient-to-br from-white via-[#f6fbf6] to-[#ebf7ee]",
+    iconClass: "border-[#8fb89c]/40 bg-[#8fb89c]/15 text-[#2f6b46]",
+  },
+  {
+    kicker: "SÉCURITÉ & PROXIMITÉ",
+    title: "Un Espace Dédié Haute Performance",
+    description: "Suivez vos dossiers juridiques, contrats d'assurance et portefeuilles d'investissement en temps réel depuis vos espaces clients sécurisés 24/7.",
+    href: "/connexion",
+    cta: "En savoir plus",
+    Icon: Lock,
+    surfaceClass: "border-slate-100 bg-gradient-to-br from-white via-[#fffaf2] to-[#f7efde]",
+    iconClass: "border-ms-gold/40 bg-ms-gold/12 text-[#8a6a2a]",
   },
 ];
 
@@ -171,23 +204,32 @@ export default function Home() {
           })}
         </section>
 
-        <section className="mt-8 rounded-3xl border border-ms-navy/15 bg-[#f2f6fc] p-6 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Gouvernance</p>
-              <h3 className="mt-2 font-display text-3xl text-ms-navy">Cap stratégique</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Comité de direction holding, arbitrage transverse et feuille de route annuelle du groupe.</p>
-            </article>
-            <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Exécution</p>
-              <h3 className="mt-2 font-display text-3xl text-ms-navy">Deux expertises</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Le cabinet traite les enjeux juridiques; les assurances pilotent la protection des clients et entreprises.</p>
-            </article>
-            <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Expérience</p>
-              <h3 className="mt-2 font-display text-3xl text-ms-navy">Un parcours unique</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Des points d&apos;entrée clairs par onglet, avec une narration de marque plus forte et cohérente sur desktop et mobile.</p>
-            </article>
+        <section className="mt-8 overflow-hidden rounded-[30px] border border-ms-navy/10 bg-gradient-to-br from-[#f8fbff] via-white to-[#eef4fb] p-6 shadow-[0_18px_42px_rgba(15,32,67,0.08)] lg:p-8">
+          <div className="max-w-4xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-ms-navy-soft">Valeurs & engagements</p>
+            <h2 className="mt-3 font-display text-4xl leading-tight text-ms-navy md:text-5xl">L&apos;excellence d&apos;un groupe, la synergie de trois expertises.</h2>
+            <p className="mt-3 text-sm leading-7 text-ms-ink/80 md:text-base">
+              Mercer & Stellaria rassemble sous un même toit le conseil juridique, la protection assurantielle et l&apos;ingénierie financière pour sécuriser et propulser vos projets.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {valueCards.map(({ kicker, title, description, href, cta, Icon, surfaceClass, iconClass }) => (
+              <article
+                key={title}
+                className={`group rounded-3xl border p-6 shadow-[0_16px_34px_rgba(15,32,67,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${surfaceClass}`}
+              >
+                <div className={`inline-flex rounded-2xl border p-3 ${iconClass}`}>
+                  <Icon size={22} />
+                </div>
+                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">{kicker}</p>
+                <h3 className="mt-2 font-display text-3xl text-ms-navy">{title}</h3>
+                <p className="mt-3 text-sm leading-7 text-ms-ink/80">{description}</p>
+                <Link href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-ms-navy transition group-hover:text-ms-navy-soft">
+                  {cta} <ArrowRight size={14} className="transition group-hover:translate-x-0.5" />
+                </Link>
+              </article>
+            ))}
           </div>
         </section>
       </main>

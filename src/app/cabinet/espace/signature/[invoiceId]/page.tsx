@@ -16,10 +16,11 @@ export default function InvoiceSignaturePage({ params }: { params: { invoiceId: 
   }, [params]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    const shareToken = searchParams.get("share");
+    if (status === "unauthenticated" && !shareToken) {
       router.replace("/connexion?service=law_firm");
     }
-  }, [router, status]);
+  }, [router, searchParams, status]);
 
   async function signInvoice() {
     const shareToken = searchParams.get("share");

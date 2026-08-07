@@ -101,6 +101,42 @@ export type LawWorkspaceProps = {
   moduleView?: LawModuleView;
 };
 
+function formatEurAmount(value: number) {
+  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+}
+
+function normalizeInvoiceStatus(status: string) {
+  const value = status.toUpperCase();
+  if (value.includes("PAID")) return "PAID";
+  if (value.includes("CANCEL")) return "CANCELED";
+  if (value.includes("ARCHIVE")) return "ARCHIVED";
+  if (value.includes("SIGN")) return "TO_SIGN";
+  if (value.includes("SENT")) return "SENT";
+  if (value.includes("DRAFT")) return "DRAFT";
+  return "PENDING";
+}
+
+function billingStatusMeta(status: string) {
+  const normalized = normalizeInvoiceStatus(status);
+  if (normalized === "PAID") return { label: "Payée", tone: "paid" as const };
+  if (normalized === "CANCELED") return { label: "Annulée", tone: "canceled" as const };
+  if (normalized === "ARCHIVED") return { label: "Archivée", tone: "archived" as const };
+  if (normalized === "TO_SIGN") return { label: "À signer", tone: "to-sign" as const };
+  if (normalized === "SENT") return { label: "Envoyée", tone: "sent" as const };
+  if (normalized === "DRAFT") return { label: "Brouillon", tone: "draft" as const };
+  return { label: "En attente", tone: "pending" as const };
+}
+
+function billingStatusToneClass(tone: ReturnType<typeof billingStatusMeta>["tone"]) {
+  if (tone === "paid") return "border-emerald-300/60 bg-emerald-400/20 text-emerald-100";
+  if (tone === "to-sign") return "border-amber-300/60 bg-amber-300/20 text-amber-100";
+  if (tone === "sent") return "border-sky-300/60 bg-sky-300/20 text-sky-100";
+  if (tone === "draft") return "border-zinc-300/60 bg-zinc-300/20 text-zinc-100";
+  if (tone === "canceled") return "border-rose-300/60 bg-rose-300/20 text-rose-100";
+  if (tone === "archived") return "border-violet-300/60 bg-violet-300/20 text-violet-100";
+  return "border-orange-300/60 bg-orange-300/20 text-orange-100";
+}
+
 export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspaceProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -137,11 +173,18 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
         quantity: "1",
         unitPrice: "0",
         discount: "0",
+        vatRate: "20",
       },
     ],
   });
   const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [billingSearch, setBillingSearch] = useState("");
+  const [billingStatusFilter, setBillingStatusFilter] = useState<"ALL" | "PAID" | "PENDING" | "TO_SIGN" | "CANCELED" | "ARCHIVED">("ALL");
+  const [billingSort, setBillingSort] = useState<"RECENT" | "AMOUNT_DESC" | "AMOUNT_ASC">("RECENT");
+  const [billingView, setBillingView] = useState<"CARDS" | "LIST">("CARDS");
+  const [billingPage, setBillingPage] = useState(1);
+  const [openInvoiceActionMenuId, setOpenInvoiceActionMenuId] = useState<string | null>(null);
   const [matterMessages, setMatterMessages] = useState<MatterMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageBody, setMessageBody] = useState("");
@@ -209,6 +252,85 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
 
   const selectedMatter = useMemo(() => matters.find((matter) => matter.id === selectedMatterId) ?? null, [matters, selectedMatterId]);
   const selectedInvoice = useMemo(() => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null, [invoices, selectedInvoiceId]);
+  const invoiceDraftSummary = useMemo(() => {
+    const ht = invoiceForm.lines.reduce((sum, line) => {
+      const quantity = Number(line.quantity) || 0;
+      const unitPrice = Number(line.unitPrice) || 0;
+      const discount = Number(line.discount) || 0;
+      const lineHt = quantity * unitPrice * (1 - discount / 100);
+      return sum + Math.max(0, lineHt);
+    }, 0);
+
+    const vat = invoiceForm.lines.reduce((sum, line) => {
+      const quantity = Number(line.quantity) || 0;
+      const unitPrice = Number(line.unitPrice) || 0;
+      const discount = Number(line.discount) || 0;
+      const vatRate = Number(line.vatRate) || 0;
+      const lineHt = quantity * unitPrice * (1 - discount / 100);
+      return sum + Math.max(0, lineHt) * (vatRate / 100);
+    }, 0);
+
+    return {
+      ht,
+      vat,
+      ttc: ht + vat,
+    };
+  }, [invoiceForm.lines]);
+
+  const billingRevenue = useMemo(
+    () => invoices.filter((invoice) => normalizeInvoiceStatus(invoice.status) === "PAID").reduce((sum, invoice) => sum + Number(invoice.total || 0), 0),
+    [invoices],
+  );
+
+  const billingUnpaidTotal = useMemo(
+    () =>
+      invoices
+        .filter((invoice) => {
+          const status = normalizeInvoiceStatus(invoice.status);
+          return status !== "PAID" && status !== "CANCELED";
+        })
+        .reduce((sum, invoice) => sum + Number(invoice.total || 0), 0),
+    [invoices],
+  );
+
+  const billingPaidCount = useMemo(() => invoices.filter((invoice) => normalizeInvoiceStatus(invoice.status) === "PAID").length, [invoices]);
+  const billingPendingCount = useMemo(
+    () => invoices.filter((invoice) => ["PENDING", "SENT", "DRAFT"].includes(normalizeInvoiceStatus(invoice.status))).length,
+    [invoices],
+  );
+  const billingToSignCount = useMemo(() => invoices.filter((invoice) => normalizeInvoiceStatus(invoice.status) === "TO_SIGN").length, [invoices]);
+
+  const filteredInvoices = useMemo(() => {
+    const query = billingSearch.trim().toLowerCase();
+    const bySearch = invoices.filter((invoice) => {
+      if (!query) return true;
+      const stack = `${invoice.invoiceNumber} ${invoice.client.fullName} ${invoice.client.email} ${invoice.matter.matterNumber} ${invoice.matter.title}`.toLowerCase();
+      return stack.includes(query);
+    });
+
+    const byStatus = bySearch.filter((invoice) => {
+      if (billingStatusFilter === "ALL") return true;
+      return normalizeInvoiceStatus(invoice.status) === billingStatusFilter;
+    });
+
+    const sorted = [...byStatus].sort((a, b) => {
+      if (billingSort === "AMOUNT_DESC") return Number(b.total || 0) - Number(a.total || 0);
+      if (billingSort === "AMOUNT_ASC") return Number(a.total || 0) - Number(b.total || 0);
+
+      const aDate = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+      const bDate = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+      return bDate - aDate;
+    });
+
+    return sorted;
+  }, [billingSearch, billingSort, billingStatusFilter, invoices]);
+
+  const billingPageSize = billingView === "CARDS" ? 6 : 10;
+  const billingTotalPages = Math.max(1, Math.ceil(filteredInvoices.length / billingPageSize));
+  const paginatedInvoices = useMemo(() => {
+    const start = (billingPage - 1) * billingPageSize;
+    return filteredInvoices.slice(start, start + billingPageSize);
+  }, [billingPage, billingPageSize, filteredInvoices]);
   const selectedMatterClients = useMemo(
     () => matterClients.filter((client) => matterCreateForm.clientIds.includes(client.id)),
     [matterClients, matterCreateForm.clientIds],
@@ -356,6 +478,7 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
       delete: response.ok ? "Facture supprimée." : "Suppression impossible.",
     };
     setStatusMessage(messages[action]);
+    setOpenInvoiceActionMenuId(null);
 
     if (response.ok) {
       await loadWorkspace();
@@ -377,7 +500,7 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
       matterId: "",
       clientId: "",
       dueDate: "",
-      lines: [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+      lines: [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0", vatRate: "20" }],
     });
   }
 
@@ -395,12 +518,13 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
             quantity: String(line.quantity),
             unitPrice: String(line.unitPrice),
             discount: String(line.discount),
+            vatRate: "20",
           }))
-        : [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+        : [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0", vatRate: "20" }],
     });
   }
 
-  function updateInvoiceLine(index: number, key: "pricingItemId" | "description" | "quantity" | "unitPrice" | "discount", value: string) {
+  function updateInvoiceLine(index: number, key: "pricingItemId" | "description" | "quantity" | "unitPrice" | "discount" | "vatRate", value: string) {
     setInvoiceForm((prev) => {
       const nextLines = [...prev.lines];
       nextLines[index] = { ...nextLines[index], [key]: value };
@@ -420,7 +544,7 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
   function addInvoiceLine() {
     setInvoiceForm((prev) => ({
       ...prev,
-      lines: [...prev.lines, { pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+      lines: [...prev.lines, { pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0", vatRate: "20" }],
     }));
   }
 
@@ -493,6 +617,7 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
 
     setStatusMessage(editingInvoiceId ? "Facture modifiée." : "Facture créée.");
     await loadWorkspace();
+    setBillingPage(1);
   }
 
   async function signInvoice(invoiceId: string) {
@@ -613,6 +738,16 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
   const showBarExam = moduleView === "all" || moduleView === "bar-exam";
   const showDisciplinary = moduleView === "all" || moduleView === "disciplinary";
   const showProfile = moduleView === "all" || moduleView === "profile";
+
+  useEffect(() => {
+    setBillingPage(1);
+  }, [billingSearch, billingStatusFilter, billingSort, billingView]);
+
+  useEffect(() => {
+    if (billingPage > billingTotalPages) {
+      setBillingPage(billingTotalPages);
+    }
+  }, [billingPage, billingTotalPages]);
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -800,67 +935,317 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
               ) : <p className="text-sm text-ms-ink/65">Sélectionnez un dossier.</p>}
               </SectionBlock> : null}
 
-              {showBilling ? <SectionBlock title="Facturation" subtitle="Factures, totaux et signatures">
-              <form id="law-firm-invoice-form" className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createInvoice}>
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{editingInvoiceId ? "Modifier une facture" : "Créer une facture"}</p>
-                <select value={invoiceForm.matterId} onChange={(event) => syncInvoiceMatter(event.target.value)} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" required>
-                  <option value="">Sélectionner un dossier</option>
-                  {matters.filter((matter) => !matter.isArchived).map((matter) => (
-                    <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
-                  ))}
-                </select>
-                <input type="date" value={invoiceForm.dueDate} onChange={(event) => setInvoiceForm((prev) => ({ ...prev, dueDate: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
-                <div className="space-y-2">
-                  {invoiceForm.lines.map((line, index) => (
-                    <div key={`line-${index}`} className="grid gap-2 rounded-xl border border-ms-navy/10 bg-ms-cream/20 p-3 md:grid-cols-[1fr,1fr,110px,110px,110px,auto]">
-                      <select value={line.pricingItemId} onChange={(event) => updateInvoiceLine(index, "pricingItemId", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs">
-                        <option value="">Prestation libre</option>
-                        {pricingCatalog.map((item) => (
-                          <option key={item.id} value={item.id}>{item.code} - {item.name}</option>
-                        ))}
-                      </select>
-                      <input value={line.description} onChange={(event) => updateInvoiceLine(index, "description", event.target.value)} placeholder="Description" className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
-                      <input type="number" min="0" step="0.01" value={line.quantity} onChange={(event) => updateInvoiceLine(index, "quantity", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
-                      <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateInvoiceLine(index, "unitPrice", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
-                      <input type="number" min="0" max="100" step="0.01" value={line.discount} onChange={(event) => updateInvoiceLine(index, "discount", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
-                      <button type="button" className="rounded-lg border border-red-200 px-2 py-2 text-xs text-red-700" onClick={() => removeInvoiceLine(index)}>Retirer</button>
+              {showBilling ? <SectionBlock title="Facturation" subtitle="Studio de facturation premium, calculs instantanés et actions pilotées">
+                <div className="relative overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-slate-100 shadow-[0_25px_70px_-30px_rgba(15,23,42,0.95)] md:p-7">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-400/15 blur-3xl" />
+                  <div className="pointer-events-none absolute -left-20 bottom-0 h-56 w-56 rounded-full bg-teal-400/10 blur-3xl" />
+                  <div className="relative space-y-7">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/85">Billing Studio</p>
+                        <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-50 md:text-3xl">Pilotage intelligent de la facturation</h3>
+                        <p className="mt-2 max-w-3xl text-sm text-slate-300/90">Créez, suivez et signez vos factures dans une interface orientée production: tableur éditorial, actions contextuelles, tri dynamique et aperçu financier en temps réel.</p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-600/70 bg-slate-900/70 px-4 py-3 text-right backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Portefeuille actif</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-50">{invoices.length} facture(s)</p>
+                        <p className="text-xs text-slate-400">Cycle {new Date().getFullYear()}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 text-xs font-semibold text-ms-navy" onClick={addInvoiceLine}>Ajouter une ligne</button>
-                  <button type="submit" disabled={invoiceFormSaving} className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{invoiceFormSaving ? "Enregistrement..." : editingInvoiceId ? "Enregistrer les modifications" : "Créer la facture"}</button>
-                  {editingInvoiceId ? <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 text-xs font-semibold text-ms-navy" onClick={resetInvoiceForm}>Annuler la modification</button> : null}
-                </div>
-              </form>
 
-              <div className="space-y-3">
-                {invoices.map((invoice) => (
-                  <article key={invoice.id} className={`rounded-2xl border p-4 ${selectedInvoiceId === invoice.id ? "border-ms-gold bg-ms-gold/10" : "border-ms-navy/10 bg-white"}`}>
-                    <button type="button" className="text-left" onClick={() => setSelectedInvoiceId(invoice.id)}>
-                      <p className="font-semibold text-ms-navy">{invoice.invoiceNumber}</p>
-                      <p className="text-xs text-ms-ink/70">{invoice.matter.title} - {invoice.client.fullName}</p>
-                      <p className="text-sm">Total: {invoice.total.toLocaleString("fr-FR")} EUR - {invoice.status}</p>
-                    </button>
-                    <div className="mt-2 flex gap-2 text-xs">
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => editInvoice(invoice)}>Modifier</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "send")}>Envoyer</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void signInvoice(invoice.id)}>Signer</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "duplicate")}>Dupliquer</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "archive")}>Archiver</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "mark_paid")}>Marquer payée</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "cancel")}>Annuler</button>
-                      <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => void invoiceAction(invoice.id, "delete")}>Supprimer</button>
-                      <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/api/law-firm/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">Prévisualiser PDF</a>
-                      <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/api/law-firm/invoices/${invoice.id}/pdf?download=1`} target="_blank" rel="noreferrer">Télécharger PDF</a>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void createShareLink(invoice.id)}>Lien sécurisé</button>
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void revokeShareLink(invoice.id)}>Révoquer lien</button>
-                      <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/cabinet/espace/signature/${invoice.id}`}>Consulter et signer</a>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <article className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Revenus encaissés</p>
+                        <p className="mt-2 text-2xl font-semibold text-emerald-300">{formatEurAmount(billingRevenue)}</p>
+                        <p className="text-xs text-slate-400">{billingPaidCount} facture(s) payée(s)</p>
+                      </article>
+                      <article className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Encours à recouvrer</p>
+                        <p className="mt-2 text-2xl font-semibold text-amber-300">{formatEurAmount(billingUnpaidTotal)}</p>
+                        <p className="text-xs text-slate-400">{billingPendingCount} facture(s) en suivi</p>
+                      </article>
+                      <article className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">À signer</p>
+                        <p className="mt-2 text-2xl font-semibold text-cyan-200">{billingToSignCount}</p>
+                        <p className="text-xs text-slate-400">Documents en attente</p>
+                      </article>
+                      <article className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Panier en cours</p>
+                        <p className="mt-2 text-2xl font-semibold text-slate-50">{formatEurAmount(invoiceDraftSummary.ttc)}</p>
+                        <p className="text-xs text-slate-400">TTC brouillon actif</p>
+                      </article>
                     </div>
-                  </article>
-                ))}
-              </div>
-              {selectedInvoice ? <div className="mt-4 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm"><p className="font-semibold text-ms-navy">{selectedInvoice.invoiceNumber}</p><p>{selectedInvoice.lines.length} ligne(s) - {selectedInvoice.total.toLocaleString("fr-FR")} EUR</p></div> : null}
+
+                    <div className="grid gap-6 xl:grid-cols-[1.7fr,0.9fr]">
+                      <form id="law-firm-invoice-form" className="rounded-2xl border border-slate-600/70 bg-slate-900/65 p-4 backdrop-blur md:p-5" onSubmit={createInvoice}>
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-slate-100">{editingInvoiceId ? "Édition de facture" : "Nouvelle facture"}</p>
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            <button type="button" className="rounded-full border border-slate-500/80 px-4 py-2 font-semibold text-slate-100 transition hover:border-cyan-300 hover:text-cyan-200" onClick={addInvoiceLine}>Ajouter une ligne</button>
+                            {editingInvoiceId ? <button type="button" className="rounded-full border border-slate-500/80 px-4 py-2 font-semibold text-slate-100 transition hover:border-amber-300 hover:text-amber-200" onClick={resetInvoiceForm}>Annuler l'édition</button> : null}
+                            <button type="submit" disabled={invoiceFormSaving} className="rounded-full bg-cyan-300 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60">{invoiceFormSaving ? "Enregistrement..." : editingInvoiceId ? "Enregistrer" : "Créer la facture"}</button>
+                          </div>
+                        </div>
+
+                        <div className="mb-4 grid gap-3 md:grid-cols-2">
+                          <label className="space-y-1 text-xs text-slate-300">
+                            <span>Dossier</span>
+                            <select value={invoiceForm.matterId} onChange={(event) => syncInvoiceMatter(event.target.value)} className="w-full rounded-xl border border-slate-500/70 bg-slate-950/80 px-3 py-2 text-sm text-slate-100" required>
+                              <option value="">Sélectionner un dossier</option>
+                              {matters.filter((matter) => !matter.isArchived).map((matter) => (
+                                <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="space-y-1 text-xs text-slate-300">
+                            <span>Échéance</span>
+                            <input type="date" value={invoiceForm.dueDate} onChange={(event) => setInvoiceForm((prev) => ({ ...prev, dueDate: event.target.value }))} className="w-full rounded-xl border border-slate-500/70 bg-slate-950/80 px-3 py-2 text-sm text-slate-100" />
+                          </label>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-2xl border border-slate-600/70">
+                          <table className="min-w-[980px] w-full text-left text-xs">
+                            <thead className="bg-slate-800/90 text-slate-300">
+                              <tr>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Prestation</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Description</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Qté</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">PU HT</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Remise %</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">TVA %</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Montant HT</th>
+                                <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {invoiceForm.lines.map((line, index) => {
+                                const lineQuantity = Number(line.quantity) || 0;
+                                const lineUnitPrice = Number(line.unitPrice) || 0;
+                                const lineDiscount = Number(line.discount) || 0;
+                                const lineTotal = Math.max(0, lineQuantity * lineUnitPrice * (1 - lineDiscount / 100));
+
+                                return (
+                                  <tr key={`line-${index}`} className="border-t border-slate-700/80 bg-slate-950/35 text-slate-100">
+                                    <td className="px-3 py-2 align-top">
+                                      <select value={line.pricingItemId} onChange={(event) => updateInvoiceLine(index, "pricingItemId", event.target.value)} className="w-full rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100">
+                                        <option value="">Prestation libre</option>
+                                        {pricingCatalog.map((item) => (
+                                          <option key={item.id} value={item.id}>{item.code} - {item.name}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="px-3 py-2 align-top">
+                                      <input value={line.description} onChange={(event) => updateInvoiceLine(index, "description", event.target.value)} placeholder="Description de ligne" className="w-full rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100" />
+                                    </td>
+                                    <td className="px-3 py-2 align-top">
+                                      <input type="number" min="0" step="0.01" value={line.quantity} onChange={(event) => updateInvoiceLine(index, "quantity", event.target.value)} className="w-[88px] rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100" />
+                                    </td>
+                                    <td className="px-3 py-2 align-top">
+                                      <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateInvoiceLine(index, "unitPrice", event.target.value)} className="w-[110px] rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100" />
+                                    </td>
+                                    <td className="px-3 py-2 align-top">
+                                      <input type="number" min="0" max="100" step="0.01" value={line.discount} onChange={(event) => updateInvoiceLine(index, "discount", event.target.value)} className="w-[92px] rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100" />
+                                    </td>
+                                    <td className="px-3 py-2 align-top">
+                                      <input type="number" min="0" max="100" step="0.01" value={line.vatRate} onChange={(event) => updateInvoiceLine(index, "vatRate", event.target.value)} className="w-[92px] rounded-lg border border-slate-500/70 bg-slate-900/85 px-2 py-2 text-xs text-slate-100" />
+                                    </td>
+                                    <td className="px-3 py-2 align-top text-sm font-semibold text-cyan-200">{formatEurAmount(lineTotal)}</td>
+                                    <td className="px-3 py-2 align-top">
+                                      <button type="button" className="rounded-lg border border-rose-300/60 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/20" onClick={() => removeInvoiceLine(index)}>Retirer</button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </form>
+
+                      <aside className="rounded-2xl border border-slate-600/70 bg-slate-900/75 p-5 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Récapitulatif instantané</p>
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-700/70 pb-2 text-sm text-slate-300">
+                            <span>Total HT</span>
+                            <strong className="text-slate-100">{formatEurAmount(invoiceDraftSummary.ht)}</strong>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-slate-700/70 pb-2 text-sm text-slate-300">
+                            <span>TVA</span>
+                            <strong className="text-slate-100">{formatEurAmount(invoiceDraftSummary.vat)}</strong>
+                          </div>
+                          <div className="flex items-center justify-between text-base font-semibold text-cyan-200">
+                            <span>Total TTC</span>
+                            <strong>{formatEurAmount(invoiceDraftSummary.ttc)}</strong>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 rounded-xl border border-slate-700/80 bg-slate-950/60 p-4 text-xs text-slate-300">
+                          <p className="font-semibold uppercase tracking-[0.14em] text-slate-200">Qualité de facturation</p>
+                          <ul className="mt-2 space-y-1">
+                            <li>Contrôlez les remises ligne par ligne avant émission.</li>
+                            <li>Ajustez les taux de TVA selon la nature de prestation.</li>
+                            <li>Vérifiez l'équilibre HT/TVA/TTC avant envoi client.</li>
+                          </ul>
+                        </div>
+                      </aside>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 backdrop-blur">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">Portefeuille de factures</p>
+                          <p className="text-xs text-slate-400">Recherche, filtres, tri et modes d'affichage</p>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-full border border-slate-600/80 bg-slate-950/70 p-1 text-xs">
+                          <button type="button" onClick={() => setBillingView("CARDS")} className={`rounded-full px-3 py-1.5 font-semibold transition ${billingView === "CARDS" ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:text-slate-100"}`}>Cartes</button>
+                          <button type="button" onClick={() => setBillingView("LIST")} className={`rounded-full px-3 py-1.5 font-semibold transition ${billingView === "LIST" ? "bg-cyan-300 text-slate-950" : "text-slate-300 hover:text-slate-100"}`}>Liste</button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 md:grid-cols-[1fr,220px,200px]">
+                        <input value={billingSearch} onChange={(event) => setBillingSearch(event.target.value)} placeholder="Rechercher: numéro, client, dossier" className="rounded-xl border border-slate-500/70 bg-slate-950/85 px-3 py-2 text-sm text-slate-100" />
+                        <select value={billingStatusFilter} onChange={(event) => setBillingStatusFilter(event.target.value as typeof billingStatusFilter)} className="rounded-xl border border-slate-500/70 bg-slate-950/85 px-3 py-2 text-sm text-slate-100">
+                          <option value="ALL">Tous les statuts</option>
+                          <option value="PAID">Payées</option>
+                          <option value="PENDING">En attente</option>
+                          <option value="TO_SIGN">À signer</option>
+                          <option value="CANCELED">Annulées</option>
+                          <option value="ARCHIVED">Archivées</option>
+                        </select>
+                        <select value={billingSort} onChange={(event) => setBillingSort(event.target.value as typeof billingSort)} className="rounded-xl border border-slate-500/70 bg-slate-950/85 px-3 py-2 text-sm text-slate-100">
+                          <option value="RECENT">Plus récentes</option>
+                          <option value="AMOUNT_DESC">Montant décroissant</option>
+                          <option value="AMOUNT_ASC">Montant croissant</option>
+                        </select>
+                      </div>
+
+                      <div className="mt-5">
+                        {paginatedInvoices.length === 0 ? <p className="rounded-xl border border-slate-600/70 bg-slate-950/65 px-4 py-6 text-center text-sm text-slate-300">Aucune facture ne correspond aux filtres actifs.</p> : null}
+
+                        {billingView === "CARDS" ? (
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {paginatedInvoices.map((invoice) => {
+                              const status = billingStatusMeta(invoice.status);
+                              const isActive = selectedInvoiceId === invoice.id;
+
+                              return (
+                                <article key={invoice.id} className={`rounded-2xl border p-4 transition ${isActive ? "border-cyan-300/80 bg-slate-900/95" : "border-slate-600/80 bg-slate-950/65 hover:border-cyan-300/50"}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <button type="button" className="text-left" onClick={() => setSelectedInvoiceId(invoice.id)}>
+                                      <p className="text-sm font-semibold text-slate-100">{invoice.invoiceNumber}</p>
+                                      <p className="text-xs text-slate-400">{invoice.client.fullName}</p>
+                                      <p className="text-xs text-slate-500">{invoice.matter.matterNumber} - {invoice.matter.title}</p>
+                                    </button>
+                                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${billingStatusToneClass(status.tone)}`}>{status.label}</span>
+                                  </div>
+                                  <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                      <p className="text-slate-500">Échéance</p>
+                                      <p className="font-medium text-slate-200">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-slate-500">Montant</p>
+                                      <p className="font-semibold text-cyan-200">{formatEurAmount(Number(invoice.total || 0))}</p>
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 flex items-center justify-between gap-2 text-xs">
+                                    <button type="button" onClick={() => setSelectedInvoiceId(invoice.id)} className="rounded-full border border-slate-500/80 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-cyan-300 hover:text-cyan-200">Ouvrir</button>
+                                    <div className="relative">
+                                      <button type="button" onClick={() => setOpenInvoiceActionMenuId((prev) => (prev === invoice.id ? null : invoice.id))} className="rounded-full border border-slate-500/80 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-cyan-300 hover:text-cyan-200">Actions</button>
+                                      {openInvoiceActionMenuId === invoice.id ? (
+                                        <div className="absolute right-0 top-10 z-20 w-52 space-y-1 rounded-xl border border-slate-600/80 bg-slate-900 p-2 shadow-xl">
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => editInvoice(invoice)}>Modifier</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void invoiceAction(invoice.id, "send")}>Envoyer</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void signInvoice(invoice.id)}>Signer</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void invoiceAction(invoice.id, "duplicate")}>Dupliquer</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void invoiceAction(invoice.id, "archive")}>Archiver</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void invoiceAction(invoice.id, "mark_paid")}>Marquer payée</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void invoiceAction(invoice.id, "cancel")}>Annuler</button>
+                                          <a className="block w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" href={`/api/law-firm/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">Prévisualiser PDF</a>
+                                          <a className="block w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" href={`/api/law-firm/invoices/${invoice.id}/pdf?download=1`} target="_blank" rel="noreferrer">Télécharger PDF</a>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void createShareLink(invoice.id)}>Lien sécurisé</button>
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" onClick={() => void revokeShareLink(invoice.id)}>Révoquer lien</button>
+                                          <a className="block w-full rounded-lg px-3 py-1.5 text-left text-slate-200 hover:bg-slate-800" href={`/cabinet/espace/signature/${invoice.id}`}>Consulter et signer</a>
+                                          <div className="my-1 border-t border-slate-700" />
+                                          <button type="button" className="w-full rounded-lg px-3 py-1.5 text-left text-rose-300 hover:bg-rose-500/20" onClick={() => void invoiceAction(invoice.id, "delete")}>Supprimer</button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto rounded-xl border border-slate-600/80">
+                            <table className="w-full min-w-[860px] text-left text-xs text-slate-300">
+                              <thead className="bg-slate-800/90">
+                                <tr>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Facture</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Client</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Dossier</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Échéance</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Montant</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Statut</th>
+                                  <th className="px-3 py-3 font-semibold uppercase tracking-[0.16em]">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {paginatedInvoices.map((invoice) => {
+                                  const status = billingStatusMeta(invoice.status);
+
+                                  return (
+                                    <tr key={invoice.id} className={`border-t border-slate-700/80 ${selectedInvoiceId === invoice.id ? "bg-slate-800/70" : "bg-slate-950/50"}`}>
+                                      <td className="px-3 py-3 font-semibold text-slate-100">{invoice.invoiceNumber}</td>
+                                      <td className="px-3 py-3">{invoice.client.fullName}</td>
+                                      <td className="px-3 py-3">{invoice.matter.matterNumber}</td>
+                                      <td className="px-3 py-3">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("fr-FR") : "-"}</td>
+                                      <td className="px-3 py-3 text-cyan-200">{formatEurAmount(Number(invoice.total || 0))}</td>
+                                      <td className="px-3 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${billingStatusToneClass(status.tone)}`}>{status.label}</span></td>
+                                      <td className="px-3 py-3">
+                                        <div className="flex flex-wrap gap-2">
+                                          <button type="button" className="rounded-full border border-slate-500/80 px-2.5 py-1 text-slate-200 hover:border-cyan-300" onClick={() => setSelectedInvoiceId(invoice.id)}>Ouvrir</button>
+                                          <button type="button" className="rounded-full border border-slate-500/80 px-2.5 py-1 text-slate-200 hover:border-cyan-300" onClick={() => editInvoice(invoice)}>Modifier</button>
+                                          <button type="button" className="rounded-full border border-slate-500/80 px-2.5 py-1 text-slate-200 hover:border-cyan-300" onClick={() => void invoiceAction(invoice.id, "send")}>Envoyer</button>
+                                          <button type="button" className="rounded-full border border-slate-500/80 px-2.5 py-1 text-slate-200 hover:border-cyan-300" onClick={() => void invoiceAction(invoice.id, "mark_paid")}>Payée</button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                        <p>Affichage {filteredInvoices.length === 0 ? 0 : (billingPage - 1) * billingPageSize + 1}-{Math.min(filteredInvoices.length, billingPage * billingPageSize)} sur {filteredInvoices.length}</p>
+                        <div className="flex items-center gap-2">
+                          <button type="button" disabled={billingPage <= 1} onClick={() => setBillingPage((page) => Math.max(1, page - 1))} className="rounded-full border border-slate-500/80 px-3 py-1.5 font-semibold text-slate-200 disabled:cursor-not-allowed disabled:opacity-45">Précédent</button>
+                          <span>Page {billingPage} / {billingTotalPages}</span>
+                          <button type="button" disabled={billingPage >= billingTotalPages} onClick={() => setBillingPage((page) => Math.min(billingTotalPages, page + 1))} className="rounded-full border border-slate-500/80 px-3 py-1.5 font-semibold text-slate-200 disabled:cursor-not-allowed disabled:opacity-45">Suivant</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedInvoice ? (
+                      <div className="rounded-2xl border border-slate-600/70 bg-slate-900/70 p-4 text-sm text-slate-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-100">{selectedInvoice.invoiceNumber}</p>
+                            <p className="text-xs text-slate-400">{selectedInvoice.client.fullName} - {selectedInvoice.client.email}</p>
+                          </div>
+                          <span className="text-xs uppercase tracking-[0.14em] text-slate-400">{selectedInvoice.lines.length} ligne(s)</span>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                          <p className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-2">Dossier: {selectedInvoice.matter.matterNumber}</p>
+                          <p className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-2">Total: {formatEurAmount(Number(selectedInvoice.total || 0))}</p>
+                          <p className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-2">Échéance: {selectedInvoice.dueDate ? new Date(selectedInvoice.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </SectionBlock> : null}
             </div>
           </section>

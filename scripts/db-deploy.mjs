@@ -2,10 +2,11 @@
 /**
  * Déploiement de schéma sans perte de données.
  *
- * La base de production a été créée avec `prisma db push`, elle n'a donc pas
- * forcément d'historique de migrations. Ce script la « baseline » (marque les
- * migrations déjà reflétées comme appliquées) avant de lancer `migrate deploy`,
- * ce qui remplace `db push --accept-data-loss` sans jamais supprimer de données.
+ * La base de production a été créée avec `prisma db push` : elle possède le
+ * schéma mais pas l'historique de migrations. On tente donc `migrate deploy`,
+ * et si Prisma répond P3005 (« schema is not empty »), on marque les migrations
+ * comme déjà appliquées (baseline) avant de réessayer. Aucune donnée n'est
+ * jamais supprimée.
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, existsSync } from "node:fs";
@@ -13,16 +14,12 @@ import { join } from "node:path";
 
 const MIGRATIONS_DIR = join(process.cwd(), "prisma", "migrations");
 
-function run(args, { allowFailure = false } = {}) {
+function runPrisma(args) {
   try {
-    return execFileSync("npx", ["prisma", ...args], { stdio: "pipe", encoding: "utf8", shell: true });
+    const stdout = execFileSync("npx", ["prisma", ...args], { stdio: "pipe", encoding: "utf8", shell: true });
+    return { ok: true, output: stdout ?? "" };
   } catch (error) {
-    if (allowFailure) {
-      return error.stdout ?? "";
-    }
-    process.stderr.write(error.stdout ?? "");
-    process.stderr.write(error.stderr ?? "");
-    throw error;
+    return { ok: false, output: `${error.stdout ?? ""}\n${error.stderr ?? ""}` };
   }
 }
 
@@ -37,16 +34,6 @@ function listMigrations() {
     .sort();
 }
 
-function needsBaseline() {
-  const status = run(["migrate", "status"], { allowFailure: true });
-
-  // Schéma déjà présent mais historique absent/incomplet => baseline requis.
-  return (
-    status.includes("have not yet been applied") &&
-    (status.includes("drift") || status.includes("baseline") || status.includes("P3005"))
-  );
-}
-
 const migrations = listMigrations();
 
 if (migrations.length === 0) {
@@ -54,14 +41,26 @@ if (migrations.length === 0) {
   process.exit(0);
 }
 
-if (needsBaseline()) {
-  console.log("[db-deploy] Base existante détectée sans historique complet : baseline en cours.");
+console.log(`[db-deploy] ${migrations.length} migration(s) détectée(s).`);
+
+let result = runPrisma(["migrate", "deploy"]);
+
+if (!result.ok && /P3005|schema is not empty/i.test(result.output)) {
+  console.log("[db-deploy] P3005 : base existante sans historique, baseline en cours.");
+
   for (const migration of migrations) {
-    run(["migrate", "resolve", "--applied", migration], { allowFailure: true });
-    console.log(`[db-deploy]   marquée appliquée : ${migration}`);
+    const resolved = runPrisma(["migrate", "resolve", "--applied", migration]);
+    console.log(`[db-deploy]   ${resolved.ok ? "marquée appliquée" : "déjà enregistrée"} : ${migration}`);
   }
+
+  result = runPrisma(["migrate", "deploy"]);
 }
 
-console.log("[db-deploy] prisma migrate deploy");
-process.stdout.write(run(["migrate", "deploy"]));
+if (!result.ok) {
+  console.error("[db-deploy] Échec du déploiement de schéma :");
+  console.error(result.output);
+  process.exit(1);
+}
+
+process.stdout.write(result.output);
 console.log("[db-deploy] Schéma à jour.");

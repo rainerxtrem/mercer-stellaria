@@ -53,7 +53,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
                 aria-haspopup="menu"
               >
                 <span className="text-left text-[13px] font-semibold leading-tight">
-                  Acces Client & Assure
+                  Accès Client & Assuré
                 </span>
                 <ChevronDown size={16} className="text-ms-navy/75 transition group-hover:rotate-180 group-focus-visible:rotate-180" />
               </button>
@@ -67,7 +67,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
                 >
                   <ShieldCheck size={16} className="mt-0.5 text-ms-navy" />
                   <span>
-                    <span className="block text-sm font-semibold text-ms-navy">Espace Assure (Contrats & Attestations)</span>
+                    <span className="block text-sm font-semibold text-ms-navy">Espace Assuré (Contrats & Attestations)</span>
                     <span className="block text-xs text-ms-ink/70">Suivi des contrats, attestations et sinistres.</span>
                   </span>
                 </Link>
@@ -78,7 +78,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
                   <Scale size={16} className="mt-0.5 text-ms-navy" />
                   <span>
                     <span className="block text-sm font-semibold text-ms-navy">Espace Client Cabinet</span>
-                    <span className="block text-xs text-ms-ink/70">Acces dossier juridique et accompagnement conseil.</span>
+                    <span className="block text-xs text-ms-ink/70">Accès dossier juridique et accompagnement conseil.</span>
                   </span>
                 </Link>
               </div>
@@ -86,7 +86,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
 
             <div className="grid w-full gap-2 lg:hidden">
               <Link href="/connexion?space=assure" className="marketing-header-action">
-                Espace Assure (Contrats & Attestations)
+                Espace Assuré (Contrats & Attestations)
               </Link>
               <Link href="/connexion?space=cabinet" className="marketing-header-action">
                 Espace Client Cabinet

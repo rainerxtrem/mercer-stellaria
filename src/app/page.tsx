@@ -33,20 +33,20 @@ const entities = [
 
 const insuranceQuickActions = [
   {
-    label: "Acceder a mon espace",
+    label: "Accéder à mon espace",
     hint: "Contrats, paiements, messagerie conseiller.",
     href: "/connexion?space=assure",
     Icon: ShieldCheck,
   },
   {
-    label: "Telecharger une attestation",
+    label: "Télécharger une attestation",
     hint: "Retrouvez vos documents contractuels en quelques clics.",
     href: "/connexion?space=assure",
     Icon: FileText,
   },
   {
-    label: "Declarer un sinistre",
-    hint: "Lancez votre dossier et joignez les pieces necessaires.",
+    label: "Déclarer un sinistre",
+    hint: "Lancez votre dossier et joignez les pièces nécessaires.",
     href: "/connexion?space=assure",
     Icon: TriangleAlert,
   },
@@ -106,13 +106,13 @@ export default function Home() {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
             <div>
               <p className="inline-flex rounded-full border border-white/35 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-sky">
-                Assurance - Acces rapide client
+                Assurance - Accès rapide client
               </p>
               <h2 className="mt-3 font-display text-4xl leading-tight text-ms-cream md:text-5xl">
-                Deja client Mercer & Stellaria Insurance ?
+                Déjà client Mercer & Stellaria Insurance ?
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-ms-cream/90 md:text-base">
-                Retrouvez vos services prioritaires en acces direct pour gagner du temps sur les actions les plus frequentes.
+                Retrouvez vos services prioritaires en accès direct pour gagner du temps sur les actions les plus fréquentes.
               </p>
             </div>
 
@@ -175,7 +175,7 @@ export default function Home() {
             <article className="rounded-2xl border border-ms-navy/10 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Expérience</p>
               <h3 className="mt-2 font-display text-3xl text-ms-navy">Un parcours unique</h3>
-              <p className="mt-2 text-sm text-ms-ink/80">Des points d'entrée clairs par onglet, avec une narration de marque plus forte et cohérente sur desktop et mobile.</p>
+              <p className="mt-2 text-sm text-ms-ink/80">Des points d&apos;entrée clairs par onglet, avec une narration de marque plus forte et cohérente sur desktop et mobile.</p>
             </article>
           </div>
         </section>

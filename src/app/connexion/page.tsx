@@ -75,7 +75,7 @@ export default function ConnexionPage() {
 
   const redirectLabel = requestedSpace === "cabinet"
     ? "votre espace client"
-    : "votre espace assure";
+    : "votre espace assuré";
 
   return (
     <main className="brand-shell flex flex-1 items-center justify-center px-6 py-12">

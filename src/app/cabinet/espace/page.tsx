@@ -1172,6 +1172,53 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
                             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getMatterPriority(selectedMatter, tasks).className}`}>{getMatterPriority(selectedMatter, tasks).label}</span>
                           </div>
                         </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <label className="text-[11px] uppercase tracking-[0.2em] text-slate-400" htmlFor="matter-status-select">
+                            Statut
+                          </label>
+                          <select
+                            id="matter-status-select"
+                            value={selectedMatter.status}
+                            onChange={(event) => void updateMatter(selectedMatter.id, "update", { status: event.target.value as LawMatter["status"] })}
+                            className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 outline-none focus:border-cyan-300"
+                          >
+                            <option value="IN_PROGRESS">En cours</option>
+                            <option value="PENDING">En attente</option>
+                            <option value="HOLD">Suspendu</option>
+                            <option value="CLOSED">Clôturé</option>
+                          </select>
+
+                          {selectedMatter.isArchived ? (
+                            <button
+                              type="button"
+                              onClick={() => void updateMatter(selectedMatter.id, "restore")}
+                              className="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-800"
+                            >
+                              Restaurer
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void updateMatter(selectedMatter.id, "archive")}
+                              className="rounded-full border border-slate-600 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-800"
+                            >
+                              Archiver
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Supprimer définitivement le dossier ${selectedMatter.matterNumber} ? Cette action est irréversible.`)) {
+                                void updateMatter(selectedMatter.id, "delete");
+                              }
+                            }}
+                            className="rounded-full border border-rose-500/60 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/15"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
                         <div className="mt-4 grid gap-3 md:grid-cols-4">
                           <div className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progression</p>
@@ -1310,7 +1357,11 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
                           {activeMatterTab === "messaging" ? (
                             <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
                               <p className="font-semibold text-ms-navy">Messagerie</p>
+                              {messagesLoading ? <p className="mt-2 text-xs text-ms-ink/60">Chargement des messages…</p> : null}
                               <div className="mt-3 space-y-2">
+                                {matterMessages.length === 0 && !messagesLoading ? (
+                                  <p className="text-xs text-ms-ink/60">Aucun message pour l&apos;instant.</p>
+                                ) : null}
                                 {matterMessages.map((message) => (
                                   <div key={message.id} className="rounded-xl border border-ms-navy/10 bg-white p-3">
                                     <p className="font-semibold text-ms-navy">{message.senderName}</p>
@@ -1318,6 +1369,33 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
                                   </div>
                                 ))}
                               </div>
+                              <form
+                                className="mt-4 grid gap-2"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  void sendMessage();
+                                }}
+                              >
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-ms-ink/60" htmlFor="matter-message-body">
+                                  Nouveau message
+                                </label>
+                                <textarea
+                                  id="matter-message-body"
+                                  value={messageBody}
+                                  onChange={(event) => setMessageBody(event.target.value)}
+                                  placeholder="Écrire un message au client…"
+                                  className="min-h-[90px] w-full rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm text-ms-ink outline-none transition focus:border-ms-navy-soft focus:ring-2 focus:ring-ms-navy-soft/25"
+                                />
+                                <div className="flex justify-end">
+                                  <button
+                                    type="submit"
+                                    disabled={!messageBody.trim()}
+                                    className="rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-ms-navy-soft disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Envoyer
+                                  </button>
+                                </div>
+                              </form>
                             </div>
                           ) : null}
                           {activeMatterTab === "activity" ? (

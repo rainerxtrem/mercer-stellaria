@@ -268,6 +268,50 @@ button:focus-visible {
   box-shadow: 0 0 0 2px rgba(15, 32, 67, 0.22);
 }
 
+/* Design system primitives */
+.ds-spinner {
+  display: inline-block;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: ds-spin 0.7s linear infinite;
+}
+
+.ds-skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ms-ink) 8%, transparent) 25%,
+    color-mix(in srgb, var(--ms-ink) 16%, transparent) 37%,
+    color-mix(in srgb, var(--ms-ink) 8%, transparent) 63%
+  );
+  background-size: 400% 100%;
+  animation: ds-shimmer 1.4s ease infinite;
+}
+
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ds-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-spinner,
+  .ds-skeleton {
+    animation: none;
+  }
+}
+
 .workspace-shell {
   position: relative;
   isolation: isolate;

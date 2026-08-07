@@ -72,7 +72,16 @@ export default function AdminPage({ moduleView = "all" }: DirectionDashboardProp
   const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
   const [feedUnreadCount, setFeedUnreadCount] = useState(0);
   const [auditTrail, setAuditTrail] = useState<AuditItem[]>([]);
+  const [auditFilters, setAuditFilters] = useState({ search: "", from: "", to: "" });
   const [accessForm, setAccessForm] = useState({ userId: "", role: "COLLABORATOR" as AccessUser["role"], isActive: true });
+
+  const auditQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (auditFilters.search.trim()) params.set("search", auditFilters.search.trim());
+    if (auditFilters.from) params.set("from", auditFilters.from);
+    if (auditFilters.to) params.set("to", `${auditFilters.to}T23:59:59.999Z`);
+    return params.toString();
+  }, [auditFilters]);
 
   const performance = useMemo(() => {
     const byAgent = new Map<string, number>();
@@ -103,7 +112,7 @@ export default function AdminPage({ moduleView = "all" }: DirectionDashboardProp
       fetch("/api/claims"),
       fetch("/api/contracts"),
       fetch("/api/notifications"),
-      fetch("/api/admin/audit"),
+      fetch(`/api/admin/audit?${auditQueryString}`),
     ]);
 
     if (kpiRes.ok) {
@@ -145,6 +154,29 @@ export default function AdminPage({ moduleView = "all" }: DirectionDashboardProp
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData().catch(() => setStatus("Erreur de chargement des données."));
   }, [isOwner]);
+
+  useEffect(() => {
+    if (!showAudit) {
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      fetch(`/api/admin/audit?${auditQueryString}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((json) => {
+          if (!cancelled && json) {
+            setAuditTrail(json.data ?? []);
+          }
+        })
+        .catch(() => null);
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [auditQueryString, showAudit]);
 
   async function updateClaimStatus(claimId: string, statusValue: "APPROVED" | "WAITING_DETAILS") {
     const response = await fetch("/api/claims", {
@@ -308,11 +340,47 @@ export default function AdminPage({ moduleView = "all" }: DirectionDashboardProp
 
             {showAudit ? <div id="audit-trail">
               <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
+              <div className="mb-3 flex flex-wrap items-end gap-2">
+                <label className="grid gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-[0.12em] text-ms-ink/60">Recherche</span>
+                  <input
+                    type="search"
+                    value={auditFilters.search}
+                    onChange={(event) => setAuditFilters((prev) => ({ ...prev, search: event.target.value }))}
+                    placeholder="Action, type, résumé…"
+                    className="rounded-lg border border-ms-navy/15 bg-white px-3 py-1.5 text-sm text-ms-ink outline-none focus:border-ms-navy-soft"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-[0.12em] text-ms-ink/60">Du</span>
+                  <input
+                    type="date"
+                    value={auditFilters.from}
+                    onChange={(event) => setAuditFilters((prev) => ({ ...prev, from: event.target.value }))}
+                    className="rounded-lg border border-ms-navy/15 bg-white px-3 py-1.5 text-sm text-ms-ink outline-none focus:border-ms-navy-soft"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-[0.12em] text-ms-ink/60">Au</span>
+                  <input
+                    type="date"
+                    value={auditFilters.to}
+                    onChange={(event) => setAuditFilters((prev) => ({ ...prev, to: event.target.value }))}
+                    className="rounded-lg border border-ms-navy/15 bg-white px-3 py-1.5 text-sm text-ms-ink outline-none focus:border-ms-navy-soft"
+                  />
+                </label>
+                <a
+                  href={`/api/admin/audit?format=csv&${auditQueryString}`}
+                  className="rounded-full border border-ms-navy/20 px-4 py-1.5 text-xs font-semibold text-ms-navy transition hover:bg-ms-navy/5"
+                >
+                  Exporter en CSV
+                </a>
+              </div>
               <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
                 {auditTrail.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucune entrée d&apos;audit.</p>
                 ) : (
-                  auditTrail.slice(0, 15).map((item) => (
+                  auditTrail.map((item) => (
                     <article key={item.id} className="rounded-lg border border-ms-navy/10 bg-ms-cream/40 p-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.action}</p>
                       <p className="mt-1 text-sm text-ms-ink/85">{item.summary}</p>

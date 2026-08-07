@@ -1,6 +1,6 @@
 "use client";
 
-import { getActiveSpace, resolveAccessibleSpaces, type InternalSpace } from "@/lib/internal-navigation";
+import { getActiveSpace, getImplementedModules, resolveAccessibleSpaces, type InternalSpace } from "@/lib/internal-navigation";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -144,12 +144,14 @@ export function InternalSidebar() {
     const map = new Map<InternalSpace["id"], InternalSpace["modules"]>();
 
     visibleSpaces.forEach((space) => {
+      const implementedModules = getImplementedModules(space);
+
       if (space.id !== "client") {
-        map.set(space.id, space.modules);
+        map.set(space.id, implementedModules);
         return;
       }
 
-      const filtered = space.modules.filter((module) => {
+      const filtered = implementedModules.filter((module) => {
         if (module.id === "contracts") {
           return clientModuleFlags.hasAccessibleContracts;
         }

@@ -11,6 +11,8 @@ export type SpaceModule = {
   id: string;
   label: string;
   href: string;
+  /** `false` for placeholder screens: kept routable but hidden from navigation. */
+  implemented?: boolean;
 };
 
 export type InternalSpace = {
@@ -21,6 +23,8 @@ export type InternalSpace = {
   basePaths: string[];
   defaultHref: string;
   modules: SpaceModule[];
+  /** `false` while the whole space is still a placeholder. */
+  implemented?: boolean;
 };
 
 type SpaceResolutionInput = {
@@ -86,10 +90,10 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     defaultHref: "/investment/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/investment/dashboard" },
-      { id: "portfolio", label: "Portefeuille", href: "/investment/portfolio" },
-      { id: "analytics", label: "Analytique", href: "/investment/analytics" },
-      { id: "requests", label: "Demandes", href: "/investment/requests" },
-      { id: "profile", label: "Mon espace", href: "/investment/profile" },
+      { id: "portfolio", label: "Portefeuille", href: "/investment/portfolio", implemented: false },
+      { id: "analytics", label: "Analytique", href: "/investment/analytics", implemented: false },
+      { id: "requests", label: "Demandes", href: "/investment/requests", implemented: false },
+      { id: "profile", label: "Mon espace", href: "/investment/profile", implemented: false },
     ],
   },
   {
@@ -118,11 +122,11 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     defaultHref: "/assurance/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/assurance/dashboard" },
-      { id: "contracts", label: "Contrats", href: "/assurance/contracts" },
-      { id: "claims", label: "Sinistres", href: "/assurance/claims" },
-      { id: "billing", label: "Facturation", href: "/assurance/billing" },
-      { id: "support", label: "Support", href: "/assurance/support" },
-      { id: "profile", label: "Mon espace", href: "/assurance/profile" },
+      { id: "contracts", label: "Contrats", href: "/assurance/contracts", implemented: false },
+      { id: "claims", label: "Sinistres", href: "/assurance/claims", implemented: false },
+      { id: "billing", label: "Facturation", href: "/assurance/billing", implemented: false },
+      { id: "support", label: "Support", href: "/assurance/support", implemented: false },
+      { id: "profile", label: "Mon espace", href: "/assurance/profile", implemented: false },
     ],
   },
   {
@@ -132,12 +136,13 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     icon: "chart",
     basePaths: ["/finance"],
     defaultHref: "/finance/dashboard",
+    implemented: false,
     modules: [
-      { id: "dashboard", label: "Tableau de bord", href: "/finance/dashboard" },
-      { id: "billing", label: "Facturation", href: "/finance/billing" },
-      { id: "treasury", label: "Tresorerie", href: "/finance/treasury" },
-      { id: "reports", label: "Rapports", href: "/finance/reports" },
-      { id: "profile", label: "Mon espace", href: "/finance/profile" },
+      { id: "dashboard", label: "Tableau de bord", href: "/finance/dashboard", implemented: false },
+      { id: "billing", label: "Facturation", href: "/finance/billing", implemented: false },
+      { id: "treasury", label: "Tresorerie", href: "/finance/treasury", implemented: false },
+      { id: "reports", label: "Rapports", href: "/finance/reports", implemented: false },
+      { id: "profile", label: "Mon espace", href: "/finance/profile", implemented: false },
     ],
   },
   {
@@ -161,6 +166,14 @@ export const INTERNAL_SPACES: InternalSpace[] = [
 
 export function isInternalPath(pathname: string) {
   return INTERNAL_SPACES.some((space) => space.basePaths.some((path) => pathname.startsWith(path)));
+}
+
+export function isSpaceImplemented(space: InternalSpace) {
+  return space.implemented !== false;
+}
+
+export function getImplementedModules(space: InternalSpace) {
+  return space.modules.filter((module) => module.implemented !== false);
 }
 
 export function getActiveSpace(pathname: string, visibleSpaces: InternalSpace[]) {
@@ -212,5 +225,5 @@ export function resolveAccessibleSpaces({ permissions, role, pathname }: SpaceRe
     mergedById.set(space.id, space);
   });
 
-  return [...mergedById.values()];
+  return [...mergedById.values()].filter(isSpaceImplemented);
 }

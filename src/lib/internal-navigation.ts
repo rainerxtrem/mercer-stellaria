@@ -151,6 +151,7 @@ export const INTERNAL_SPACES: InternalSpace[] = [
       { id: "overview", label: "Vue d'ensemble", href: "/client-space/overview" },
       { id: "contracts", label: "Contrats", href: "/client-space/contracts" },
       { id: "claims", label: "Sinistres", href: "/client-space/claims" },
+      { id: "matters", label: "Dossiers", href: "/client-space/matters" },
       { id: "messages", label: "Messages", href: "/client-space/messages" },
       { id: "requests", label: "Souscriptions", href: "/client-space/requests" },
       { id: "billing", label: "Facturation", href: "/client-space/billing" },

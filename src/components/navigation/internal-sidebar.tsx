@@ -6,6 +6,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
+type ClientSidebarModuleFlags = {
+  hasAccessibleContracts: boolean;
+  hasActiveInsuranceContract: boolean;
+  hasAccessibleMatters: boolean;
+};
+
+type SidebarContractPayload = {
+  status?: string;
+};
+
 function Icon({ kind }: { kind: InternalSpace["icon"] }) {
   const paths: Record<InternalSpace["icon"], string> = {
     briefcase: "M10 4l2 2h8a1 1 0 011 1v10a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h5z",
@@ -47,6 +57,11 @@ export function InternalSidebar() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [hash, setHash] = useState("");
+  const [clientModuleFlags, setClientModuleFlags] = useState<ClientSidebarModuleFlags>({
+    hasAccessibleContracts: false,
+    hasActiveInsuranceContract: false,
+    hasAccessibleMatters: false,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -72,14 +87,99 @@ export function InternalSidebar() {
 
   const activeSpace = getActiveSpace(pathname, visibleSpaces);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadClientModuleFlags() {
+      if (session?.user?.role !== "CLIENT") {
+        if (!cancelled) {
+          setClientModuleFlags({
+            hasAccessibleContracts: true,
+            hasActiveInsuranceContract: true,
+            hasAccessibleMatters: true,
+          });
+        }
+        return;
+      }
+
+      try {
+        const [contractsRes, mattersRes] = await Promise.all([
+          fetch("/api/contracts?scope=self"),
+          fetch("/api/law-firm/matters?scope=self"),
+        ]);
+
+        const [contractsJson, mattersJson] = await Promise.all([
+          contractsRes.ok ? contractsRes.json() : Promise.resolve({ data: [] }),
+          mattersRes.ok ? mattersRes.json() : Promise.resolve({ data: [] }),
+        ]);
+
+        const contracts: SidebarContractPayload[] = Array.isArray(contractsJson?.data) ? contractsJson.data : [];
+        const matters: Array<Record<string, unknown>> = Array.isArray(mattersJson?.data) ? mattersJson.data : [];
+        const hasAccessibleContracts = contracts.some((contract) => contract?.status === "ACTIVE" || contract?.status === "PENDING_SIGNATURE");
+        const hasActiveInsuranceContract = contracts.some((contract) => contract?.status === "ACTIVE");
+        const hasAccessibleMatters = matters.length > 0;
+
+        if (!cancelled) {
+          setClientModuleFlags({ hasAccessibleContracts, hasActiveInsuranceContract, hasAccessibleMatters });
+        }
+      } catch {
+        if (!cancelled) {
+          setClientModuleFlags({
+            hasAccessibleContracts: false,
+            hasActiveInsuranceContract: false,
+            hasAccessibleMatters: false,
+          });
+        }
+      }
+    }
+
+    void loadClientModuleFlags();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.role]);
+
+  const visibleModulesBySpace = useMemo(() => {
+    const map = new Map<InternalSpace["id"], InternalSpace["modules"]>();
+
+    visibleSpaces.forEach((space) => {
+      if (space.id !== "client") {
+        map.set(space.id, space.modules);
+        return;
+      }
+
+      const filtered = space.modules.filter((module) => {
+        if (module.id === "contracts") {
+          return clientModuleFlags.hasAccessibleContracts;
+        }
+
+        if (module.id === "claims") {
+          return clientModuleFlags.hasActiveInsuranceContract;
+        }
+
+        if (module.id === "matters") {
+          return clientModuleFlags.hasAccessibleMatters;
+        }
+
+        return true;
+      });
+
+      map.set(space.id, filtered);
+    });
+
+    return map;
+  }, [clientModuleFlags, visibleSpaces]);
+
   const activeModuleId = useMemo(() => {
     if (!activeSpace) {
       return null;
     }
 
-    const activeModule = activeSpace.modules.find((module) => isModuleActive(module.href, pathname, queryString, hash));
+    const activeModules = visibleModulesBySpace.get(activeSpace.id) ?? activeSpace.modules;
+    const activeModule = activeModules.find((module) => isModuleActive(module.href, pathname, queryString, hash));
     return activeModule?.id ?? null;
-  }, [activeSpace, hash, pathname, queryString]);
+  }, [activeSpace, hash, pathname, queryString, visibleModulesBySpace]);
 
   if (!activeSpace || visibleSpaces.length === 0) {
     return null;
@@ -122,7 +222,7 @@ export function InternalSidebar() {
 
                 {isSpaceActive ? (
                   <div className="internal-sidebar-submenu">
-                    {space.modules.map((module) => {
+                    {(visibleModulesBySpace.get(space.id) ?? space.modules).map((module) => {
                       const active = isModuleActive(module.href, pathname, queryString, hash);
                       return (
                         <Link

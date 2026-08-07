@@ -15,6 +15,9 @@ type LawMatter = {
   summary: string | null;
   status: "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED";
   isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastActivityAt: string;
   client: { id: string; fullName: string; email: string; phone: string | null };
   participants?: Array<{
     client: { id: string; fullName: string; firstName: string | null; lastName: string | null; email: string; citizenUniqueId: string | null };
@@ -66,6 +69,8 @@ type Task = {
   description?: string | null;
   status: "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE";
   dueDate: string | null;
+  updatedAt?: string;
+  createdAt?: string;
   matter: { id: string; title: string; matterNumber: string };
   assignee: { id: string; fullName: string; email: string } | null;
 };
@@ -137,6 +142,27 @@ function billingStatusToneClass(tone: ReturnType<typeof billingStatusMeta>["tone
   return "border-orange-300/60 bg-orange-300/20 text-orange-100";
 }
 
+function getMatterStatusBadge(status: LawMatter["status"]) {
+  if (status === "IN_PROGRESS") return { label: "En cours", className: "border-emerald-300/60 bg-emerald-500/15 text-emerald-700" };
+  if (status === "PENDING") return { label: "En attente", className: "border-amber-300/60 bg-amber-500/15 text-amber-700" };
+  if (status === "HOLD") return { label: "En instance", className: "border-slate-300/60 bg-slate-500/15 text-slate-700" };
+  return { label: "Clôturé", className: "border-violet-300/60 bg-violet-500/15 text-violet-700" };
+}
+
+function getMatterPriority(matter: LawMatter, tasks: Task[]) {
+  const matterTasks = tasks.filter((task) => task.matter.id === matter.id);
+  const overdue = matterTasks.some((task) => task.status !== "DONE" && task.dueDate && new Date(task.dueDate) < new Date());
+  if (matter.status === "HOLD" || overdue) return { label: "Urgent", className: "border-rose-300/60 bg-rose-500/15 text-rose-700" };
+  if (matter.status === "PENDING" || matterTasks.some((task) => task.status === "IN_PROGRESS" || task.status === "BLOCKED")) return { label: "Élevée", className: "border-orange-300/60 bg-orange-500/15 text-orange-700" };
+  return { label: "Standard", className: "border-sky-300/60 bg-sky-500/15 text-sky-700" };
+}
+
+function getMatterType(matter: LawMatter) {
+  if (matter.isArchived) return "Archivage";
+  if (matter.status === "HOLD") return "Contentieux";
+  return "Mandat";
+}
+
 export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspaceProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -179,6 +205,13 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
   });
   const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [matterViewMode, setMatterViewMode] = useState<"CARDS" | "LIST" | "KANBAN">("CARDS");
+  const [matterSort, setMatterSort] = useState<"RECENT" | "DEADLINE" | "STATUS">("RECENT");
+  const [matterPriorityFilter, setMatterPriorityFilter] = useState<"ALL" | "URGENT" | "HIGH" | "STANDARD">("ALL");
+  const [matterVisibleCount, setMatterVisibleCount] = useState(6);
+  const [matterFavorites, setMatterFavorites] = useState<string[]>([]);
+  const [recentlyViewedMatterIds, setRecentlyViewedMatterIds] = useState<string[]>([]);
+  const [activeMatterTab, setActiveMatterTab] = useState<"overview" | "clients" | "documents" | "contracts" | "billing" | "tasks" | "calendar" | "messaging" | "activity" | "history" | "notes" | "pieces" | "signatures">("overview");
   const [billingSearch, setBillingSearch] = useState("");
   const [billingStatusFilter, setBillingStatusFilter] = useState<"ALL" | "PAID" | "PENDING" | "TO_SIGN" | "CANCELED" | "ARCHIVED">("ALL");
   const [billingSort, setBillingSort] = useState<"RECENT" | "AMOUNT_DESC" | "AMOUNT_ASC">("RECENT");
@@ -345,26 +378,63 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
       return haystack.includes(query);
     });
   }, [matterClients, matterClientQuery]);
-  const filteredMatters = useMemo(
-    () =>
-      matters.filter((matter) => {
-        if (!showArchivedMatters && matter.isArchived) {
-          return false;
-        }
-        if (matterStatusFilter !== "ALL" && matter.status !== matterStatusFilter) {
-          return false;
-        }
-        if (matterSearch.trim()) {
-          const keyword = matterSearch.trim().toLowerCase();
-          const participantText = (matter.participants ?? []).map((entry) => `${entry.client.fullName} ${entry.client.citizenUniqueId ?? ""}`).join(" ");
-          const haystack = `${matter.matterNumber} ${matter.title} ${matter.client.fullName} ${matter.client.email} ${participantText}`.toLowerCase();
-          return haystack.includes(keyword);
-        }
-
+  const filteredMatters = useMemo(() => {
+    const keyword = matterSearch.trim().toLowerCase();
+    const nextMatters = matters.filter((matter) => {
+      if (!showArchivedMatters && matter.isArchived) {
+        return false;
+      }
+      if (matterStatusFilter !== "ALL" && matter.status !== matterStatusFilter) {
+        return false;
+      }
+      const priority = getMatterPriority(matter, tasks);
+      if (matterPriorityFilter !== "ALL" && priority.label !== (matterPriorityFilter === "URGENT" ? "Urgent" : matterPriorityFilter === "HIGH" ? "Élevée" : "Standard")) {
+        return false;
+      }
+      if (!keyword) {
         return true;
-      }),
-    [matters, showArchivedMatters, matterStatusFilter, matterSearch],
-  );
+      }
+      const participantText = (matter.participants ?? []).map((entry) => `${entry.client.fullName} ${entry.client.citizenUniqueId ?? ""}`).join(" ");
+      const haystack = `${matter.matterNumber} ${matter.title} ${matter.client.fullName} ${matter.client.email} ${participantText}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+
+    return [...nextMatters].sort((a, b) => {
+      if (matterSort === "DEADLINE") {
+        const aNextDeadline = tasks.find((task) => task.matter.id === a.id && task.dueDate && task.status !== "DONE")?.dueDate ?? a.lastActivityAt;
+        const bNextDeadline = tasks.find((task) => task.matter.id === b.id && task.dueDate && task.status !== "DONE")?.dueDate ?? b.lastActivityAt;
+        return new Date(aNextDeadline).getTime() - new Date(bNextDeadline).getTime();
+      }
+      if (matterSort === "STATUS") {
+        return a.status.localeCompare(b.status);
+      }
+      return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
+    });
+  }, [matters, matterPriorityFilter, matterSearch, matterSort, matterStatusFilter, showArchivedMatters, tasks]);
+
+  const matterStats = useMemo(() => {
+    const opened = matters.filter((matter) => !matter.isArchived && matter.status !== "CLOSED").length;
+    const pending = matters.filter((matter) => matter.status === "PENDING").length;
+    const urgent = matters.filter((matter) => getMatterPriority(matter, tasks).label === "Urgent").length;
+    const archived = matters.filter((matter) => matter.isArchived).length;
+    const closed = matters.filter((matter) => matter.status === "CLOSED").length;
+    const favorites = matters.filter((matter) => matterFavorites.includes(matter.id)).length;
+
+    return [
+      { label: "Dossiers ouverts", value: opened, detail: "Actifs aujourd’hui" },
+      { label: "En attente", value: pending, detail: "À traiter" },
+      { label: "Urgents", value: urgent, detail: "Priorité élevée" },
+      { label: "Archivés", value: archived, detail: "Stockage" },
+      { label: "Clôturés", value: closed, detail: "Historique" },
+      { label: "Favoris", value: favorites, detail: "Sélectionnés" },
+    ];
+  }, [matterFavorites, matters, tasks]);
+
+  const visibleMatters = useMemo(() => filteredMatters.slice(0, matterVisibleCount), [filteredMatters, matterVisibleCount]);
+
+  useEffect(() => {
+    setMatterVisibleCount(6);
+  }, [matterSearch, matterStatusFilter, matterPriorityFilter, matterSort, showArchivedMatters]);
 
   async function loadMatterMessages(matterId: string) {
     setMessagesLoading(true);
@@ -384,7 +454,13 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
 
   async function selectMatter(matterId: string) {
     setSelectedMatterId(matterId);
+    setRecentlyViewedMatterIds((prev) => [matterId, ...prev.filter((id) => id !== matterId)].slice(0, 5));
+    setActiveMatterTab("overview");
     await loadMatterMessages(matterId);
+  }
+
+  function toggleMatterFavorite(matterId: string) {
+    setMatterFavorites((prev) => (prev.includes(matterId) ? prev.filter((item) => item !== matterId) : [...prev, matterId]));
   }
 
   function toggleMatterClient(clientId: string) {
@@ -717,6 +793,64 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
     setStatusMessage(response.ok ? "Lien sécurisé révoqué." : "Révocation impossible.");
   }
 
+  const selectedMatterTasks = useMemo(() => tasks.filter((task) => task.matter.id === selectedMatter?.id), [selectedMatter, tasks]);
+  const selectedMatterInvoices = useMemo(() => invoices.filter((invoice) => invoice.matter.id === selectedMatter?.id), [selectedMatter, invoices]);
+  const selectedMatterProgress = useMemo(() => {
+    if (!selectedMatter) {
+      return 0;
+    }
+    const total = selectedMatterTasks.length || 1;
+    const done = selectedMatterTasks.filter((task) => task.status === "DONE").length;
+    return Math.round((done / total) * 100);
+  }, [selectedMatter, selectedMatterTasks]);
+  const selectedMatterNextDeadline = useMemo(() => {
+    if (!selectedMatter) {
+      return null;
+    }
+    return selectedMatterTasks.filter((task) => task.dueDate && task.status !== "DONE").sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime())[0] ?? null;
+  }, [selectedMatter, selectedMatterTasks]);
+  const selectedMatterTimeline = useMemo(() => {
+    if (!selectedMatter) {
+      return [] as Array<{ title: string; detail: string; timestamp: string; author: string; type: string }>;
+    }
+
+    const items = [
+      {
+        title: "Dossier créé",
+        detail: `${selectedMatter.title} enregistré dans le portefeuille juridique`,
+        timestamp: selectedMatter.createdAt,
+        author: "Système",
+        type: "creation",
+      },
+      ...selectedMatterTasks.map((task) => ({
+        title: `Tâche ${task.status === "DONE" ? "clôturée" : "mise à jour"}`,
+        detail: task.title,
+        timestamp: task.updatedAt,
+        author: task.assignee?.fullName ?? "Équipe",
+        type: "task",
+      })),
+      ...matterMessages.map((message) => ({
+        title: "Message envoyé",
+        detail: message.body,
+        timestamp: message.createdAt,
+        author: message.senderName,
+        type: "message",
+      })),
+      ...selectedMatterInvoices.map((invoice) => ({
+        title: `Facture ${invoice.status}`,
+        detail: `${invoice.invoiceNumber} · ${formatEurAmount(invoice.total)}`,
+        timestamp: invoice.dueDate ?? selectedMatter.updatedAt,
+        author: invoice.client.fullName,
+        type: "invoice",
+      })),
+    ];
+
+    return items
+      .map((item) => ({ ...item, timestamp: item.timestamp ?? selectedMatter.updatedAt }))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 8);
+  }, [matterMessages, selectedMatter, selectedMatterInvoices, selectedMatterTasks]);
+
   const metrics = [
     { label: "Dossiers actifs", value: String(dashboard?.metrics.activeMatters ?? 0), detail: "En cours" },
     { label: "Dossiers en retard", value: String(dashboard?.metrics.overdueMatters ?? 0), detail: "Actions urgentes" },
@@ -795,145 +929,433 @@ export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspac
         ) : null}
 
         {showCases || showBilling ? (
-          <section className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
-            {showCases ? <SectionBlock title="Gestion des dossiers" subtitle="Créer, modifier, archiver et suivre les dossiers">
-            <form className="grid gap-3 text-sm" onSubmit={createMatter}>
-              <input
-                value={matterCreateForm.title}
-                onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Titre du dossier"
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              />
-              <textarea
-                value={matterCreateForm.summary}
-                onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, summary: event.target.value }))}
-                placeholder="Résumé"
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              />
-
-              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">Clients du dossier</p>
-                <input
-                  value={matterClientQuery}
-                  onChange={(event) => setMatterClientQuery(event.target.value)}
-                  placeholder="Rechercher: nom, prénom ou ID citoyen unique"
-                  className="mb-2 rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
-                />
-                <div className="max-h-48 space-y-1 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-2">
-                  {filteredMatterClients.slice(0, 30).map((client) => {
-                    const checked = matterCreateForm.clientIds.includes(client.id);
-                    return (
-                      <label key={client.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-ms-cream/50">
-                        <input type="checkbox" checked={checked} onChange={() => toggleMatterClient(client.id)} />
-                        <span className="text-xs">
-                          <strong>{client.fullName}</strong> - {client.citizenUniqueId ?? "ID non renseigné"}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {filteredMatterClients.length === 0 ? <p className="px-2 py-1 text-xs text-ms-ink/65">Aucun client trouvé.</p> : null}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {selectedMatterClients.map((client) => (
-                    <button
-                      key={client.id}
-                      type="button"
-                      onClick={() => toggleMatterClient(client.id)}
-                      className="rounded-full border border-ms-navy/20 bg-white px-2.5 py-1 text-xs text-ms-navy"
-                    >
-                      {client.fullName} ×
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <button className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Créer le dossier</button>
-            </form>
-            <div className="mt-4 grid gap-2 rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3 text-sm md:grid-cols-[1fr,auto,auto]">
-              <input
-                value={matterSearch}
-                onChange={(event) => setMatterSearch(event.target.value)}
-                placeholder="Filtrer par numéro, titre, client"
-                className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
-              />
-              <select
-                value={matterStatusFilter}
-                onChange={(event) => setMatterStatusFilter(event.target.value as "ALL" | "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED")}
-                className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
-              >
-                <option value="ALL">Tous les statuts</option>
-                <option value="IN_PROGRESS">En cours</option>
-                <option value="PENDING">En attente</option>
-                <option value="HOLD">En instance</option>
-                <option value="CLOSED">Clôturé</option>
-              </select>
-              <label className="inline-flex items-center gap-2 rounded-xl border border-ms-navy/15 bg-white px-3 py-2">
-                <input type="checkbox" checked={showArchivedMatters} onChange={(event) => setShowArchivedMatters(event.target.checked)} />
-                <span>Inclure archivés</span>
-              </label>
-            </div>
-            <div className="mt-4 space-y-3">
-              {filteredMatters.map((matter) => (
-                <article key={matter.id} className={`rounded-2xl border p-4 ${selectedMatterId === matter.id ? "border-ms-gold bg-ms-gold/10" : "border-ms-navy/10 bg-white"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <button type="button" className="text-left" onClick={() => void selectMatter(matter.id)}>
-                      <p className="font-semibold text-ms-navy">{matter.matterNumber} - {matter.title}</p>
-                      <p className="text-xs text-ms-ink/70">{matter.client.fullName} - {matter.status === "HOLD" ? "EN_INSTANCE" : matter.status} {matter.isArchived ? "- archivé" : ""}</p>
-                      {(matter.participants ?? []).length > 1 ? (
-                        <p className="mt-1 text-[11px] text-ms-ink/65">
-                          Co-clients: {(matter.participants ?? []).map((entry) => entry.client.fullName).join(", ")}
-                        </p>
-                      ) : null}
-                    </button>
-                    <div className="flex gap-2 text-xs">
-                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void selectMatter(matter.id)}>Ouvrir</button>
-                      {matter.isArchived ? (
-                        <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void updateMatter(matter.id, "restore")}>Restaurer</button>
-                      ) : (
-                        <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void updateMatter(matter.id, "archive")}>Archiver</button>
-                      )}
-                      <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => { if (window.confirm("Supprimer ce dossier définitivement ?")) { void updateMatter(matter.id, "delete"); } }}>
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-            </SectionBlock> : null}
-
-            <div className="grid gap-6">
-              {showCases ? <SectionBlock title="Résumé du dossier" subtitle="Chat relié au client et activité du dossier">
-              {selectedMatter ? (
-                <div className="space-y-3 text-sm">
-                  <p className="font-semibold text-ms-navy">{selectedMatter.title}</p>
-                  <p className="text-ms-ink/75">{selectedMatter.summary ?? "Aucun résumé."}</p>
-                  <div className="grid gap-2 md:grid-cols-[1fr,auto]">
-                    <select className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" value={selectedMatter.status} onChange={(event) => void updateMatter(selectedMatter.id, "update", { status: event.target.value as LawMatter["status"] })}>
-                      <option value="IN_PROGRESS">En cours</option>
-                      <option value="PENDING">En attente</option>
-                      <option value="HOLD">En instance</option>
-                      <option value="CLOSED">Clôturé</option>
-                    </select>
-                    <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2" onClick={() => { const nextTitle = window.prompt("Nouveau titre du dossier", selectedMatter.title); if (nextTitle && nextTitle.trim().length >= 3) { void updateMatter(selectedMatter.id, "rename", { title: nextTitle.trim() }); } }}>
-                      Renommer
-                    </button>
-                  </div>
-                  <div className="max-h-56 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ms-navy-soft">Messages</p>
-                    {messagesLoading ? <p className="text-sm text-ms-ink/65">Chargement des messages...</p> : null}
-                    {!messagesLoading && matterMessages.length === 0 ? <p className="text-sm text-ms-ink/65">Aucun message.</p> : null}
-                    {!messagesLoading && matterMessages.map((message) => (
-                      <div key={message.id} className="rounded-lg border border-ms-navy/10 bg-ms-sand/20 p-2">
-                        <p className="text-xs font-semibold text-ms-navy">{message.senderName} - {new Date(message.createdAt).toLocaleString("fr-FR")}</p>
-                        <p className="text-sm text-ms-ink/80">{message.body}</p>
+          <section className="grid gap-6 xl:grid-cols-[1.35fr,0.95fr]">
+            {showCases ? (
+              <div className="space-y-6">
+                <SectionBlock title="Dashboard des dossiers" subtitle="Vue premium, filtres instantanés et suivi métier">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {matterStats.map((stat) => (
+                      <div key={stat.label} className="rounded-2xl border border-ms-navy/10 bg-ms-cream/50 p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-ms-navy-soft">{stat.label}</p>
+                        <p className="mt-2 text-2xl font-semibold text-ms-navy">{stat.value}</p>
+                        <p className="text-sm text-ms-ink/70">{stat.detail}</p>
                       </div>
                     ))}
                   </div>
-                  <textarea value={messageBody} onChange={(event) => setMessageBody(event.target.value)} placeholder="Écrire un message..." className="w-full rounded-xl border border-ms-navy/15 bg-white px-4 py-3" />
-                  <button type="button" onClick={sendMessage} className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Envoyer</button>
-                </div>
-              ) : <p className="text-sm text-ms-ink/65">Sélectionnez un dossier.</p>}
-              </SectionBlock> : null}
+
+                  <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+                    <div className="rounded-3xl border border-ms-navy/10 bg-white p-4 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ms-navy">Recherche et filtres</p>
+                          <p className="text-sm text-ms-ink/70">Analyse intelligente des dossiers et priorités</p>
+                        </div>
+                        <div className="flex gap-2 rounded-full border border-ms-navy/10 p-1">
+                          {(["CARDS", "LIST", "KANBAN"] as const).map((view) => (
+                            <button key={view} type="button" onClick={() => setMatterViewMode(view)} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${matterViewMode === view ? "bg-ms-navy text-white" : "text-ms-navy"}`}>
+                              {view === "CARDS" ? "Cartes" : view === "LIST" ? "Liste" : "Kanban"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <input value={matterSearch} onChange={(event) => setMatterSearch(event.target.value)} placeholder="Numéro, titre, client..." className="rounded-2xl border border-ms-navy/15 bg-ms-cream/40 px-3 py-2 text-sm" />
+                        <select value={matterStatusFilter} onChange={(event) => setMatterStatusFilter(event.target.value as "ALL" | "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED")} className="rounded-2xl border border-ms-navy/15 bg-ms-cream/40 px-3 py-2 text-sm">
+                          <option value="ALL">Tous les statuts</option>
+                          <option value="IN_PROGRESS">En cours</option>
+                          <option value="PENDING">En attente</option>
+                          <option value="HOLD">En instance</option>
+                          <option value="CLOSED">Clôturé</option>
+                        </select>
+                        <select value={matterPriorityFilter} onChange={(event) => setMatterPriorityFilter(event.target.value as "ALL" | "URGENT" | "HIGH" | "STANDARD")} className="rounded-2xl border border-ms-navy/15 bg-ms-cream/40 px-3 py-2 text-sm">
+                          <option value="ALL">Toutes priorités</option>
+                          <option value="URGENT">Urgent</option>
+                          <option value="HIGH">Élevée</option>
+                          <option value="STANDARD">Standard</option>
+                        </select>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <label className="inline-flex items-center gap-2 rounded-full border border-ms-navy/10 bg-ms-cream/40 px-3 py-2 text-sm text-ms-navy">
+                          <input type="checkbox" checked={showArchivedMatters} onChange={(event) => setShowArchivedMatters(event.target.checked)} />
+                          Inclure archivés
+                        </label>
+                        <select value={matterSort} onChange={(event) => setMatterSort(event.target.value as "RECENT" | "DEADLINE" | "STATUS")} className="rounded-full border border-ms-navy/10 bg-white px-3 py-2 text-sm text-ms-navy">
+                          <option value="RECENT">Récent</option>
+                          <option value="DEADLINE">Échéance</option>
+                          <option value="STATUS">Statut</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-ms-navy/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 text-slate-50">
+                      <p className="text-sm font-semibold">Créer un nouveau dossier</p>
+                      <p className="mt-1 text-sm text-slate-300">Un workflow premium pour initier rapidement un mandat ou un contentieux.</p>
+                      <form className="mt-4 grid gap-3 text-sm" onSubmit={createMatter}>
+                        <input value={matterCreateForm.title} onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, title: event.target.value }))} placeholder="Titre du dossier" className="rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-50" />
+                        <textarea value={matterCreateForm.summary} onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, summary: event.target.value }))} placeholder="Résumé du mandat" className="min-h-[88px] rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-50" />
+                        <input value={matterClientQuery} onChange={(event) => setMatterClientQuery(event.target.value)} placeholder="Rechercher un client" className="rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-slate-50" />
+                        <div className="max-h-32 space-y-1 overflow-auto rounded-2xl border border-slate-700 bg-slate-900/70 p-2">
+                          {filteredMatterClients.slice(0, 20).map((client) => {
+                            const checked = matterCreateForm.clientIds.includes(client.id);
+                            return (
+                              <label key={client.id} className="flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1 text-sm text-slate-200 hover:bg-slate-800/70">
+                                <input type="checkbox" checked={checked} onChange={() => toggleMatterClient(client.id)} />
+                                <span>{client.fullName}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <button className="w-fit rounded-full bg-cyan-400 px-4 py-2 font-semibold text-slate-950">Créer le dossier</button>
+                      </form>
+                    </div>
+                  </div>
+
+                  {recentlyViewedMatterIds.length ? (
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {recentlyViewedMatterIds.map((matterId) => {
+                        const matter = matters.find((item) => item.id === matterId);
+                        if (!matter) return null;
+                        return (
+                          <button key={matter.id} type="button" onClick={() => void selectMatter(matter.id)} className="rounded-full border border-ms-navy/10 bg-white px-3 py-2 text-sm text-ms-navy">
+                            {matter.matterNumber}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {matterFavorites.length ? (
+                    <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                      {matters.filter((matter) => matterFavorites.includes(matter.id)).slice(0, 3).map((matter) => {
+                        const status = getMatterStatusBadge(matter.status);
+                        const priority = getMatterPriority(matter, tasks);
+                        return (
+                          <button key={matter.id} type="button" onClick={() => void selectMatter(matter.id)} className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-ms-navy">{matter.matterNumber}</p>
+                              <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${priority.className}`}>{priority.label}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-ms-ink/80">{matter.title}</p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <span className={`rounded-full border px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span>
+                              <span className="rounded-full border border-ms-navy/10 bg-white px-2 py-1 text-[11px] text-ms-navy">{getMatterType(matter)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {matterViewMode === "KANBAN" ? (
+                    <div className="mt-5 grid gap-4 lg:grid-cols-4">
+                      {(["IN_PROGRESS", "PENDING", "HOLD", "CLOSED"] as const).map((columnStatus) => (
+                        <div key={columnStatus} className="rounded-3xl border border-ms-navy/10 bg-white p-3">
+                          <p className="text-sm font-semibold text-ms-navy">{getMatterStatusBadge(columnStatus).label}</p>
+                          <div className="mt-3 space-y-2">
+                            {visibleMatters.filter((matter) => matter.status === columnStatus).map((matter) => {
+                              const status = getMatterStatusBadge(matter.status);
+                              const priority = getMatterPriority(matter, tasks);
+                              return (
+                                <button key={matter.id} type="button" onClick={() => void selectMatter(matter.id)} className="w-full rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3 text-left">
+                                  <p className="text-sm font-semibold text-ms-navy">{matter.matterNumber}</p>
+                                  <p className="mt-1 text-sm text-ms-ink/80">{matter.title}</p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <span className={`rounded-full px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span>
+                                    <span className={`rounded-full px-2 py-1 text-[11px] ${priority.className}`}>{priority.label}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : matterViewMode === "LIST" ? (
+                    <div className="mt-5 overflow-hidden rounded-3xl border border-ms-navy/10 bg-white">
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="bg-ms-cream/50 text-ms-navy">
+                          <tr>
+                            <th className="px-4 py-3">Dossier</th>
+                            <th className="px-4 py-3">Client</th>
+                            <th className="px-4 py-3">Statut</th>
+                            <th className="px-4 py-3">Échéance</th>
+                            <th className="px-4 py-3">Dernière activité</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleMatters.map((matter) => {
+                            const status = getMatterStatusBadge(matter.status);
+                            const priority = getMatterPriority(matter, tasks);
+                            const nextTask = tasks.find((task) => task.matter.id === matter.id && task.dueDate && task.status !== "DONE")?.dueDate ?? null;
+                            return (
+                              <tr key={matter.id} className="border-t border-ms-navy/10">
+                                <td className="px-4 py-3">
+                                  <button type="button" onClick={() => void selectMatter(matter.id)} className="text-left">
+                                    <p className="font-semibold text-ms-navy">{matter.matterNumber}</p>
+                                    <p className="text-sm text-ms-ink/80">{matter.title}</p>
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 text-ms-ink/80">{matter.client.fullName}</td>
+                                <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span></td>
+                                <td className="px-4 py-3 text-ms-ink/80">{nextTask ? new Date(nextTask).toLocaleDateString("fr-FR") : "—"}</td>
+                                <td className="px-4 py-3 text-ms-ink/80">{new Date(matter.lastActivityAt).toLocaleDateString("fr-FR")}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="mt-5 grid gap-3 xl:grid-cols-2">
+                      {visibleMatters.map((matter) => {
+                        const status = getMatterStatusBadge(matter.status);
+                        const priority = getMatterPriority(matter, tasks);
+                        const nextTask = tasks.find((task) => task.matter.id === matter.id && task.dueDate && task.status !== "DONE")?.dueDate ?? null;
+                        return (
+                          <button key={matter.id} type="button" onClick={() => void selectMatter(matter.id)} className={`rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${selectedMatterId === matter.id ? "border-ms-gold bg-ms-gold/10" : "border-ms-navy/10 bg-white"}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-semibold text-ms-navy">{matter.matterNumber}</p>
+                                <p className="mt-1 text-base font-semibold text-ms-ink">{matter.title}</p>
+                              </div>
+                              <button type="button" onClick={(event) => { event.stopPropagation(); toggleMatterFavorite(matter.id); }} className="rounded-full border border-ms-navy/10 px-2 py-1 text-xs text-ms-navy">
+                                {matterFavorites.includes(matter.id) ? "★" : "☆"}
+                              </button>
+                            </div>
+                            <p className="mt-3 text-sm text-ms-ink/75">{matter.client.fullName}</p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <span className={`rounded-full border px-2 py-1 text-[11px] ${status.className}`}>{status.label}</span>
+                              <span className={`rounded-full border px-2 py-1 text-[11px] ${priority.className}`}>{priority.label}</span>
+                              <span className="rounded-full border border-ms-navy/10 bg-white px-2 py-1 text-[11px] text-ms-navy">{getMatterType(matter)}</span>
+                            </div>
+                            <div className="mt-4 grid gap-2 text-sm text-ms-ink/75 sm:grid-cols-2">
+                              <p><span className="font-semibold">Créé :</span> {new Date(matter.createdAt).toLocaleDateString("fr-FR")}</p>
+                              <p><span className="font-semibold">Activité :</span> {new Date(matter.lastActivityAt).toLocaleDateString("fr-FR")}</p>
+                              <p><span className="font-semibold">Échéance :</span> {nextTask ? new Date(nextTask).toLocaleDateString("fr-FR") : "À définir"}</p>
+                              <p><span className="font-semibold">Collab. :</span> {(matter.participants ?? []).length + 1}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {filteredMatters.length > matterVisibleCount ? (
+                    <div className="mt-5 text-center">
+                      <button type="button" onClick={() => setMatterVisibleCount((prev) => prev + 4)} className="rounded-full border border-ms-navy/15 bg-white px-4 py-2 text-sm font-semibold text-ms-navy">
+                        Charger plus de dossiers
+                      </button>
+                    </div>
+                  ) : null}
+                </SectionBlock>
+              </div>
+            ) : null}
+
+            <div className="grid gap-6">
+              {showCases ? (
+                <SectionBlock title="Dossier sélectionné" subtitle="Espace de travail juridique premium">
+                  {!selectedMatter ? (
+                    <div className="rounded-3xl border border-dashed border-ms-navy/20 bg-ms-cream/40 p-6 text-center text-sm text-ms-ink/70">
+                      Sélectionnez un dossier pour ouvrir le cockpit métier et accéder à ses informations clés.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-3xl border border-ms-navy/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-slate-50">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.24em] text-cyan-200">{selectedMatter.matterNumber}</p>
+                            <h3 className="mt-2 text-2xl font-semibold">{selectedMatter.title}</h3>
+                            <p className="mt-2 max-w-2xl text-sm text-slate-300">{selectedMatter.summary ?? "Résumé à compléter pour enrichir le suivi du mandat."}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getMatterStatusBadge(selectedMatter.status).className}`}>{getMatterStatusBadge(selectedMatter.status).label}</span>
+                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getMatterPriority(selectedMatter, tasks).className}`}>{getMatterPriority(selectedMatter, tasks).label}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-4">
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progression</p>
+                            <p className="mt-2 text-xl font-semibold text-cyan-200">{selectedMatterProgress}%</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Responsable</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-50">{selectedMatter.client.fullName}</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Prochaine échéance</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-50">{selectedMatterNextDeadline ? new Date(selectedMatterNextDeadline.dueDate as string).toLocaleDateString("fr-FR") : "À définir"}</p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Type</p>
+                            <p className="mt-2 text-sm font-semibold text-slate-50">{getMatterType(selectedMatter)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-3xl border border-ms-navy/10 bg-white p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { id: "overview", label: "Vue générale" },
+                            { id: "clients", label: "Clients" },
+                            { id: "documents", label: "Documents" },
+                            { id: "contracts", label: "Contrats" },
+                            { id: "billing", label: "Facturation" },
+                            { id: "tasks", label: "Tâches" },
+                            { id: "calendar", label: "Calendrier" },
+                            { id: "messaging", label: "Messagerie" },
+                            { id: "activity", label: "Journal" },
+                            { id: "history", label: "Historique" },
+                            { id: "notes", label: "Notes" },
+                            { id: "pieces", label: "Pièces" },
+                            { id: "signatures", label: "Signatures" },
+                          ].map((tab) => (
+                            <button key={tab.id} type="button" onClick={() => setActiveMatterTab(tab.id as typeof activeMatterTab)} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${activeMatterTab === tab.id ? "bg-ms-navy text-white" : "bg-ms-cream/60 text-ms-navy"}`}>
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {activeMatterTab === "overview" ? (
+                            <div className="grid gap-3 xl:grid-cols-2">
+                              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4">
+                                <p className="text-sm font-semibold text-ms-navy">Résumé automatique</p>
+                                <p className="mt-2 text-sm text-ms-ink/80">Le mandat est actuellement à {selectedMatterProgress}% de progression avec {selectedMatterTasks.length} tâches suivies et {selectedMatterInvoices.length} facture(s) rattachée(s).</p>
+                              </div>
+                              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4">
+                                <p className="text-sm font-semibold text-ms-navy">Échéances importantes</p>
+                                <p className="mt-2 text-sm text-ms-ink/80">{selectedMatterNextDeadline ? `${selectedMatterNextDeadline.title} · ${new Date(selectedMatterNextDeadline.dueDate as string).toLocaleDateString("fr-FR")}` : "Aucune échéance planifiée à ce stade."}</p>
+                              </div>
+                              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4">
+                                <p className="text-sm font-semibold text-ms-navy">Derniers messages</p>
+                                <div className="mt-2 space-y-2">
+                                  {matterMessages.slice(0, 2).map((message) => (
+                                    <div key={message.id} className="rounded-xl border border-ms-navy/10 bg-white p-2 text-sm text-ms-ink/80">
+                                      <p className="font-semibold text-ms-navy">{message.senderName}</p>
+                                      <p>{message.body}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4">
+                                <p className="text-sm font-semibold text-ms-navy">Chronologie</p>
+                                <div className="mt-2 space-y-2">
+                                  {selectedMatterTimeline.slice(0, 3).map((entry) => (
+                                    <div key={`${entry.title}-${entry.timestamp}`} className="rounded-xl border border-ms-navy/10 bg-white p-2 text-sm text-ms-ink/80">
+                                      <p className="font-semibold text-ms-navy">{entry.title}</p>
+                                      <p>{entry.detail}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "clients" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Clients et participants</p>
+                              <p className="mt-2">Client principal : {selectedMatter.client.fullName}</p>
+                              <p className="mt-1">Participants : {(selectedMatter.participants ?? []).map((entry) => entry.client.fullName).join(", ") || "Aucun participant supplémentaire"}</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "documents" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Gestion documentaire</p>
+                              <p className="mt-2">Recherche, catégories, versions et aperçu PDF seront disponibles ici avec les pièces du dossier.</p>
+                              <div className="mt-3 space-y-2">
+                                {[
+                                  { title: "Dossier technique", meta: "PDF · Version 3" },
+                                  { title: "Correspondance client", meta: "Word · Version 1" },
+                                  { title: "Pièces justificatives", meta: "Image · Version 2" },
+                                ].map((document) => (
+                                  <div key={document.title} className="rounded-xl border border-ms-navy/10 bg-white p-3">
+                                    <p className="font-semibold text-ms-navy">{document.title}</p>
+                                    <p className="text-sm text-ms-ink/70">{document.meta}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "contracts" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Contrats et engagements</p>
+                              <p className="mt-2">Le module réunit les contrats, annexes et signatures à traiter directement depuis le dossier.</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "billing" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Facturation associée</p>
+                              {selectedMatterInvoices.length === 0 ? <p className="mt-2">Aucune facture liée à ce dossier.</p> : selectedMatterInvoices.map((invoice) => <p key={invoice.id} className="mt-2">{invoice.invoiceNumber} · {formatEurAmount(invoice.total)} · {invoice.status}</p>)}
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "tasks" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Tâches assignées</p>
+                              <div className="mt-3 space-y-2">
+                                {selectedMatterTasks.map((task) => (
+                                  <div key={task.id} className="rounded-xl border border-ms-navy/10 bg-white p-3">
+                                    <p className="font-semibold text-ms-navy">{task.title}</p>
+                                    <p className="text-sm text-ms-ink/70">{task.description ?? "Aucune description"}</p>
+                                    <p className="mt-2 text-xs text-ms-navy-soft">Échéance : {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Aucune"}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "calendar" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Calendrier du dossier</p>
+                              <p className="mt-2">Planning des rendez-vous, audiences et relances à venir.</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "messaging" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Messagerie</p>
+                              <div className="mt-3 space-y-2">
+                                {matterMessages.map((message) => (
+                                  <div key={message.id} className="rounded-xl border border-ms-navy/10 bg-white p-3">
+                                    <p className="font-semibold text-ms-navy">{message.senderName}</p>
+                                    <p className="mt-1">{message.body}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "activity" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Journal d’activité</p>
+                              <div className="mt-3 space-y-2">{selectedMatterTimeline.map((entry) => <div key={`${entry.title}-${entry.timestamp}`} className="rounded-xl border border-ms-navy/10 bg-white p-3"><p className="font-semibold text-ms-navy">{entry.title}</p><p className="text-sm text-ms-ink/70">{entry.detail}</p></div>)}</div>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "history" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Historique de suivi</p>
+                              <p className="mt-2">Chaque action est maintenant visible dans un flux métier structuré et prêt à l’exploitation.</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "notes" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Notes internes</p>
+                              <p className="mt-2">Ajoutez ici les observations exclusives à l’équipe sans exposer d’informations sensibles au client.</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "pieces" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Pièces jointes</p>
+                              <p className="mt-2">Liste centralisée des pièces, documents et annexes liées au dossier.</p>
+                            </div>
+                          ) : null}
+                          {activeMatterTab === "signatures" ? (
+                            <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                              <p className="font-semibold text-ms-navy">Signatures en attente</p>
+                              <p className="mt-2">Le workflow de signature sera visible ici avec l’état de chaque document.</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </SectionBlock>
+              ) : null}
 
               {showBilling ? <SectionBlock title="Facturation" subtitle="Studio de facturation premium, calculs instantanés et actions pilotées">
                 <div className="relative overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-slate-100 shadow-[0_25px_70px_-30px_rgba(15,23,42,0.95)] md:p-7">

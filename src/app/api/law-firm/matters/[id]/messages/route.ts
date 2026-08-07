@@ -1,7 +1,7 @@
 import { NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
 import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, requirePermission } from "@/lib/server-auth";
+import { getCurrentUser } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,12 +12,32 @@ const createMessageSchema = z.object({
 });
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission("module:law_firm.cases");
-  if (!auth.ok) {
-    return auth.response;
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await context.params;
+  const matter = await prisma.lawMatter.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      clientId: true,
+      participants: { select: { clientId: true } },
+    },
+  });
+
+  if (!matter) {
+    return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+  }
+
+  const isStaff = currentUser.role === "ADMIN" || currentUser.role === "COLLABORATOR";
+  const isParticipant = matter.clientId === currentUser.id || matter.participants.some((participant) => participant.clientId === currentUser.id);
+
+  if (!isStaff && !isParticipant) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const messages = await prisma.lawMatterMessage.findMany({
     where: { matterId: id },
     orderBy: { createdAt: "asc" },
@@ -27,11 +47,6 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const auth = await requirePermission("module:law_firm.cases");
-  if (!auth.ok) {
-    return auth.response;
-  }
-
   const currentUser = await getCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,9 +60,25 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const matter = await prisma.lawMatter.findUnique({ where: { id }, select: { id: true, clientId: true, title: true } });
+  const matter = await prisma.lawMatter.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      clientId: true,
+      title: true,
+      participants: { select: { clientId: true } },
+    },
+  });
+
   if (!matter) {
     return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
+  }
+
+  const isStaff = currentUser.role === "ADMIN" || currentUser.role === "COLLABORATOR";
+  const isParticipant = matter.clientId === currentUser.id || matter.participants.some((participant) => participant.clientId === currentUser.id);
+
+  if (!isStaff && !isParticipant) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const message = await prisma.lawMatterMessage.create({

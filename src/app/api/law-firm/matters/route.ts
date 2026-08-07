@@ -1,7 +1,7 @@
 import { UserRole } from "@/generated/prisma/enums";
 import { buildChronologicalNumber } from "@/lib/numbering";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/server-auth";
+import { getCurrentUser, requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -27,33 +27,50 @@ const updateMatterSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const auth = await requirePermission("module:law_firm.cases");
-  if (!auth.ok) {
-    return auth.response;
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const isStaff = currentUser.role === "ADMIN" || currentUser.role === "COLLABORATOR";
+  if (!isStaff && currentUser.role !== "CLIENT") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const search = (request.nextUrl.searchParams.get("search") ?? "").trim();
   const status = request.nextUrl.searchParams.get("status");
   const archived = request.nextUrl.searchParams.get("archived");
+  const scope = request.nextUrl.searchParams.get("scope");
   const normalizedStatus = status && matterStatuses.includes(status as (typeof matterStatuses)[number]) ? (status as (typeof matterStatuses)[number]) : undefined;
 
   const matters = await prisma.lawMatter.findMany({
     where: {
       isArchived: archived === "1" ? true : archived === "0" ? false : undefined,
       status: normalizedStatus,
-      OR: search
-        ? [
-            { title: { contains: search } },
-            { matterNumber: { contains: search } },
-            { summary: { contains: search } },
-            { client: { fullName: { contains: search } } },
-            { client: { email: { contains: search } } },
-            { participants: { some: { client: { fullName: { contains: search } } } } },
-            { participants: { some: { client: { firstName: { contains: search } } } } },
-            { participants: { some: { client: { lastName: { contains: search } } } } },
-            { participants: { some: { client: { citizenUniqueId: { contains: search } } } } },
-          ]
-        : undefined,
+      ...(scope === "self" || currentUser.role === "CLIENT"
+        ? {
+            OR: [
+              { clientId: currentUser.id },
+              { participants: { some: { clientId: currentUser.id } } },
+            ],
+          }
+        : isStaff
+          ? {
+              OR: search
+                ? [
+                    { title: { contains: search } },
+                    { matterNumber: { contains: search } },
+                    { summary: { contains: search } },
+                    { client: { fullName: { contains: search } } },
+                    { client: { email: { contains: search } } },
+                    { participants: { some: { client: { fullName: { contains: search } } } } },
+                    { participants: { some: { client: { firstName: { contains: search } } } } },
+                    { participants: { some: { client: { lastName: { contains: search } } } } },
+                    { participants: { some: { client: { citizenUniqueId: { contains: search } } } } },
+                  ]
+                : undefined,
+            }
+          : undefined),
     },
     include: {
       client: { select: { id: true, fullName: true, email: true, phone: true } },
@@ -64,10 +81,9 @@ export async function GET(request: NextRequest) {
       },
       createdBy: { select: { id: true, fullName: true, email: true } },
       updatedBy: { select: { id: true, fullName: true, email: true } },
-      messages: { select: { id: true }, take: 1, orderBy: { createdAt: "desc" } },
-      invoices: { select: { id: true, invoiceNumber: true, status: true, total: true, updatedAt: true }, orderBy: { updatedAt: "desc" }, take: 3 },
-      tasks: { select: { id: true, status: true }, orderBy: { createdAt: "desc" } },
-      documents: { select: { id: true, documentNumber: true, title: true, signedAt: true }, orderBy: { createdAt: "desc" }, take: 5 },
+      messages: { select: { id: true, body: true, senderName: true, createdAt: true }, take: 5, orderBy: { createdAt: "desc" } },
+      tasks: { select: { id: true, title: true, status: true, dueDate: true }, orderBy: { dueDate: "asc" } },
+      documents: { select: { id: true, documentNumber: true, title: true, signedAt: true, pdfUrl: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 8 },
     },
     orderBy: { lastActivityAt: "desc" },
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { MetricsGrid } from "@/components/dashboard/metrics-grid";
@@ -85,17 +86,72 @@ type AppNotification = {
   createdAt: string;
 };
 
-export type ClientTab = "OVERVIEW" | "CONTRACTS" | "CLAIMS" | "MESSAGES" | "REQUESTS" | "BILLING";
+type LawMatterDocument = {
+  id: string;
+  documentNumber: string;
+  title: string;
+  signedAt: string | null;
+  pdfUrl: string | null;
+  createdAt: string;
+};
+
+type LawMatterTask = {
+  id: string;
+  title: string;
+  status: string;
+  dueDate: string | null;
+};
+
+type LawMatterMessage = {
+  id: string;
+  body: string;
+  senderName: string;
+  createdAt: string;
+};
+
+type LawMatter = {
+  id: string;
+  matterNumber: string;
+  title: string;
+  summary: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  client: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  createdBy?: {
+    fullName: string;
+  };
+  updatedBy?: {
+    fullName: string;
+  };
+  participants: Array<{
+    client: {
+      id: string;
+      fullName: string;
+      email: string;
+    };
+  }>;
+  documents: LawMatterDocument[];
+  tasks: LawMatterTask[];
+  messages: LawMatterMessage[];
+};
+
+export type ClientTab = "OVERVIEW" | "CONTRACTS" | "CLAIMS" | "MATTERS" | "MESSAGES" | "REQUESTS" | "BILLING";
 
 export type ClientWorkspaceProps = {
   forcedTab?: ClientTab;
   hideTabNavigation?: boolean;
 };
 
-const clientTabs: Array<{ id: ClientTab; label: string }> = [
+const clientTabsBase: Array<{ id: ClientTab; label: string }> = [
   { id: "OVERVIEW", label: "Vue d'ensemble" },
   { id: "CONTRACTS", label: "Contrats" },
   { id: "CLAIMS", label: "Dossiers sinistres" },
+  { id: "MATTERS", label: "Dossiers" },
   { id: "MESSAGES", label: "Contact conseiller" },
   { id: "REQUESTS", label: "Souscriptions" },
   { id: "BILLING", label: "Facturation" },
@@ -157,7 +213,23 @@ function getClaimJourney(status: string) {
   return { step: "En cours", nextAction: "Consultez le dossier pour les prochaines actions." };
 }
 
+function formatMatterStatus(status: string) {
+  switch (status) {
+    case "IN_PROGRESS":
+      return { label: "En cours", tint: "bg-emerald-100 text-emerald-800" };
+    case "PENDING":
+      return { label: "En attente", tint: "bg-amber-100 text-amber-800" };
+    case "HOLD":
+      return { label: "Suspendu", tint: "bg-slate-100 text-slate-700" };
+    case "CLOSED":
+      return { label: "Clôturé", tint: "bg-slate-100 text-slate-700" };
+    default:
+      return { label: status, tint: "bg-slate-100 text-slate-700" };
+  }
+}
+
 export default function ClientPage({ forcedTab, hideTabNavigation = false }: ClientWorkspaceProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -184,6 +256,11 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
   const [contactLoadedOnce, setContactLoadedOnce] = useState(false);
   const [contactConversationId, setContactConversationId] = useState<string | null>(null);
   const [closingContactConversation, setClosingContactConversation] = useState(false);
+  const [matters, setMatters] = useState<LawMatter[]>([]);
+  const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
+  const [matterMessages, setMatterMessages] = useState<LawMatterMessage[]>([]);
+  const [matterMessageForm, setMatterMessageForm] = useState({ body: "", documentLink: "" });
+  const [matterLoading, setMatterLoading] = useState(false);
   const contactMessageIdsRef = useRef<string[]>([]);
   const newContactMessageAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -322,6 +399,37 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
     [contracts],
   );
 
+  const visibleContracts = useMemo(
+    () => contracts.filter((contract) => contract.status === "ACTIVE" || contract.status === "PENDING_SIGNATURE"),
+    [contracts],
+  );
+
+  const eligibleContracts = useMemo(
+    () => contracts.filter((contract) => contract.status === "ACTIVE"),
+    [contracts],
+  );
+
+  const hasAccessibleContracts = visibleContracts.length > 0;
+  const hasActiveInsuranceContract = eligibleContracts.length > 0;
+  const hasAccessibleMatters = matters.length > 0;
+
+  const visibleClientTabs = useMemo(
+    () =>
+      clientTabsBase.filter((tab) => {
+        if (tab.id === "CONTRACTS") {
+          return hasAccessibleContracts;
+        }
+        if (tab.id === "CLAIMS") {
+          return hasActiveInsuranceContract;
+        }
+        if (tab.id === "MATTERS") {
+          return hasAccessibleMatters;
+        }
+        return true;
+      }),
+    [hasAccessibleContracts, hasActiveInsuranceContract, hasAccessibleMatters],
+  );
+
   const activeClaims = useMemo(
     () => claims.filter((claim) => claim.status === "SUBMITTED" || claim.status === "UNDER_REVIEW" || claim.status === "WAITING_DETAILS"),
     [claims],
@@ -329,12 +437,13 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
 
   async function loadData() {
     setLoading(true);
-    const [contractsRes, invoicesRes, claimsRes, requestsRes, notificationsRes] = await Promise.all([
+    const [contractsRes, invoicesRes, claimsRes, requestsRes, notificationsRes, mattersRes] = await Promise.all([
       fetch("/api/contracts?scope=self"),
       fetch("/api/invoices?scope=self"),
       fetch("/api/claims?scope=self"),
       fetch("/api/subscription-requests?scope=self"),
       fetch("/api/notifications"),
+      fetch("/api/law-firm/matters?scope=self"),
     ]);
 
     if (contractsRes.ok) {
@@ -366,6 +475,15 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
       setNotificationFeed(Array.isArray(json?.data?.notifications) ? json.data.notifications : []);
     }
 
+    if (mattersRes.ok) {
+      const json = await mattersRes.json();
+      const nextMatters: LawMatter[] = json.data ?? [];
+      setMatters(nextMatters);
+      if (!selectedMatterId && nextMatters.length > 0) {
+        setSelectedMatterId(nextMatters[0].id);
+      }
+    }
+
     setLoading(false);
   }
 
@@ -373,6 +491,17 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData().catch(() => notifyError("Impossible de charger vos données."));
   }, []);
+
+  useEffect(() => {
+    if (forcedTab && !visibleClientTabs.some((tab) => tab.id === forcedTab)) {
+      router.replace("/client-space/overview");
+      return;
+    }
+
+    if (!visibleClientTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab("OVERVIEW");
+    }
+  }, [activeTab, forcedTab, router, visibleClientTabs]);
 
   useEffect(() => {
     if (!toast) {
@@ -681,6 +810,47 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
     await openClaimMessages(openedMessagesClaim);
   }
 
+  async function openMatterThread(matter: LawMatter) {
+    setSelectedMatterId(matter.id);
+    setMatterLoading(true);
+    const response = await fetch(`/api/law-firm/matters/${matter.id}/messages`);
+    if (!response.ok) {
+      notifyError("Impossible de charger la conversation du dossier.");
+      setMatterMessages([]);
+      setMatterLoading(false);
+      return;
+    }
+
+    const payload = await response.json();
+    setMatterMessages(payload.data ?? []);
+    setMatterLoading(false);
+  }
+
+  async function sendMatterMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedMatterId) {
+      return;
+    }
+
+    const response = await fetch(`/api/law-firm/matters/${selectedMatterId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        body: matterMessageForm.body,
+        documentLink: matterMessageForm.documentLink || undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      notifyError(await extractErrorMessage(response, "Impossible d'envoyer le message au dossier."));
+      return;
+    }
+
+    setMatterMessageForm({ body: "", documentLink: "" });
+    notifySuccess("Message envoyé au dossier.");
+    await openMatterThread(matters.find((matter) => matter.id === selectedMatterId) ?? matters[0]);
+  }
+
   async function signContract() {
     if (!selectedContractId) {
       notifyError("Selectionnez un contrat a signer.");
@@ -758,7 +928,7 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
 
         {!hideTabNavigation ? (
           <nav className="surface tab-strip p-2" aria-label="Navigation espace client">
-            {clientTabs.map((tab) => (
+            {visibleClientTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -825,9 +995,10 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
               <SectionBlock title="Raccourcis" subtitle="Navigation rapide">
                 <QuickActions
                   actions={[
-                    { label: "Dossiers sinistres", onClick: () => setActiveTab("CLAIMS") },
+                    ...(hasActiveInsuranceContract ? [{ label: "Dossiers sinistres", onClick: () => setActiveTab("CLAIMS") }] : []),
                     { label: "Contacter un conseiller", onClick: () => setActiveTab("MESSAGES") },
-                    { label: "Contrats", onClick: () => setActiveTab("CONTRACTS") },
+                    ...(hasAccessibleContracts ? [{ label: "Contrats", onClick: () => setActiveTab("CONTRACTS") }] : []),
+                    ...(hasAccessibleMatters ? [{ label: "Dossiers", onClick: () => setActiveTab("MATTERS") }] : []),
                     { label: "Facturation", onClick: () => setActiveTab("BILLING") },
                   ]}
                 />
@@ -870,6 +1041,11 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
             subtitle="Visualisation, signature electronique et telechargement PDF"
             actions={<span className="text-sm text-ms-ink/70">{`${contracts.length} contrat(s)`}</span>}
           >
+            {contracts.length === 0 ? (
+              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-5 text-sm text-ms-ink/80">
+                Vous ne disposez actuellement d&apos;aucun contrat signé.
+              </div>
+            ) : null}
             <div className="space-y-3 md:hidden">
               {contracts.map((contract) => (
                 <article key={contract.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
@@ -1063,11 +1239,17 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
         {activeTab === "CLAIMS" ? (
           <section className="grid gap-6 lg:grid-cols-2">
             <SectionBlock title="Declaration de sinistre" subtitle="Accident, vol, preuves et reference LSPD">
+            {!eligibleContracts.length ? (
+              <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                La déclaration de sinistre nécessite un contrat actif. Dès qu&apos;un contrat signé est disponible, vous pourrez déposer un nouveau dossier et l&apos;associer à ce contrat.
+              </div>
+            ) : null}
             <form className="grid gap-3 text-sm" onSubmit={handleClaimSubmit}>
               <select
                 value={claimForm.contractId}
                 onChange={(event) => setClaimForm((prev) => ({ ...prev, contractId: event.target.value }))}
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                disabled={!eligibleContracts.length}
               >
                 <option value="">Aucun contrat spécifique</option>
                 {contracts.map((contract) => (
@@ -1130,7 +1312,7 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
                 placeholder="Lien plainte LSPD"
                 className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
               />
-              <button type="submit" className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Envoyer le sinistre</button>
+              <button type="submit" className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white" disabled={!eligibleContracts.length}>Envoyer le sinistre</button>
             </form>
             </SectionBlock>
 
@@ -1238,6 +1420,184 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
                   </tbody>
                 </table>
               </div>
+            </SectionBlock>
+          </section>
+        ) : null}
+
+        {activeTab === "MATTERS" ? (
+          <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+            <SectionBlock title="Mes dossiers" subtitle="Dossiers associés à votre compte et à vos contrats">
+              {matters.length === 0 ? (
+                <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4 text-sm text-ms-ink/80">
+                  Aucun dossier ne vous est actuellement associé.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {matters.map((matter) => {
+                    const status = formatMatterStatus(matter.status);
+                    return (
+                      <button
+                        key={matter.id}
+                        type="button"
+                        onClick={() => void openMatterThread(matter)}
+                        className={`w-full rounded-2xl border p-4 text-left transition ${selectedMatterId === matter.id ? "border-ms-navy bg-ms-cream/50" : "border-ms-navy/10 bg-white"}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-ms-navy">{matter.title}</p>
+                            <p className="text-xs text-ms-ink/65">{matter.matterNumber}</p>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.tint}`}>{status.label}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-ms-ink/80">{matter.summary ?? "Aucun résumé n’a encore été ajouté."}</p>
+                        <p className="mt-2 text-xs text-ms-ink/60">Participants: {matter.participants.map((participant) => participant.client.fullName).join(", ") || matter.client.fullName}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionBlock>
+
+            <SectionBlock title="Contenu du dossier" subtitle="Informations générales, pièces, échéances et messagerie">
+              {!selectedMatterId ? (
+                <p className="text-sm text-ms-ink/70">Sélectionnez un dossier pour consulter ses informations.</p>
+              ) : (
+                <div className="space-y-5">
+                  {(() => {
+                    const matter = matters.find((item) => item.id === selectedMatterId);
+                    if (!matter) {
+                      return null;
+                    }
+
+                    const status = formatMatterStatus(matter.status);
+                    return (
+                      <>
+                        <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/40 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Dossier</p>
+                              <h3 className="mt-1 font-display text-2xl text-ms-navy">{matter.title}</h3>
+                              <p className="text-sm text-ms-ink/70">{matter.matterNumber}</p>
+                            </div>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.tint}`}>{status.label}</span>
+                          </div>
+                          <p className="mt-3 text-sm text-ms-ink/80">{matter.summary ?? "Aucune information interne n’est visible ici. Seules les informations utiles au client sont accessibles."}</p>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                            <p className="text-sm font-semibold text-ms-navy">Informations générales</p>
+                            <div className="mt-3 space-y-2 text-sm text-ms-ink/80">
+                              <p><span className="font-semibold">Client principal :</span> {matter.client.fullName}</p>
+                              <p><span className="font-semibold">Participants :</span> {matter.participants.map((participant) => participant.client.fullName).join(", ") || "Aucun participant supplémentaire"}</p>
+                              <p><span className="font-semibold">Dernière mise à jour :</span> {new Date(matter.updatedAt).toLocaleString("fr-FR")}</p>
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                            <p className="text-sm font-semibold text-ms-navy">Échéances importantes</p>
+                            {matter.tasks.length === 0 ? (
+                              <p className="mt-3 text-sm text-ms-ink/70">Aucune échéance n’est actuellement planifiée.</p>
+                            ) : (
+                              <ul className="mt-3 space-y-2 text-sm text-ms-ink/80">
+                                {matter.tasks.map((task) => (
+                                  <li key={task.id} className="rounded-xl border border-ms-navy/10 bg-ms-cream/40 p-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span>{task.title}</span>
+                                      {task.dueDate ? <span className="text-xs text-ms-navy-soft">{new Date(task.dueDate).toLocaleDateString("fr-FR")}</span> : null}
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                          <p className="text-sm font-semibold text-ms-navy">Pièces et documents accessibles</p>
+                          {matter.documents.length === 0 ? (
+                            <p className="mt-3 text-sm text-ms-ink/70">Aucun document n’est encore partagé avec vous sur ce dossier.</p>
+                          ) : (
+                            <ul className="mt-3 space-y-2 text-sm text-ms-ink/80">
+                              {matter.documents.map((document) => (
+                                <li key={document.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ms-navy/10 bg-ms-cream/40 p-3">
+                                  <div>
+                                    <p className="font-semibold text-ms-navy">{document.title}</p>
+                                    <p className="text-xs text-ms-ink/60">{document.documentNumber}</p>
+                                  </div>
+                                  {document.pdfUrl ? (
+                                    <a href={document.pdfUrl} target="_blank" rel="noreferrer" className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy">
+                                      Ouvrir
+                                    </a>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                          <p className="text-sm font-semibold text-ms-navy">Historique d’activité</p>
+                          {matter.messages.length === 0 ? (
+                            <p className="mt-3 text-sm text-ms-ink/70">Aucun historique de conversation n’est encore disponible pour ce dossier.</p>
+                          ) : (
+                            <ul className="mt-3 space-y-2 text-sm text-ms-ink/80">
+                              {matter.messages.map((message) => (
+                                <li key={message.id} className="rounded-xl border border-ms-navy/10 bg-ms-cream/40 p-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-ms-navy">{message.senderName}</span>
+                                    <span className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</span>
+                                  </div>
+                                  <p className="mt-1">{message.body}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                          <p className="text-sm font-semibold text-ms-navy">Messagerie sécurisée</p>
+                          {matterLoading ? <p className="mt-3 text-sm text-ms-ink/70">Chargement de la conversation…</p> : null}
+                          <div className="mt-3 max-h-60 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-ms-pearl p-3">
+                            {matterMessages.length === 0 ? (
+                              <p className="text-sm text-ms-ink/70">Aucun message n’a encore été publié sur ce dossier.</p>
+                            ) : (
+                              matterMessages.map((message) => (
+                                <div key={message.id} className="rounded-xl border border-ms-navy/10 bg-white p-3 text-sm text-ms-ink/80">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-ms-navy">{message.senderName}</span>
+                                    <span className="text-xs text-ms-ink/60">{new Date(message.createdAt).toLocaleString("fr-FR")}</span>
+                                  </div>
+                                  <p className="mt-1">{message.body}</p>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          <form className="mt-3 grid gap-2" onSubmit={sendMatterMessage}>
+                            <textarea
+                              required
+                              value={matterMessageForm.body}
+                              onChange={(event) => setMatterMessageForm((prev) => ({ ...prev, body: event.target.value }))}
+                              rows={3}
+                              placeholder="Écrire un message à l’équipe"
+                              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                            />
+                            <input
+                              value={matterMessageForm.documentLink}
+                              onChange={(event) => setMatterMessageForm((prev) => ({ ...prev, documentLink: event.target.value }))}
+                              placeholder="Lien document (optionnel)"
+                              className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2 text-sm"
+                            />
+                            <button type="submit" className="w-fit rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white">
+                              Envoyer au dossier
+                            </button>
+                          </form>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
             </SectionBlock>
           </section>
         ) : null}

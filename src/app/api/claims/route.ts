@@ -1,4 +1,4 @@
-import { ClaimStatus, NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
+import { ClaimStatus, ContractStatus, NotificationSeverity, NotificationType } from "@/generated/prisma/enums";
 import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildNumber } from "@/lib/ids";
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   const forceSelfScope = scope === "self";
 
   const where =
-    forceSelfScope
+    forceSelfScope || user.role === "CLIENT"
       ? { clientId: user.id }
       : user.role === "ADMIN"
       ? {}
@@ -86,11 +86,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const activeContract = parsed.data.contractId
+    ? await prisma.contract.findFirst({
+        where: {
+          id: parsed.data.contractId,
+          clientId: user.id,
+          status: ContractStatus.ACTIVE,
+        },
+        select: { id: true },
+      })
+    : null;
+
+  if (!parsed.data.contractId || !activeContract) {
+    return NextResponse.json({ error: "Aucun contrat actif ne permet de déposer un sinistre pour votre compte." }, { status: 400 });
+  }
+
   const claim = await prisma.claim.create({
     data: {
       claimNumber: buildNumber("CLM"),
       clientId: user.id,
-      contractId: parsed.data.contractId,
+      contractId: activeContract.id,
       incidentType: parsed.data.incidentType,
       description: parsed.data.description,
       evidenceLink: parsed.data.evidenceLink || null,

@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { AdvisorRequestModal } from "@/components/dashboard/advisor-request-modal";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { MetricsGrid } from "@/components/dashboard/metrics-grid";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { DataTable } from "@/components/dashboard/data-table";
 import { RoleModeSwitch } from "@/components/dashboard/role-mode-switch";
+import { RiskProfileModal } from "@/components/dashboard/risk-profile-modal";
 import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { AppRole } from "@/lib/rbac";
-import { buildOperationalDataset, ManagerClientRow } from "@/components/dashboard/operational-mock";
+import { buildEmptyOperationalDataset, ManagerClientRow } from "@/components/dashboard/operational-mock";
 
 type InvestmentMode = "CLIENT" | "MANAGER";
 
@@ -23,6 +25,19 @@ type ClientApiRow = {
 
 function formatCurrency(value: number) {
   return `${value.toLocaleString("fr-FR")} €`;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csv = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(";"))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function resolveRiskProfile(label: string | null): "Prudent" | "Equilibre" | "Dynamique" {
@@ -46,7 +61,9 @@ export default function InvestmentDashboardPage() {
   const [mode, setMode] = useState<InvestmentMode>("CLIENT");
   const [managerClients, setManagerClients] = useState<ManagerClientRow[]>([]);
   const [riskFilter, setRiskFilter] = useState<"ALL" | "Prudent" | "Equilibre" | "Dynamique">("ALL");
-  const [activeModal, setActiveModal] = useState<null | "appointment" | "arbitrage" | "report" | "risk">(null);
+  const [requestModal, setRequestModal] = useState<null | "appointment" | "arbitrage">(null);
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -60,7 +77,7 @@ export default function InvestmentDashboardPage() {
     }
   }, [isManager, status]);
 
-  const dataset = useMemo(() => buildOperationalDataset("investment", role), [role]);
+  const dataset = useMemo(() => buildEmptyOperationalDataset("investment", role), [role]);
 
   useEffect(() => {
     if (!isManager) {
@@ -76,10 +93,10 @@ export default function InvestmentDashboardPage() {
 
         const payload = await response.json();
         const rows = (payload.data ?? []) as ClientApiRow[];
-        const mapped: ManagerClientRow[] = rows.map((client, index) => ({
+        const mapped: ManagerClientRow[] = rows.map((client) => ({
           id: client.id,
           fullName: client.fullName,
-          assetsUnderManagement: 180000 + (index + 1) * 42000,
+          assetsUnderManagement: null,
           riskProfile: resolveRiskProfile(client.riskLabel),
           kycStatus: client.citizenUniqueId ? "A jour" : "A verifier",
         }));
@@ -104,8 +121,8 @@ export default function InvestmentDashboardPage() {
     { label: "Clients suivis", value: String(managerRows.length), detail: "Portefeuille total" },
     {
       label: "Encours géré",
-      value: formatCurrency(managerRows.reduce((sum, row) => sum + row.assetsUnderManagement, 0)),
-      detail: "Actifs agrégés",
+      value: "À connecter",
+      detail: "En attente de liaison aux encours réels",
     },
     {
       label: "KYC à vérifier",
@@ -126,6 +143,25 @@ export default function InvestmentDashboardPage() {
     return null;
   }
 
+  function exportManagerReport() {
+    downloadCsv(
+      "rapport-investment.csv",
+      ["Nom du client", "Encours géré", "Profil de risque", "Statut KYC"],
+      managerRows.map((row) => [
+        row.fullName,
+        row.assetsUnderManagement === null ? "A connecter" : formatCurrency(row.assetsUnderManagement),
+        row.riskProfile,
+        row.kycStatus,
+      ]),
+    );
+    setFeedbackMessage("Le rapport investment a été généré au format CSV.");
+  }
+
+  function applyRiskProfile(clientId: string, riskProfile: "Prudent" | "Equilibre" | "Dynamique") {
+    setManagerClients((current) => current.map((row) => (row.id === clientId ? { ...row, riskProfile } : row)));
+    setFeedbackMessage("Le profil de risque a été mis à jour localement et est prêt à être relié à l'API.");
+  }
+
   return (
     <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-4 lg:px-8 lg:py-6">
       <div className="workspace-grid grid gap-4 lg:gap-6">
@@ -138,6 +174,12 @@ export default function InvestmentDashboardPage() {
         </header>
 
         <RoleModeSwitch mode={mode} onModeChange={setMode} canUseManagerMode={isManager} />
+
+        {feedbackMessage ? (
+          <div className="rounded-2xl border border-ms-gold/35 bg-ms-gold/10 px-5 py-4 text-sm font-semibold text-ms-navy">
+            {feedbackMessage}
+          </div>
+        ) : null}
 
         {mode === "CLIENT" ? (
           <>
@@ -194,8 +236,8 @@ export default function InvestmentDashboardPage() {
             <SectionBlock title="Actions rapides" subtitle="Contacts et demandes prioritaires">
               <QuickActions
                 actions={[
-                  { label: "Prendre RDV avec mon conseiller", onClick: () => setActiveModal("appointment") },
-                  { label: "Demander un arbitrage", tone: "secondary", onClick: () => setActiveModal("arbitrage") },
+                  { label: "Prendre RDV avec mon conseiller", onClick: () => setRequestModal("appointment") },
+                  { label: "Demander un arbitrage", tone: "secondary", onClick: () => setRequestModal("arbitrage") },
                 ]}
               />
             </SectionBlock>
@@ -223,7 +265,7 @@ export default function InvestmentDashboardPage() {
                 minWidthClassName="min-w-[940px]"
                 columns={[
                   { key: "name", header: "Nom du client", render: (row) => row.fullName },
-                  { key: "aum", header: "Encours géré", render: (row) => formatCurrency(row.assetsUnderManagement) },
+                  { key: "aum", header: "Encours géré", render: (row) => (row.assetsUnderManagement === null ? "À connecter" : formatCurrency(row.assetsUnderManagement)) },
                   { key: "risk", header: "Profil de risque", render: (row) => row.riskProfile },
                   {
                     key: "kyc",
@@ -241,8 +283,8 @@ export default function InvestmentDashboardPage() {
             <SectionBlock title="Actions gestionnaire" subtitle="Pilotage de la relation et de la performance">
               <QuickActions
                 actions={[
-                  { label: "Générer un rapport de performance", onClick: () => setActiveModal("report") },
-                  { label: "Mettre à jour le profil de risque", tone: "secondary", onClick: () => setActiveModal("risk") },
+                  { label: "Générer un rapport de performance", onClick: exportManagerReport },
+                  { label: "Mettre à jour le profil de risque", tone: "secondary", onClick: () => setIsRiskModalOpen(true) },
                 ]}
               />
             </SectionBlock>
@@ -250,24 +292,20 @@ export default function InvestmentDashboardPage() {
         )}
       </div>
 
-      {activeModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ms-navy/45 px-4">
-          <div className="surface w-full max-w-lg p-6">
-            <h3 className="font-display text-3xl text-ms-navy">Action en cours</h3>
-            <p className="mt-2 text-sm text-ms-ink/80">
-              {activeModal === "appointment" ? "Demande de rendez-vous prête à être transmise au conseiller investment." : null}
-              {activeModal === "arbitrage" ? "Formulaire de demande d'arbitrage prêt pour validation." : null}
-              {activeModal === "report" ? "Génération d'un rapport de performance lancée sur le périmètre filtré." : null}
-              {activeModal === "risk" ? "Mise à jour du profil de risque prête à être appliquée." : null}
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveModal(null)}>
-                Fermer
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <AdvisorRequestModal
+        isOpen={requestModal !== null}
+        service="investment"
+        requestType={requestModal ?? "appointment"}
+        onClose={() => setRequestModal(null)}
+        onSubmitted={setFeedbackMessage}
+      />
+
+      <RiskProfileModal
+        isOpen={isRiskModalOpen}
+        rows={managerRows}
+        onClose={() => setIsRiskModalOpen(false)}
+        onSave={applyRiskProfile}
+      />
     </main>
   );
 }

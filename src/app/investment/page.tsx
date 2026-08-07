@@ -73,7 +73,7 @@ export default function InvestmentPage() {
         <section className="grid gap-4 rounded-3xl border border-ms-navy/10 bg-white p-5 md:grid-cols-3 lg:p-6">
           <article className="rounded-2xl border border-ms-navy/10 bg-ms-mist/60 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Total Encours & Allocations Pilotées</p>
-            <p className="mt-2 font-display text-3xl text-ms-navy">+150M€ sous mandat</p>
+            <p className="mt-2 font-display text-3xl text-ms-navy">+5M$ sous mandat</p>
           </article>
           <article className="rounded-2xl border border-ms-navy/10 bg-ms-mist/60 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ms-navy-soft">Stratégies de Rendement</p>

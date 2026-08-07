@@ -16,12 +16,10 @@
     "railway:start": "node scripts/db-deploy.mjs && next start -p $PORT"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@sparticuz/chromium": "^147.0.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "html-pdf": "^3.0.1",

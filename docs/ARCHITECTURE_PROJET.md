@@ -45,4 +45,5 @@ mercer-stellaria/
 - lib/services/*: logique metier (contrat, facturation, sinistre)
 
 ## Base de donnees
-- SQLite via Prisma (`DATABASE_URL="file:./dev.db"`)
+- PostgreSQL via Prisma (`DATABASE_URL="postgresql://..."`)
+- Schema deploye par `scripts/db-deploy.mjs` (prisma migrate deploy)

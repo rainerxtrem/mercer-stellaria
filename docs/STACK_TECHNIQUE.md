@@ -8,7 +8,7 @@
 ## Backend
 - Route Handlers Next.js pour API interne
 - Prisma ORM pour la couche d'acces donnees
-- SQLite comme base principale
+- PostgreSQL comme base principale (adaptateur @prisma/adapter-pg)
 - Zod pour la validation d'entrees
 - jose + bcryptjs pour une couche auth JWT securisee
 
@@ -25,4 +25,4 @@
 ## Observabilite / DevOps
 - Sentry pour erreurs applicatives
 - OpenTelemetry + logs structurels (pino)
-- Deploiement Vercel (frontend/API) + base SQLite (dev local)
+- Deploiement Railway (application + base PostgreSQL manageee)

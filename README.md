@@ -15,7 +15,7 @@ Application web SaaS complete pour la gestion immersive d'une compagnie d'assura
 
 - Next.js 16 + React 19 + TypeScript
 - Tailwind CSS 4
-- Prisma ORM + SQLite
+- Prisma ORM + PostgreSQL
 - Zod, jose, bcryptjs
 
 Voir le detail dans [docs/STACK_TECHNIQUE.md](docs/STACK_TECHNIQUE.md).
@@ -32,10 +32,10 @@ Voir [docs/ARCHITECTURE_PROJET.md](docs/ARCHITECTURE_PROJET.md).
 npm install
 ```
 
-2. Configurer la base SQLite dans `.env`:
+2. Configurer la base PostgreSQL dans `.env`:
 
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@host:5432/database"
 ```
 
 3. Configurer OAuth Discord dans `.env`:

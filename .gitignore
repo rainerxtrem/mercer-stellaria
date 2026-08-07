@@ -50,3 +50,6 @@ public/storage/
 .agents/
 .claude/
 .windsurf/
+
+# sauvegardes de base (donnees personnelles, ne pas versionner)
+backups/*.db

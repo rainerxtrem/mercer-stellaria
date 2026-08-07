@@ -41,12 +41,14 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status");
   const archived = request.nextUrl.searchParams.get("archived");
   const scope = request.nextUrl.searchParams.get("scope");
+  const matterId = request.nextUrl.searchParams.get("matterId");
   const normalizedStatus = status && matterStatuses.includes(status as (typeof matterStatuses)[number]) ? (status as (typeof matterStatuses)[number]) : undefined;
 
   const matters = await prisma.lawMatter.findMany({
     where: {
-      isArchived: archived === "1" ? true : archived === "0" ? false : undefined,
-      status: normalizedStatus,
+      id: matterId ?? undefined,
+      isArchived: matterId ? undefined : archived === "1" ? true : archived === "0" ? false : undefined,
+      status: matterId ? undefined : normalizedStatus,
       ...(scope === "self" || currentUser.role === "CLIENT"
         ? {
             OR: [

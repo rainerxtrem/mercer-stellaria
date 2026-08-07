@@ -1,5 +1,6 @@
 "use client";
 
+import { ModulePermissionGuard } from "@/components/navigation/module-permission-guard";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -51,7 +52,7 @@ function LawCaseDetailContent() {
 
     async function loadMatter() {
       setLoading(true);
-      const response = await fetch("/api/law-firm/matters");
+      const response = await fetch(`/api/law-firm/matters?matterId=${encodeURIComponent(params.id)}`);
       if (!isActive) return;
       if (!response.ok) {
         setMatter(null);
@@ -273,8 +274,10 @@ function LawCaseDetailContent() {
 
 export default function LawCaseDetailPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-700 lg:px-8"><div className="mx-auto max-w-7xl rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">Chargement du dossier...</div></div>}>
-      <LawCaseDetailContent />
-    </Suspense>
+    <ModulePermissionGuard permission="module:law_firm.cases">
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-700 lg:px-8"><div className="mx-auto max-w-7xl rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm">Chargement du dossier...</div></div>}>
+        <LawCaseDetailContent />
+      </Suspense>
+    </ModulePermissionGuard>
   );
 }

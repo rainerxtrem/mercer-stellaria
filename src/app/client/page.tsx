@@ -286,7 +286,7 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
 
   const [requestForm, setRequestForm] = useState({
     type: "NEW_SUBSCRIPTION" as "NEW_SUBSCRIPTION" | "UPGRADE",
-    requestedCategory: "HEALTH" as "HEALTH",
+    requestedCategory: "HEALTH" as const,
     requestedFormula: "Care Plus",
     currentFormula: "",
     reason: "",
@@ -939,6 +939,12 @@ export default function ClientPage({ forcedTab, hideTabNavigation = false }: Cli
               </button>
             ))}
           </nav>
+        ) : null}
+
+        {loading ? (
+          <div className="surface px-5 py-4" role="status" aria-live="polite">
+            <p className="text-sm text-ms-ink/70">Chargement de vos données…</p>
+          </div>
         ) : null}
 
         {hasUnreadAdvisorMessage ? (

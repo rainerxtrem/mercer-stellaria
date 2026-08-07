@@ -412,7 +412,7 @@ export default function OnboardingProfilePage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !canSubmit}
             className="rounded-full bg-ms-navy px-5 py-3 text-sm font-semibold text-white transition hover:bg-ms-navy-soft disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? "Validation en cours..." : "Valider mon dossier"}

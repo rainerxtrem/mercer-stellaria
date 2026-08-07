@@ -165,6 +165,26 @@ export async function getEffectivePermissionContext(userId: string): Promise<Eff
     entry.grade.permissions.forEach((permission) => permissionKeys.add(permission.resource.key));
   });
 
+  // Keep backward compatibility with legacy role-based access for users
+  // that have not received explicit grades yet.
+  if (user.role === UserRole.CLIENT) {
+    permissionKeys.add("space:client");
+    permissionKeys.add("space:investment");
+  }
+
+  if (user.role === UserRole.COLLABORATOR) {
+    permissionKeys.add("space:client");
+    permissionKeys.add("space:investment");
+    permissionKeys.add("space:collaborateur");
+  }
+
+  if (user.role === UserRole.ADMIN) {
+    permissionKeys.add("space:client");
+    permissionKeys.add("space:investment");
+    permissionKeys.add("space:collaborateur");
+    permissionKeys.add("space:direction");
+  }
+
   if (gradeCodes.includes("CHIEF_EXECUTIVE_OFFICER")) {
     permissionKeys.add("*");
   }

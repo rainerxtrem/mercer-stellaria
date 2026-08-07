@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getStorageRoot } from "@/lib/storage-paths";
-import { requireRole } from "@/lib/server-auth";
+import { requirePermission } from "@/lib/server-auth";
 import { writeAuditLogSafe } from "@/lib/audit-log";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
@@ -12,7 +12,7 @@ const deleteSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }
@@ -38,7 +38,7 @@ export async function GET() {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }

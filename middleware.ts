@@ -8,6 +8,7 @@ const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/investment/dashboard", role: "CLIENT" },
   { prefix: "/assurances/dashboard", role: "CLIENT" },
   { prefix: "/collaborateur", role: "COLLABORATOR" },
+  { prefix: "/cabinet/espace", role: "COLLABORATOR" },
   { prefix: "/admin", role: "ADMIN" },
   { prefix: "/api/clients", role: "COLLABORATOR" },
   { prefix: "/api/contracts", role: "CLIENT" },
@@ -15,6 +16,9 @@ const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/api/claims", role: "CLIENT" },
   { prefix: "/api/contact", role: "CLIENT" },
   { prefix: "/api/notifications", role: "CLIENT" },
+  { prefix: "/api/admin/document-templates", role: "COLLABORATOR" },
+  { prefix: "/api/admin/generated-documents", role: "COLLABORATOR" },
+  { prefix: "/api/law-firm", role: "COLLABORATOR" },
   { prefix: "/api/admin", role: "ADMIN" },
 ];
 
@@ -118,5 +122,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/investment/dashboard/:path*", "/assurances/dashboard/:path*", "/collaborateur/:path*", "/admin/:path*", "/api/:path*"],
+  matcher: ["/client/:path*", "/investment/dashboard/:path*", "/assurances/dashboard/:path*", "/collaborateur/:path*", "/cabinet/espace/:path*", "/admin/:path*", "/api/:path*"],
 };

@@ -22,10 +22,17 @@ export const DEFAULT_PERMISSION_RESOURCES = [
   { key: "space:collaborateur", label: "Espace Collaborateur", type: PermissionResourceType.SPACE },
   { key: "space:direction", label: "Espace Direction", type: PermissionResourceType.SPACE },
   { key: "space:investment", label: "Espace Investment", type: PermissionResourceType.SPACE },
+  { key: "space:law_firm", label: "Espace Law Firm", type: PermissionResourceType.SPACE },
   { key: "page:admin.dashboard", label: "Page Direction Dashboard", type: PermissionResourceType.PAGE },
   { key: "page:admin.settings", label: "Page Parametres Direction", type: PermissionResourceType.PAGE },
+  { key: "page:law_firm.workspace", label: "Page Espace Law Firm", type: PermissionResourceType.PAGE },
   { key: "module:settings.users_roles", label: "Module Utilisateurs et Roles", type: PermissionResourceType.MODULE },
   { key: "module:settings.permissions", label: "Module Permissions", type: PermissionResourceType.MODULE },
+  { key: "module:law_firm.cases", label: "Module Dossiers Law Firm", type: PermissionResourceType.MODULE },
+  { key: "module:law_firm.documents", label: "Module Documents Law Firm", type: PermissionResourceType.MODULE },
+  { key: "module:law_firm.billing", label: "Module Facturation Law Firm", type: PermissionResourceType.MODULE },
+  { key: "module:law_firm.tasks", label: "Module Taches Law Firm", type: PermissionResourceType.MODULE },
+  { key: "module:law_firm.search", label: "Module Recherche Law Firm", type: PermissionResourceType.MODULE },
   { key: "action:read", label: "Action lecture", type: PermissionResourceType.ACTION },
   { key: "action:create", label: "Action creation", type: PermissionResourceType.ACTION },
   { key: "action:update", label: "Action modification", type: PermissionResourceType.ACTION },
@@ -34,6 +41,7 @@ export const DEFAULT_PERMISSION_RESOURCES = [
   { key: "action:export", label: "Action export", type: PermissionResourceType.ACTION },
   { key: "action:admin", label: "Action administration", type: PermissionResourceType.ACTION },
   { key: "feature:settings.permissions.routes", label: "Gestion des regles de routes", type: PermissionResourceType.FEATURE },
+  { key: "feature:law_firm.signature", label: "Signature Law Firm", type: PermissionResourceType.FEATURE },
 ] as const;
 
 export const DEFAULT_ROUTE_BINDINGS = [
@@ -45,6 +53,8 @@ export const DEFAULT_ROUTE_BINDINGS = [
   { pattern: "/admin/parametres", matchType: RouteMatchType.PREFIX, resourceKey: "page:admin.settings" },
   { pattern: "/api/admin/settings/users-roles", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.users_roles" },
   { pattern: "/api/admin/settings/permissions", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.permissions" },
+  { pattern: "/cabinet/espace", matchType: RouteMatchType.PREFIX, resourceKey: "space:law_firm" },
+  { pattern: "/api/law-firm", matchType: RouteMatchType.PREFIX, resourceKey: "space:law_firm" },
 ] as const;
 
 export type EffectivePermissionContext = {
@@ -189,6 +199,7 @@ export async function getEffectivePermissionContext(userId: string): Promise<Eff
     permissionKeys.add("space:client");
     permissionKeys.add("space:investment");
     permissionKeys.add("space:collaborateur");
+    permissionKeys.add("space:law_firm");
   }
 
   if (user.role === UserRole.ADMIN) {
@@ -196,10 +207,18 @@ export async function getEffectivePermissionContext(userId: string): Promise<Eff
     permissionKeys.add("space:investment");
     permissionKeys.add("space:collaborateur");
     permissionKeys.add("space:direction");
+    permissionKeys.add("space:law_firm");
     permissionKeys.add("page:admin.settings");
     permissionKeys.add("module:settings.users_roles");
     permissionKeys.add("module:settings.permissions");
     permissionKeys.add("feature:settings.permissions.routes");
+    permissionKeys.add("page:law_firm.workspace");
+    permissionKeys.add("module:law_firm.cases");
+    permissionKeys.add("module:law_firm.documents");
+    permissionKeys.add("module:law_firm.billing");
+    permissionKeys.add("module:law_firm.tasks");
+    permissionKeys.add("module:law_firm.search");
+    permissionKeys.add("feature:law_firm.signature");
   }
 
   if (gradeCodes.includes("CHIEF_EXECUTIVE_OFFICER")) {

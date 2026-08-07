@@ -3,7 +3,7 @@ import { buildHtmlPreviewDocument, isHtmlTemplate, renderTemplateContent } from 
 import { generateHtmlToPdf } from "@/lib/html-to-pdf";
 import { buildNumber } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/server-auth";
+import { requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -32,7 +32,7 @@ const previewSchema = z
   });
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }

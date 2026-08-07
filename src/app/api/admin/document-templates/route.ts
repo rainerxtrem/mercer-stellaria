@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/server-auth";
+import { requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -25,7 +25,7 @@ const deleteTemplateSchema = z.object({
 });
 
 export async function GET() {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }
@@ -50,7 +50,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }
@@ -115,7 +115,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireRole("ADMIN");
+  const auth = await requirePermission("module:law_firm.documents");
   if (!auth.ok) {
     return auth.response;
   }

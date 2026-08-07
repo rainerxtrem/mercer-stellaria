@@ -6,15 +6,19 @@ import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { AppRole, getDefaultSpaceForRole, getServiceSpaceForRole } from "@/lib/rbac";
 
-type ConnexionService = "assurance" | "investment" | "default";
+type ConnexionService = "assurance" | "investment" | "law_firm" | "default";
 
 function resolveConnexionService(value: string | null): ConnexionService {
   if (value === "assurance" || value === "assure") {
     return "assurance";
   }
 
-  if (value === "investment" || value === "cabinet") {
+  if (value === "investment") {
     return "investment";
+  }
+
+  if (value === "cabinet" || value === "law_firm" || value === "lawfirm") {
+    return "law_firm" as ConnexionService;
   }
 
   return "default";
@@ -77,7 +81,9 @@ export default function ConnexionPage() {
 
   const redirectLabel = requestedService === "investment"
     ? "votre espace investisseur"
-    : "votre espace assuré";
+    : requestedService === "law_firm"
+      ? "votre espace Law Firm"
+      : "votre espace assuré";
 
   return (
     <main className="brand-shell flex flex-1 items-center justify-center px-6 py-12">

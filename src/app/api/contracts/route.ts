@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { createAppNotificationSafe } from "@/lib/app-notifications";
 import { writeAuditLogSafe } from "@/lib/audit-log";
 import { buildNumber } from "@/lib/ids";
+import { buildChronologicalNumber } from "@/lib/numbering";
 import { toNumber } from "@/lib/parsers";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireRole } from "@/lib/server-auth";
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   await prisma.invoice.create({
     data: {
-      invoiceNumber: buildNumber("INV"),
+      invoiceNumber: await buildChronologicalNumber("INV", "insurance_invoice"),
       contractId: contract.id,
       clientId: contract.clientId,
       amount: weeklyPremium,
@@ -229,7 +230,7 @@ export async function PATCH(request: NextRequest) {
 
     await prisma.invoice.create({
       data: {
-        invoiceNumber: buildNumber("INV"),
+        invoiceNumber: await buildChronologicalNumber("INV", "insurance_invoice"),
         contractId: upgradedContract.id,
         clientId: upgradedContract.clientId,
         amount: nextWeeklyPremium,

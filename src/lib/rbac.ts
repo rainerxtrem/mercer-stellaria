@@ -1,5 +1,5 @@
 export type AppRole = "PUBLIC" | "CLIENT" | "COLLABORATOR" | "ADMIN";
-export type AppService = "assurance" | "investment";
+export type AppService = "assurance" | "investment" | "law_firm";
 
 export type AppSpace = {
   label: string;
@@ -18,6 +18,7 @@ const protectedSpaces: AppSpace[] = [
   { label: "Espace Client", href: "/client", minRole: "CLIENT" },
   { label: "Espace Investment", href: "/investment/dashboard", minRole: "CLIENT" },
   { label: "Espace Collaborateur", href: "/collaborateur", minRole: "COLLABORATOR" },
+  { label: "Espace Law Firm", href: "/cabinet/espace", minRole: "COLLABORATOR" },
   { label: "Espace Direction", href: "/admin", minRole: "ADMIN" },
 ];
 
@@ -49,6 +50,14 @@ export function getServiceSpaceForRole(role: AppRole, service: AppService) {
   if (service === "investment") {
     if (hasRequiredRole(role, "CLIENT")) {
       return "/investment/dashboard";
+    }
+
+    return "/";
+  }
+
+  if (service === "law_firm") {
+    if (hasRequiredRole(role, "COLLABORATOR")) {
+      return "/cabinet/espace";
     }
 
     return "/";

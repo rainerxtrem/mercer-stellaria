@@ -43,7 +43,8 @@ export const DEFAULT_ROUTE_BINDINGS = [
   { pattern: "/assurances/dashboard", matchType: RouteMatchType.PREFIX, resourceKey: "space:client" },
   { pattern: "/admin", matchType: RouteMatchType.PREFIX, resourceKey: "space:direction" },
   { pattern: "/admin/parametres", matchType: RouteMatchType.PREFIX, resourceKey: "page:admin.settings" },
-  { pattern: "/api/admin/settings", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.permissions" },
+  { pattern: "/api/admin/settings/users-roles", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.users_roles" },
+  { pattern: "/api/admin/settings/permissions", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.permissions" },
 ] as const;
 
 export type EffectivePermissionContext = {
@@ -80,6 +81,10 @@ export async function ensureRbacBootstrap() {
     select: { id: true, key: true },
   });
 
+  const allResources = await prisma.permissionResource.findMany({
+    select: { id: true },
+  });
+
   const byKey = new Map(resources.map((resource) => [resource.key, resource.id]));
 
   await Promise.all(
@@ -108,11 +113,19 @@ export async function ensureRbacBootstrap() {
     }),
   );
 
+  // Migration cleanup: remove legacy catch-all settings route binding.
+  await prisma.routePermissionBinding.deleteMany({
+    where: {
+      pattern: "/api/admin/settings",
+      matchType: RouteMatchType.PREFIX,
+    },
+  });
+
   const ceo = await prisma.grade.findUnique({ where: { code: "CHIEF_EXECUTIVE_OFFICER" }, select: { id: true } });
 
   if (ceo) {
     await Promise.all(
-      resources.map((resource) =>
+      allResources.map((resource) =>
         prisma.gradePermission.upsert({
           where: {
             gradeId_resourceId: {
@@ -183,6 +196,10 @@ export async function getEffectivePermissionContext(userId: string): Promise<Eff
     permissionKeys.add("space:investment");
     permissionKeys.add("space:collaborateur");
     permissionKeys.add("space:direction");
+    permissionKeys.add("page:admin.settings");
+    permissionKeys.add("module:settings.users_roles");
+    permissionKeys.add("module:settings.permissions");
+    permissionKeys.add("feature:settings.permissions.routes");
   }
 
   if (gradeCodes.includes("CHIEF_EXECUTIVE_OFFICER")) {

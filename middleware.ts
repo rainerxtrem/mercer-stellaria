@@ -44,6 +44,11 @@ function matchesRouteRule(pathname: string, rule: TokenRouteRule) {
   return false;
 }
 
+function getRulePriority(rule: TokenRouteRule) {
+  const matchTypeWeight = rule.matchType === "EXACT" ? 3 : rule.matchType === "PREFIX" ? 2 : 1;
+  return matchTypeWeight * 10_000 + rule.pattern.length;
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const routeGuard = protectedRoutes.find((entry) => pathname.startsWith(entry.prefix));
@@ -77,7 +82,9 @@ export async function middleware(request: NextRequest) {
       )
     : [];
 
-  const dynamicRule = routeRules.find((rule) => matchesRouteRule(pathname, rule));
+  const dynamicRule = routeRules
+    .filter((rule) => matchesRouteRule(pathname, rule))
+    .sort((a, b) => getRulePriority(b) - getRulePriority(a))[0];
   const hasDynamicAccess = !dynamicRule || permissionKeys.includes("*") || permissionKeys.includes(dynamicRule.permissionKey);
   const profileCompleted = Boolean(token.profileCompleted);
 

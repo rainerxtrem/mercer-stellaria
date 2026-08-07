@@ -347,7 +347,7 @@ export default function AdminSettingsPage() {
 
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Direction</p>
-          <h1 className="workspace-title">Paramètres RBAC</h1>
+          <h1 className="workspace-title">Paramètres</h1>
           <p className="workspace-subtitle">Gestion centralisée des utilisateurs, grades cumulables et permissions dynamiques.</p>
         </header>
 

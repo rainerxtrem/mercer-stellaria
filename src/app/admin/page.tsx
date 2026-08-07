@@ -220,7 +220,7 @@ export default function AdminPage() {
             href="/admin/parametres"
             className="mt-4 inline-flex w-fit items-center rounded-full border border-ms-navy/25 bg-white px-4 py-2 text-sm font-semibold text-ms-navy transition hover:bg-ms-cream/50"
           >
-            Ouvrir Paramètres RBAC
+            Ouvrir Paramètres
           </a>
         </header>
 

@@ -1,7 +1,8 @@
 import { authOptions } from "@/auth";
 import { NextResponse } from "next/server";
 import { AppRole, hasRequiredRole } from "@/lib/rbac";
-import { hasPermission } from "@/lib/grade-permissions";
+import { getEffectivePermissionContext, hasPermission } from "@/lib/grade-permissions";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 
 export async function getCurrentUser() {
@@ -10,14 +11,32 @@ export async function getCurrentUser() {
     return null;
   }
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      role: true,
+      email: true,
+      isActive: true,
+      discordHandle: true,
+    },
+  });
+
+  if (!dbUser) {
+    return null;
+  }
+
+  const permissionContext = await getEffectivePermissionContext(dbUser.id);
+
   return {
-    id: session.user.id,
-    role: (session.user.role as AppRole) ?? "PUBLIC",
-    email: session.user.email ?? null,
+    id: dbUser.id,
+    role: (dbUser.role as AppRole) ?? "PUBLIC",
+    email: dbUser.email ?? null,
+    isActive: dbUser.isActive,
     isOwner: Boolean(session.user.isOwner),
-    discordHandle: session.user.discordHandle ?? null,
-    grades: session.user.grades ?? [],
-    permissions: session.user.permissions ?? [],
+    discordHandle: dbUser.discordHandle ?? null,
+    grades: permissionContext.grades,
+    permissions: permissionContext.permissions,
   };
 }
 

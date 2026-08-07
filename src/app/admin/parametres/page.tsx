@@ -76,6 +76,16 @@ type NewRouteForm = {
   resourceId: string;
 };
 
+type PricingItem = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  defaultUnitPrice: number;
+  currency: string;
+  isActive: boolean;
+};
+
 function sortGrades(values: Grade[]) {
   return [...values].sort((a, b) => a.rank - b.rank);
 }
@@ -116,6 +126,17 @@ export default function AdminSettingsPage() {
     pattern: "",
     matchType: RouteMatchType.PREFIX,
     resourceId: "",
+  });
+
+  const [pricingItems, setPricingItems] = useState<PricingItem[]>([]);
+  const [pricingForm, setPricingForm] = useState({
+    id: "",
+    code: "",
+    name: "",
+    description: "",
+    defaultUnitPrice: "0",
+    currency: "EUR",
+    isActive: true,
   });
 
   const selectedUser = useMemo(() => users.find((user) => user.id === selectedUserId) ?? null, [users, selectedUserId]);
@@ -176,11 +197,25 @@ export default function AdminSettingsPage() {
   }
 
   async function loadAll() {
-    await Promise.all([loadUsersRoles(), loadPermissions()]);
+    await Promise.all([loadUsersRoles(), loadPermissions(), loadPricing()]);
+  }
+
+  async function loadPricing() {
+    const response = await fetch("/api/admin/settings/pricing");
+    if (!response.ok) {
+      throw new Error("Impossible de charger la grille tarifaire.");
+    }
+
+    const payload = await response.json();
+    setPricingItems(Array.isArray(payload?.data) ? payload.data : []);
   }
 
   useEffect(() => {
-    loadAll().catch(() => setStatus("Erreur de chargement des paramètres."));
+    const timeout = window.setTimeout(() => {
+      loadAll().catch(() => setStatus("Erreur de chargement des paramètres."));
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -320,6 +355,60 @@ export default function AdminSettingsPage() {
 
     setStatus("Règle mise à jour.");
     await loadPermissions();
+  }
+
+  async function savePricingItem() {
+    const body = {
+      code: pricingForm.code.trim().toUpperCase(),
+      name: pricingForm.name.trim(),
+      description: pricingForm.description.trim() || null,
+      defaultUnitPrice: Number(pricingForm.defaultUnitPrice),
+      currency: pricingForm.currency.trim().toUpperCase(),
+      isActive: pricingForm.isActive,
+    };
+
+    if (!body.code || !body.name || Number.isNaN(body.defaultUnitPrice)) {
+      setStatus("Code, nom et prix unitaire sont requis.");
+      return;
+    }
+
+    const response = pricingForm.id
+      ? await fetch("/api/admin/settings/pricing", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: pricingForm.id, ...body, action: "update" }),
+        })
+      : await fetch("/api/admin/settings/pricing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setStatus(payload?.error ?? "Impossible d'enregistrer l'élément tarifaire.");
+      return;
+    }
+
+    setPricingForm({ id: "", code: "", name: "", description: "", defaultUnitPrice: "0", currency: "EUR", isActive: true });
+    setStatus("Grille tarifaire mise à jour.");
+    await loadPricing();
+  }
+
+  async function deletePricingItem(id: string) {
+    const response = await fetch("/api/admin/settings/pricing", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "delete" }),
+    });
+
+    if (!response.ok) {
+      setStatus("Suppression impossible.");
+      return;
+    }
+
+    setStatus("Élément tarifaire supprimé.");
+    await loadPricing();
   }
 
   return (
@@ -643,6 +732,128 @@ export default function AdminSettingsPage() {
                     </button>
                   </article>
                 ))}
+              </div>
+            </div>
+          </div>
+        </SectionBlock>
+
+        <SectionBlock title="Grille Tarifaire" subtitle="Catalogue central modifiable par la Direction pour la facturation Law Firm">
+          <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">
+            <div className="overflow-x-auto rounded-2xl border border-ms-navy/10 bg-white">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-ms-cream/40 text-ms-navy-soft">
+                  <tr>
+                    <th className="px-4 py-3">Code</th>
+                    <th className="px-4 py-3">Prestation</th>
+                    <th className="px-4 py-3">Prix unitaire</th>
+                    <th className="px-4 py-3">Devise</th>
+                    <th className="px-4 py-3">Statut</th>
+                    <th className="px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="text-ms-ink/85">
+                  {pricingItems.map((item) => (
+                    <tr key={item.id} className="border-t border-ms-navy/10">
+                      <td className="px-4 py-3 font-mono text-xs">{item.code}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-ms-navy">{item.name}</p>
+                        {item.description ? <p className="text-xs text-ms-ink/70">{item.description}</p> : null}
+                      </td>
+                      <td className="px-4 py-3">{item.defaultUnitPrice.toLocaleString("fr-FR")}</td>
+                      <td className="px-4 py-3">{item.currency}</td>
+                      <td className="px-4 py-3">{item.isActive ? "Actif" : "Inactif"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-lg border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy"
+                            onClick={() =>
+                              setPricingForm({
+                                id: item.id,
+                                code: item.code,
+                                name: item.name,
+                                description: item.description ?? "",
+                                defaultUnitPrice: String(item.defaultUnitPrice),
+                                currency: item.currency,
+                                isActive: item.isActive,
+                              })
+                            }
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-red-300 px-2.5 py-1 text-xs font-semibold text-red-700"
+                            onClick={() => void deletePricingItem(item.id)}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">Édition</p>
+              <input
+                className="w-full rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                value={pricingForm.code}
+                onChange={(event) => setPricingForm((prev) => ({ ...prev, code: event.target.value }))}
+                placeholder="Code (ex: CONSULT_HORAIRE)"
+              />
+              <input
+                className="w-full rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                value={pricingForm.name}
+                onChange={(event) => setPricingForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Nom de prestation"
+              />
+              <textarea
+                className="w-full rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                value={pricingForm.description}
+                onChange={(event) => setPricingForm((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="Description"
+              />
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                  value={pricingForm.defaultUnitPrice}
+                  onChange={(event) => setPricingForm((prev) => ({ ...prev, defaultUnitPrice: event.target.value }))}
+                  placeholder="Prix unitaire"
+                />
+                <input
+                  className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                  value={pricingForm.currency}
+                  onChange={(event) => setPricingForm((prev) => ({ ...prev, currency: event.target.value }))}
+                  placeholder="Devise"
+                />
+              </div>
+              <select
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+                value={pricingForm.isActive ? "active" : "inactive"}
+                onChange={(event) => setPricingForm((prev) => ({ ...prev, isActive: event.target.value === "active" }))}
+              >
+                <option value="active">Actif</option>
+                <option value="inactive">Inactif</option>
+              </select>
+              <div className="flex gap-2">
+                <button type="button" className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white" onClick={() => void savePricingItem()}>
+                  {pricingForm.id ? "Mettre à jour" : "Créer"}
+                </button>
+                {pricingForm.id ? (
+                  <button
+                    type="button"
+                    className="rounded-full border border-ms-navy/20 px-4 py-2.5 font-semibold text-ms-navy"
+                    onClick={() => setPricingForm({ id: "", code: "", name: "", description: "", defaultUnitPrice: "0", currency: "EUR", isActive: true })}
+                  >
+                    Annuler
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

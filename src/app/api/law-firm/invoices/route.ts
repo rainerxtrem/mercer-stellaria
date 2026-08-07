@@ -9,6 +9,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 
 const lineSchema = z.object({
+  pricingItemId: z.string().uuid().optional().nullable(),
   description: z.string().min(2),
   quantity: z.number().positive(),
   unitPrice: z.number().nonnegative(),
@@ -26,7 +27,7 @@ const createInvoiceSchema = z.object({
 
 const updateInvoiceSchema = z.object({
   invoiceId: z.string().uuid(),
-  action: z.enum(["update", "duplicate", "archive", "delete", "send", "mark_paid", "mark_billed", "expire", "create_share_link", "revoke_share_link"]),
+  action: z.enum(["update", "duplicate", "archive", "delete", "send", "mark_paid", "mark_billed", "expire", "cancel", "create_share_link", "revoke_share_link"]),
   matterId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   issueDate: z.string().optional(),
@@ -40,6 +41,27 @@ function computeTotals(lines: Array<z.infer<typeof lineSchema>>) {
   const taxTotal = 0;
   const total = subtotal - discountTotal + taxTotal;
   return { subtotal, discountTotal, taxTotal, total };
+}
+
+async function ensureInvoiceTemplate(userId: string) {
+  const slug = "law-firm-invoice-template";
+  const existing = await prisma.documentTemplate.findUnique({ where: { slug }, select: { id: true } });
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.documentTemplate.create({
+    data: {
+      name: "Facture Law Firm",
+      slug,
+      description: "Template système pour la traçabilité des factures Law Firm.",
+      content: "Document de facturation Law Firm",
+      isActive: true,
+      createdById: userId,
+      updatedById: userId,
+    },
+    select: { id: true },
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -122,6 +144,7 @@ export async function POST(request: NextRequest) {
       lines: {
         create: parsed.data.lines.map((line, index) => ({
           description: line.description,
+          pricingItemId: line.pricingItemId ?? null,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discount: line.discount ?? 0,
@@ -235,6 +258,7 @@ export async function PATCH(request: NextRequest) {
         updatedById: user.id,
         lines: { create: invoice.lines.map((line) => ({
           description: line.description,
+          pricingItemId: line.pricingItemId,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discount: line.discount,
@@ -286,10 +310,13 @@ export async function PATCH(request: NextRequest) {
               ? "BILLED"
               : parsed.data.action === "expire"
                 ? "EXPIRED"
+              : parsed.data.action === "cancel"
+                ? "CANCELED"
                 : undefined,
       sentAt: parsed.data.action === "send" ? new Date() : undefined,
       paidAt: parsed.data.action === "mark_paid" ? new Date() : undefined,
-      canceledAt: parsed.data.action === "expire" ? new Date() : undefined,
+      canceledAt: parsed.data.action === "expire" || parsed.data.action === "cancel" ? new Date() : undefined,
+      pdfUrl: parsed.data.action === "send" ? `/api/law-firm/invoices/${invoice.id}/pdf` : undefined,
       subtotal: totals.subtotal,
       discountTotal: totals.discountTotal,
       taxTotal: totals.taxTotal,
@@ -300,6 +327,7 @@ export async function PATCH(request: NextRequest) {
             deleteMany: {},
             create: parsed.data.lines.map((line, index) => ({
               description: line.description,
+              pricingItemId: line.pricingItemId ?? null,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
               discount: line.discount ?? 0,
@@ -319,6 +347,53 @@ export async function PATCH(request: NextRequest) {
   });
 
   if (parsed.data.action === "send") {
+    const template = await ensureInvoiceTemplate(user.id);
+    const pdfUrl = updated.pdfUrl ?? `/api/law-firm/invoices/${invoice.id}/pdf`;
+    const contentSnapshot = [
+      `Facture: ${updated.invoiceNumber}`,
+      `Dossier: ${updated.matter.matterNumber} - ${updated.matter.title}`,
+      `Client: ${updated.client.fullName}`,
+      `Statut: ${updated.status}`,
+      ...updated.lines.map((line) => `${line.description} | Qte ${line.quantity} | PU ${line.unitPrice} | Remise ${line.discount} | Total ${line.lineTotal}`),
+      `Total: ${updated.total}`,
+    ].join("\n");
+
+    await prisma.generatedDocument.upsert({
+      where: { documentNumber: updated.invoiceNumber },
+      update: {
+        title: `Facture ${updated.invoiceNumber}`,
+        templateId: template.id,
+        clientId: updated.client.id,
+        matterId: updated.matter.id,
+        contentSnapshot,
+        payloadSnapshot: {
+          source: "LAW_INVOICE",
+          invoiceId: updated.id,
+          invoiceNumber: updated.invoiceNumber,
+          status: updated.status,
+          total: updated.total,
+        },
+        pdfUrl,
+      },
+      create: {
+        documentNumber: updated.invoiceNumber,
+        title: `Facture ${updated.invoiceNumber}`,
+        templateId: template.id,
+        clientId: updated.client.id,
+        matterId: updated.matter.id,
+        contentSnapshot,
+        payloadSnapshot: {
+          source: "LAW_INVOICE",
+          invoiceId: updated.id,
+          invoiceNumber: updated.invoiceNumber,
+          status: updated.status,
+          total: updated.total,
+        },
+        pdfUrl,
+        createdById: user.id,
+      },
+    });
+
     await prisma.lawMatterMessage.create({
       data: {
         matterId: invoice.matterId,

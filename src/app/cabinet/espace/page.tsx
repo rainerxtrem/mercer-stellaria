@@ -37,7 +37,16 @@ type LawInvoice = {
   dueDate: string | null;
   matter: { id: string; title: string; matterNumber: string };
   client: { id: string; fullName: string; email: string };
-  lines: Array<{ id: string; description: string; quantity: number; unitPrice: number; discount: number; lineTotal: number }>;
+  lines: Array<{ id: string; pricingItemId?: string | null; description: string; quantity: number; unitPrice: number; discount: number; lineTotal: number }>;
+};
+
+type PricingItem = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  defaultUnitPrice: number;
+  currency: string;
 };
 
 type Task = {
@@ -59,6 +68,7 @@ type SearchResult = {
 
 type DashboardData = {
   metrics: Record<string, number>;
+  agenda: Array<{ id: string; dueDate: string | null; title: string; matter: { id: string; matterNumber: string; title: string } }>;
   recentActivity: Array<{ kind: string; id: string; title: string; updatedAt: string }>;
 };
 
@@ -74,6 +84,26 @@ export default function LawFirmWorkspacePage() {
   const [taskSaving, setTaskSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
+  const [matterStatusFilter, setMatterStatusFilter] = useState<"ALL" | "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED">("ALL");
+  const [showArchivedMatters, setShowArchivedMatters] = useState(false);
+  const [matterSearch, setMatterSearch] = useState("");
+  const [pricingCatalog, setPricingCatalog] = useState<PricingItem[]>([]);
+  const [invoiceFormSaving, setInvoiceFormSaving] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [invoiceForm, setInvoiceForm] = useState({
+    matterId: "",
+    clientId: "",
+    dueDate: "",
+    lines: [
+      {
+        pricingItemId: "",
+        description: "",
+        quantity: "1",
+        unitPrice: "0",
+        discount: "0",
+      },
+    ],
+  });
   const [selectedMatterId, setSelectedMatterId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [matterMessages, setMatterMessages] = useState<MatterMessage[]>([]);
@@ -88,11 +118,12 @@ export default function LawFirmWorkspacePage() {
   }, [router, status]);
 
   async function loadWorkspace() {
-    const [dashboardRes, mattersRes, invoicesRes, tasksRes] = await Promise.all([
+    const [dashboardRes, mattersRes, invoicesRes, tasksRes, pricingRes] = await Promise.all([
       fetch("/api/law-firm/dashboard"),
       fetch("/api/law-firm/matters"),
       fetch("/api/law-firm/invoices"),
       fetch("/api/law-firm/tasks"),
+      fetch("/api/law-firm/pricing"),
     ]);
 
     if (dashboardRes.ok) {
@@ -106,6 +137,9 @@ export default function LawFirmWorkspacePage() {
     }
     if (tasksRes.ok) {
       setTasks((await tasksRes.json()).data ?? []);
+    }
+    if (pricingRes.ok) {
+      setPricingCatalog((await pricingRes.json()).data ?? []);
     }
   }
 
@@ -135,6 +169,25 @@ export default function LawFirmWorkspacePage() {
 
   const selectedMatter = useMemo(() => matters.find((matter) => matter.id === selectedMatterId) ?? null, [matters, selectedMatterId]);
   const selectedInvoice = useMemo(() => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null, [invoices, selectedInvoiceId]);
+  const filteredMatters = useMemo(
+    () =>
+      matters.filter((matter) => {
+        if (!showArchivedMatters && matter.isArchived) {
+          return false;
+        }
+        if (matterStatusFilter !== "ALL" && matter.status !== matterStatusFilter) {
+          return false;
+        }
+        if (matterSearch.trim()) {
+          const keyword = matterSearch.trim().toLowerCase();
+          const haystack = `${matter.matterNumber} ${matter.title} ${matter.client.fullName} ${matter.client.email}`.toLowerCase();
+          return haystack.includes(keyword);
+        }
+
+        return true;
+      }),
+    [matters, showArchivedMatters, matterStatusFilter, matterSearch],
+  );
 
   async function loadMatterMessages(matterId: string) {
     setMessagesLoading(true);
@@ -212,7 +265,7 @@ export default function LawFirmWorkspacePage() {
     await loadWorkspace();
   }
 
-  async function invoiceAction(invoiceId: string, action: "send" | "duplicate" | "archive") {
+  async function invoiceAction(invoiceId: string, action: "send" | "duplicate" | "archive" | "mark_paid" | "cancel" | "delete") {
     const response = await fetch("/api/law-firm/invoices", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -223,12 +276,148 @@ export default function LawFirmWorkspacePage() {
       send: response.ok ? "Facture envoyée." : "Envoi impossible.",
       duplicate: response.ok ? "Facture dupliquée." : "Duplication impossible.",
       archive: response.ok ? "Facture archivée." : "Archivage impossible.",
+      mark_paid: response.ok ? "Facture marquée payée." : "Mise à jour impossible.",
+      cancel: response.ok ? "Facture annulée." : "Annulation impossible.",
+      delete: response.ok ? "Facture supprimée." : "Suppression impossible.",
     };
     setStatusMessage(messages[action]);
 
     if (response.ok) {
       await loadWorkspace();
     }
+  }
+
+  function syncInvoiceMatter(matterId: string) {
+    const matter = matters.find((item) => item.id === matterId);
+    setInvoiceForm((prev) => ({
+      ...prev,
+      matterId,
+      clientId: matter?.client.id ?? "",
+    }));
+  }
+
+  function resetInvoiceForm() {
+    setEditingInvoiceId(null);
+    setInvoiceForm({
+      matterId: "",
+      clientId: "",
+      dueDate: "",
+      lines: [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+    });
+  }
+
+  function editInvoice(invoice: LawInvoice) {
+    setEditingInvoiceId(invoice.id);
+    setSelectedInvoiceId(invoice.id);
+    setInvoiceForm({
+      matterId: invoice.matter.id,
+      clientId: invoice.client.id,
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : "",
+      lines: invoice.lines.length
+        ? invoice.lines.map((line) => ({
+            pricingItemId: line.pricingItemId ?? "",
+            description: line.description,
+            quantity: String(line.quantity),
+            unitPrice: String(line.unitPrice),
+            discount: String(line.discount),
+          }))
+        : [{ pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+    });
+  }
+
+  function updateInvoiceLine(index: number, key: "pricingItemId" | "description" | "quantity" | "unitPrice" | "discount", value: string) {
+    setInvoiceForm((prev) => {
+      const nextLines = [...prev.lines];
+      nextLines[index] = { ...nextLines[index], [key]: value };
+
+      if (key === "pricingItemId") {
+        const pricing = pricingCatalog.find((item) => item.id === value);
+        if (pricing) {
+          nextLines[index].description = pricing.name;
+          nextLines[index].unitPrice = String(pricing.defaultUnitPrice);
+        }
+      }
+
+      return { ...prev, lines: nextLines };
+    });
+  }
+
+  function addInvoiceLine() {
+    setInvoiceForm((prev) => ({
+      ...prev,
+      lines: [...prev.lines, { pricingItemId: "", description: "", quantity: "1", unitPrice: "0", discount: "0" }],
+    }));
+  }
+
+  function removeInvoiceLine(index: number) {
+    setInvoiceForm((prev) => ({
+      ...prev,
+      lines: prev.lines.length <= 1 ? prev.lines : prev.lines.filter((_, lineIndex) => lineIndex !== index),
+    }));
+  }
+
+  async function createInvoice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!invoiceForm.matterId || !invoiceForm.clientId) {
+      setStatusMessage("Sélectionnez un dossier valide pour la facture.");
+      return;
+    }
+
+    const lines = invoiceForm.lines
+      .map((line) => ({
+        pricingItemId: line.pricingItemId || null,
+        description: line.description.trim(),
+        quantity: Number(line.quantity),
+        unitPrice: Number(line.unitPrice),
+        discount: Number(line.discount || "0"),
+      }))
+      .filter((line) => line.description && Number.isFinite(line.quantity) && Number.isFinite(line.unitPrice));
+
+    if (lines.length === 0) {
+      setStatusMessage("Ajoutez au moins une ligne de prestation valide.");
+      return;
+    }
+
+    setInvoiceFormSaving(true);
+    const response = await fetch(
+      "/api/law-firm/invoices",
+      editingInvoiceId
+        ? {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              invoiceId: editingInvoiceId,
+              action: "update",
+              matterId: invoiceForm.matterId,
+              clientId: invoiceForm.clientId,
+              dueDate: invoiceForm.dueDate || null,
+              lines,
+            }),
+          }
+        : {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              matterId: invoiceForm.matterId,
+              clientId: invoiceForm.clientId,
+              dueDate: invoiceForm.dueDate || null,
+              lines,
+            }),
+          },
+    );
+
+    setInvoiceFormSaving(false);
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setStatusMessage(payload?.error ?? "Création de facture impossible.");
+      return;
+    }
+
+    resetInvoiceForm();
+
+    setStatusMessage(editingInvoiceId ? "Facture modifiée." : "Facture créée.");
+    await loadWorkspace();
   }
 
   async function signInvoice(invoiceId: string) {
@@ -330,9 +519,12 @@ export default function LawFirmWorkspacePage() {
 
   const metrics = [
     { label: "Dossiers actifs", value: String(dashboard?.metrics.activeMatters ?? 0), detail: "En cours" },
+    { label: "Dossiers en retard", value: String(dashboard?.metrics.overdueMatters ?? 0), detail: "Actions urgentes" },
+    { label: "Devis en attente", value: String(dashboard?.metrics.pendingQuotes ?? 0), detail: "Brouillons à envoyer" },
     { label: "Dossiers en attente", value: String(dashboard?.metrics.pendingMatters ?? 0), detail: "À traiter" },
     { label: "Factures impayées", value: String(dashboard?.metrics.unpaidInvoices ?? 0), detail: "À encaisser" },
     { label: "Documents à signer", value: String(dashboard?.metrics.documentsToSign ?? 0), detail: "En attente de signature" },
+    { label: "Tâches ouvertes", value: String(dashboard?.metrics.openTasks ?? 0), detail: "Suivi équipe" },
   ];
 
   if (status === "loading" || status === "unauthenticated") {
@@ -360,6 +552,14 @@ export default function LawFirmWorkspacePage() {
           <MetricsGrid items={metrics} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" />
         </section>
 
+        <SectionBlock title="Raccourcis rapides" subtitle="Accès direct aux actions clés du module">
+          <div className="flex flex-wrap gap-2 text-sm">
+            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-invoice-form")?.scrollIntoView({ behavior: "smooth" })}>Créer une facture</button>
+            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-tasks")?.scrollIntoView({ behavior: "smooth" })}>Créer une tâche</button>
+            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-documents")?.scrollIntoView({ behavior: "smooth" })}>Ouvrir les documents</button>
+          </div>
+        </SectionBlock>
+
         <SectionBlock title="Recherche globale" subtitle="Clients, dossiers, documents, factures et avocats">
           <input value={searchQuery} onChange={(event) => void runSearch(event.target.value)} placeholder="Rechercher un nom, dossier, facture, document..." className="w-full rounded-2xl border border-ms-navy/15 bg-white px-4 py-3 text-sm" />
           {searchResults ? (
@@ -380,13 +580,36 @@ export default function LawFirmWorkspacePage() {
               <textarea name="summary" placeholder="Résumé" className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5" />
               <button className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Créer le dossier</button>
             </form>
+            <div className="mt-4 grid gap-2 rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3 text-sm md:grid-cols-[1fr,auto,auto]">
+              <input
+                value={matterSearch}
+                onChange={(event) => setMatterSearch(event.target.value)}
+                placeholder="Filtrer par numéro, titre, client"
+                className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+              />
+              <select
+                value={matterStatusFilter}
+                onChange={(event) => setMatterStatusFilter(event.target.value as "ALL" | "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED")}
+                className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+              >
+                <option value="ALL">Tous les statuts</option>
+                <option value="IN_PROGRESS">En cours</option>
+                <option value="PENDING">En attente</option>
+                <option value="HOLD">En instance</option>
+                <option value="CLOSED">Clôturé</option>
+              </select>
+              <label className="inline-flex items-center gap-2 rounded-xl border border-ms-navy/15 bg-white px-3 py-2">
+                <input type="checkbox" checked={showArchivedMatters} onChange={(event) => setShowArchivedMatters(event.target.checked)} />
+                <span>Inclure archivés</span>
+              </label>
+            </div>
             <div className="mt-4 space-y-3">
-              {matters.map((matter) => (
+              {filteredMatters.map((matter) => (
                 <article key={matter.id} className={`rounded-2xl border p-4 ${selectedMatterId === matter.id ? "border-ms-gold bg-ms-gold/10" : "border-ms-navy/10 bg-white"}`}>
                   <div className="flex items-start justify-between gap-3">
                     <button type="button" className="text-left" onClick={() => void selectMatter(matter.id)}>
                       <p className="font-semibold text-ms-navy">{matter.matterNumber} - {matter.title}</p>
-                      <p className="text-xs text-ms-ink/70">{matter.client.fullName} - {matter.status} {matter.isArchived ? "- archivé" : ""}</p>
+                      <p className="text-xs text-ms-ink/70">{matter.client.fullName} - {matter.status === "HOLD" ? "EN_INSTANCE" : matter.status} {matter.isArchived ? "- archivé" : ""}</p>
                     </button>
                     <div className="flex gap-2 text-xs">
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void selectMatter(matter.id)}>Ouvrir</button>
@@ -415,7 +638,7 @@ export default function LawFirmWorkspacePage() {
                     <select className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" value={selectedMatter.status} onChange={(event) => void updateMatter(selectedMatter.id, "update", { status: event.target.value as LawMatter["status"] })}>
                       <option value="IN_PROGRESS">En cours</option>
                       <option value="PENDING">En attente</option>
-                      <option value="HOLD">En pause</option>
+                      <option value="HOLD">En instance</option>
                       <option value="CLOSED">Clôturé</option>
                     </select>
                     <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2" onClick={() => { const nextTitle = window.prompt("Nouveau titre du dossier", selectedMatter.title); if (nextTitle && nextTitle.trim().length >= 3) { void updateMatter(selectedMatter.id, "rename", { title: nextTitle.trim() }); } }}>
@@ -440,6 +663,39 @@ export default function LawFirmWorkspacePage() {
             </SectionBlock>
 
             <SectionBlock title="Facturation" subtitle="Factures, totaux et signatures">
+              <form id="law-firm-invoice-form" className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createInvoice}>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{editingInvoiceId ? "Modifier une facture" : "Créer une facture"}</p>
+                <select value={invoiceForm.matterId} onChange={(event) => syncInvoiceMatter(event.target.value)} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" required>
+                  <option value="">Sélectionner un dossier</option>
+                  {matters.filter((matter) => !matter.isArchived).map((matter) => (
+                    <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
+                  ))}
+                </select>
+                <input type="date" value={invoiceForm.dueDate} onChange={(event) => setInvoiceForm((prev) => ({ ...prev, dueDate: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
+                <div className="space-y-2">
+                  {invoiceForm.lines.map((line, index) => (
+                    <div key={`line-${index}`} className="grid gap-2 rounded-xl border border-ms-navy/10 bg-ms-cream/20 p-3 md:grid-cols-[1fr,1fr,110px,110px,110px,auto]">
+                      <select value={line.pricingItemId} onChange={(event) => updateInvoiceLine(index, "pricingItemId", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs">
+                        <option value="">Prestation libre</option>
+                        {pricingCatalog.map((item) => (
+                          <option key={item.id} value={item.id}>{item.code} - {item.name}</option>
+                        ))}
+                      </select>
+                      <input value={line.description} onChange={(event) => updateInvoiceLine(index, "description", event.target.value)} placeholder="Description" className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
+                      <input type="number" min="0" step="0.01" value={line.quantity} onChange={(event) => updateInvoiceLine(index, "quantity", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
+                      <input type="number" min="0" step="0.01" value={line.unitPrice} onChange={(event) => updateInvoiceLine(index, "unitPrice", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
+                      <input type="number" min="0" max="100" step="0.01" value={line.discount} onChange={(event) => updateInvoiceLine(index, "discount", event.target.value)} className="rounded-lg border border-ms-navy/15 bg-white px-2 py-2 text-xs" />
+                      <button type="button" className="rounded-lg border border-red-200 px-2 py-2 text-xs text-red-700" onClick={() => removeInvoiceLine(index)}>Retirer</button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 text-xs font-semibold text-ms-navy" onClick={addInvoiceLine}>Ajouter une ligne</button>
+                  <button type="submit" disabled={invoiceFormSaving} className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{invoiceFormSaving ? "Enregistrement..." : editingInvoiceId ? "Enregistrer les modifications" : "Créer la facture"}</button>
+                  {editingInvoiceId ? <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 text-xs font-semibold text-ms-navy" onClick={resetInvoiceForm}>Annuler la modification</button> : null}
+                </div>
+              </form>
+
               <div className="space-y-3">
                 {invoices.map((invoice) => (
                   <article key={invoice.id} className={`rounded-2xl border p-4 ${selectedInvoiceId === invoice.id ? "border-ms-gold bg-ms-gold/10" : "border-ms-navy/10 bg-white"}`}>
@@ -449,10 +705,16 @@ export default function LawFirmWorkspacePage() {
                       <p className="text-sm">Total: {invoice.total.toLocaleString("fr-FR")} EUR - {invoice.status}</p>
                     </button>
                     <div className="mt-2 flex gap-2 text-xs">
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => editInvoice(invoice)}>Modifier</button>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "send")}>Envoyer</button>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void signInvoice(invoice.id)}>Signer</button>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "duplicate")}>Dupliquer</button>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "archive")}>Archiver</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "mark_paid")}>Marquer payée</button>
+                      <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void invoiceAction(invoice.id, "cancel")}>Annuler</button>
+                      <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => void invoiceAction(invoice.id, "delete")}>Supprimer</button>
+                      <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/api/law-firm/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">Prévisualiser PDF</a>
+                      <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/api/law-firm/invoices/${invoice.id}/pdf?download=1`} target="_blank" rel="noreferrer">Télécharger PDF</a>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void createShareLink(invoice.id)}>Lien sécurisé</button>
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void revokeShareLink(invoice.id)}>Révoquer lien</button>
                       <a className="rounded-full border border-ms-navy/20 px-3 py-1" href={`/cabinet/espace/signature/${invoice.id}`}>Consulter et signer</a>
@@ -465,12 +727,15 @@ export default function LawFirmWorkspacePage() {
           </div>
         </section>
 
-        <SectionBlock title="Documents" subtitle="Accès au générateur et aux documents générés">
-          <DocumentTemplateManager onStatus={setStatusMessage} />
-        </SectionBlock>
+        <div id="law-firm-documents">
+          <SectionBlock title="Documents" subtitle="Accès au générateur et aux documents générés">
+            <DocumentTemplateManager onStatus={setStatusMessage} />
+          </SectionBlock>
+        </div>
 
-        <SectionBlock title="Tâches" subtitle="Suivi opérationnel partagé">
-          <form className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createTask}>
+        <div id="law-firm-tasks">
+          <SectionBlock title="Tâches" subtitle="Suivi opérationnel partagé">
+            <form className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createTask}>
             <select value={taskForm.matterId} onChange={(event) => setTaskForm((prev) => ({ ...prev, matterId: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2">
               <option value="">Sélectionner un dossier</option>
               {matters.filter((matter) => !matter.isArchived).map((matter) => (
@@ -483,33 +748,45 @@ export default function LawFirmWorkspacePage() {
             <button type="submit" disabled={taskSaving} className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white disabled:opacity-60">
               {taskSaving ? "Création..." : "Créer la tâche"}
             </button>
-          </form>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {tasks.map((task) => (
-              <article key={task.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
-                <p className="font-semibold text-ms-navy">{task.title}</p>
-                <p className="text-ms-ink/70">{task.matter.title}</p>
-                {task.description ? <p className="mt-1 text-ms-ink/75">{task.description}</p> : null}
-                <p className="mt-1 text-xs text-ms-ink/60">Échéance: {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <select value={task.status} onChange={(event) => void updateTaskStatus(task.id, event.target.value as Task["status"])} className="rounded-full border border-ms-navy/20 px-3 py-1">
-                    <option value="TODO">A faire</option>
-                    <option value="IN_PROGRESS">En cours</option>
-                    <option value="BLOCKED">Bloquée</option>
-                    <option value="DONE">Terminée</option>
-                  </select>
-                  <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => { if (window.confirm("Supprimer cette tâche ?")) { void deleteTask(task.id); } }}>
-                    Supprimer
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </SectionBlock>
+            </form>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {tasks.map((task) => (
+                <article key={task.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
+                  <p className="font-semibold text-ms-navy">{task.title}</p>
+                  <p className="text-ms-ink/70">{task.matter.title}</p>
+                  {task.description ? <p className="mt-1 text-ms-ink/75">{task.description}</p> : null}
+                  <p className="mt-1 text-xs text-ms-ink/60">Échéance: {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    <select value={task.status} onChange={(event) => void updateTaskStatus(task.id, event.target.value as Task["status"])} className="rounded-full border border-ms-navy/20 px-3 py-1">
+                      <option value="TODO">A faire</option>
+                      <option value="IN_PROGRESS">En cours</option>
+                      <option value="BLOCKED">Bloquée</option>
+                      <option value="DONE">Terminée</option>
+                    </select>
+                    <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => { if (window.confirm("Supprimer cette tâche ?")) { void deleteTask(task.id); } }}>
+                      Supprimer
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </SectionBlock>
+        </div>
 
         <SectionBlock title="Activité récente" subtitle="Derniers événements du workspace">
           <div className="space-y-2 text-sm">
             {dashboard?.recentActivity?.map((item) => <p key={`${item.kind}-${item.id}`} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">{item.kind} - {item.title}</p>)}
+          </div>
+        </SectionBlock>
+
+        <SectionBlock title="Agenda" subtitle="Échéances à venir">
+          <div className="space-y-2 text-sm">
+            {(dashboard?.agenda ?? []).length === 0 ? <p className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3 text-ms-ink/70">Aucune échéance enregistrée.</p> : null}
+            {(dashboard?.agenda ?? []).map((task) => (
+              <p key={task.id} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">
+                {task.matter.matterNumber} - {task.title} - {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Sans date"}
+              </p>
+            ))}
           </div>
         </SectionBlock>
       </div>

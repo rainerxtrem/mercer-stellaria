@@ -28,6 +28,7 @@ export const DEFAULT_PERMISSION_RESOURCES = [
   { key: "page:law_firm.workspace", label: "Page Espace Law Firm", type: PermissionResourceType.PAGE },
   { key: "module:settings.users_roles", label: "Module Utilisateurs et Roles", type: PermissionResourceType.MODULE },
   { key: "module:settings.permissions", label: "Module Permissions", type: PermissionResourceType.MODULE },
+  { key: "module:settings.pricing", label: "Module Grille Tarifaire", type: PermissionResourceType.MODULE },
   { key: "module:law_firm.cases", label: "Module Dossiers Law Firm", type: PermissionResourceType.MODULE },
   { key: "module:law_firm.documents", label: "Module Documents Law Firm", type: PermissionResourceType.MODULE },
   { key: "module:law_firm.billing", label: "Module Facturation Law Firm", type: PermissionResourceType.MODULE },
@@ -53,6 +54,7 @@ export const DEFAULT_ROUTE_BINDINGS = [
   { pattern: "/admin/parametres", matchType: RouteMatchType.PREFIX, resourceKey: "page:admin.settings" },
   { pattern: "/api/admin/settings/users-roles", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.users_roles" },
   { pattern: "/api/admin/settings/permissions", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.permissions" },
+  { pattern: "/api/admin/settings/pricing", matchType: RouteMatchType.PREFIX, resourceKey: "module:settings.pricing" },
   { pattern: "/cabinet/espace", matchType: RouteMatchType.PREFIX, resourceKey: "space:law_firm" },
   { pattern: "/api/law-firm", matchType: RouteMatchType.PREFIX, resourceKey: "space:law_firm" },
 ] as const;
@@ -211,6 +213,7 @@ export async function getEffectivePermissionContext(userId: string): Promise<Eff
     permissionKeys.add("page:admin.settings");
     permissionKeys.add("module:settings.users_roles");
     permissionKeys.add("module:settings.permissions");
+    permissionKeys.add("module:settings.pricing");
     permissionKeys.add("feature:settings.permissions.routes");
     permissionKeys.add("page:law_firm.workspace");
     permissionKeys.add("module:law_firm.cases");

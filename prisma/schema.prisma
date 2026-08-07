@@ -178,6 +178,8 @@ model User {
   lawInvoicesAsClient          LawInvoice[] @relation("LawInvoiceClient")
   lawInvoicesCreated           LawInvoice[] @relation("LawInvoiceCreator")
   lawInvoicesUpdated           LawInvoice[] @relation("LawInvoiceUpdater")
+  pricingCatalogItemsCreated   PricingCatalogItem[] @relation("PricingCatalogItemCreator")
+  pricingCatalogItemsUpdated   PricingCatalogItem[] @relation("PricingCatalogItemUpdater")
 }
 
 model NumberSequence {
@@ -295,6 +297,7 @@ model LawInvoice {
 model LawInvoiceLine {
   id           String   @id @default(uuid())
   invoiceId    String
+  pricingItemId String?
   description  String
   quantity     Float
   unitPrice    Float
@@ -305,8 +308,31 @@ model LawInvoiceLine {
   updatedAt    DateTime @updatedAt
 
   invoice      LawInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  pricingItem  PricingCatalogItem? @relation(fields: [pricingItemId], references: [id], onDelete: SetNull)
 
   @@index([invoiceId, sortOrder])
+  @@index([pricingItemId])
+}
+
+model PricingCatalogItem {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  description      String?
+  defaultUnitPrice Float
+  currency         String   @default("EUR")
+  isActive         Boolean  @default(true)
+  createdById      String
+  updatedById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  createdBy User @relation("PricingCatalogItemCreator", fields: [createdById], references: [id])
+  updatedBy User @relation("PricingCatalogItemUpdater", fields: [updatedById], references: [id])
+  invoiceLines LawInvoiceLine[]
+
+  @@index([isActive])
+  @@index([name])
 }
 
 model Grade {

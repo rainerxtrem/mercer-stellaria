@@ -5,6 +5,27 @@ import { getCurrentUser, requirePermission } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
+async function ensureInvoiceTemplate(userId: string) {
+  const slug = "law-firm-invoice-template";
+  const existing = await prisma.documentTemplate.findUnique({ where: { slug }, select: { id: true } });
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.documentTemplate.create({
+    data: {
+      name: "Facture Law Firm",
+      slug,
+      description: "Template système pour la traçabilité des factures Law Firm.",
+      content: "Document de facturation Law Firm",
+      isActive: true,
+      createdById: userId,
+      updatedById: userId,
+    },
+    select: { id: true },
+  });
+}
+
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requirePermission("feature:law_firm.signature");
   const shareToken = request.nextUrl.searchParams.get("share");
@@ -43,6 +64,43 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       status: "SIGNED",
       signedAt: new Date(),
       updatedById: actorId,
+    },
+  });
+
+  const template = await ensureInvoiceTemplate(invoice.createdById);
+  const pdfUrl = signed.pdfUrl ?? `/api/law-firm/invoices/${invoice.id}/pdf`;
+  await prisma.generatedDocument.upsert({
+    where: { documentNumber: invoice.invoiceNumber },
+    update: {
+      title: `Facture ${invoice.invoiceNumber}`,
+      templateId: template.id,
+      clientId: invoice.clientId,
+      matterId: invoice.matterId,
+      pdfUrl,
+      signedAt: signed.signedAt,
+      payloadSnapshot: {
+        source: "LAW_INVOICE",
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: signed.status,
+      },
+    },
+    create: {
+      documentNumber: invoice.invoiceNumber,
+      title: `Facture ${invoice.invoiceNumber}`,
+      templateId: template.id,
+      clientId: invoice.clientId,
+      matterId: invoice.matterId,
+      contentSnapshot: `Facture ${invoice.invoiceNumber} signée`,
+      payloadSnapshot: {
+        source: "LAW_INVOICE",
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        status: signed.status,
+      },
+      pdfUrl,
+      signedAt: signed.signedAt,
+      createdById: invoice.createdById,
     },
   });
 

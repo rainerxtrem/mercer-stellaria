@@ -25,11 +25,7 @@ const investmentOffers = [
 export default function InvestmentPage() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <MarketingHeader
-        activeTab="INVESTMENT"
-        title="Mercer & Stellaria Investment"
-        subtitle="Holding | Law Office | Insurance | Investment"
-      />
+      <MarketingHeader />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
         <section className="relative overflow-hidden rounded-[30px] border border-[#8fb89c]/45 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">

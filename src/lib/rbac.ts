@@ -1,4 +1,5 @@
 export type AppRole = "PUBLIC" | "CLIENT" | "COLLABORATOR" | "ADMIN";
+export type AppService = "assurance" | "investment";
 
 export type AppSpace = {
   label: string;
@@ -15,6 +16,7 @@ const roleHierarchy: Record<AppRole, number> = {
 
 const protectedSpaces: AppSpace[] = [
   { label: "Espace Client", href: "/client", minRole: "CLIENT" },
+  { label: "Espace Investment", href: "/investment/dashboard", minRole: "CLIENT" },
   { label: "Espace Collaborateur", href: "/collaborateur", minRole: "COLLABORATOR" },
   { label: "Espace Direction", href: "/admin", minRole: "ADMIN" },
 ];
@@ -41,4 +43,16 @@ export function getDefaultSpaceForRole(role: AppRole) {
 
 export function getAccessibleSpaces(role: AppRole) {
   return protectedSpaces.filter((space) => hasRequiredRole(role, space.minRole));
+}
+
+export function getServiceSpaceForRole(role: AppRole, service: AppService) {
+  if (service === "investment") {
+    if (hasRequiredRole(role, "CLIENT")) {
+      return "/investment/dashboard";
+    }
+
+    return "/";
+  }
+
+  return getDefaultSpaceForRole(role);
 }

@@ -25,7 +25,7 @@ const offers = [
 export default function CabinetPage() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <MarketingHeader activeTab="CABINET" title="Mercer & Stellaria Law Office" subtitle="Le cabinet" />
+      <MarketingHeader />
 
       <main className="mx-auto grid w-full max-w-[1500px] gap-8 px-4 pb-14 pt-6 lg:px-8">
         <section className="marketing-hero-panel legal-hero-panel relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">

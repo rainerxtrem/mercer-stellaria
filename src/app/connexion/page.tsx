@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
+import { AppRole, getDefaultSpaceForRole, getServiceSpaceForRole } from "@/lib/rbac";
 
 type ConnexionService = "assurance" | "investment" | "default";
 
@@ -68,7 +68,9 @@ export default function ConnexionPage() {
     }
 
     if (role !== "PUBLIC") {
-      const target = getDefaultSpaceForRole(role);
+      const target = requestedService === "default"
+        ? getDefaultSpaceForRole(role)
+        : getServiceSpaceForRole(role, requestedService);
       router.replace(target);
     }
   }, [session?.user, role, requestedService, router]);

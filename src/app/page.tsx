@@ -66,7 +66,7 @@ const insuranceQuickActions = [
 export default function Home() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Holding | Law Office | Insurance | Investment" />
+      <MarketingHeader />
 
       <main className="mx-auto w-full max-w-[1500px] px-4 pb-14 pt-6 lg:px-8">
         <section className="relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">

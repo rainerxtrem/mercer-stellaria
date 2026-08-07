@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { SectionBlock } from "@/components/dashboard/section-block";
-import { StatCard } from "@/components/dashboard/stat-card";
+import { MetricsGrid } from "@/components/dashboard/metrics-grid";
+import { QuickActions } from "@/components/dashboard/quick-actions";
 import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { SignaturePad } from "@/components/signature/signature-pad";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -798,12 +799,14 @@ export default function ClientPage() {
         <div className="tab-panel">
         {activeTab === "OVERVIEW" ? (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Contrats actifs" value={String(overview.activeContracts)} />
-              <StatCard label="Signatures en attente" value={String(overview.pendingSignatures)} />
-              <StatCard label="Cotisation hebdomadaire" value={`${overview.weeklyContribution.toLocaleString("fr-FR")} $`} />
-              <StatCard label="Demandes formule en cours" value={String(overview.pendingRequests)} />
-            </section>
+            <MetricsGrid
+              items={[
+                { label: "Contrats actifs", value: String(overview.activeContracts) },
+                { label: "Signatures en attente", value: String(overview.pendingSignatures) },
+                { label: "Cotisation hebdomadaire", value: `${overview.weeklyContribution.toLocaleString("fr-FR")} $` },
+                { label: "Demandes formule en cours", value: String(overview.pendingRequests) },
+              ]}
+            />
 
             <section className="mt-3 grid gap-8 lg:grid-cols-2">
               <SectionBlock title="Priorités" subtitle="Actions recommandées">
@@ -815,12 +818,14 @@ export default function ClientPage() {
               </SectionBlock>
 
               <SectionBlock title="Raccourcis" subtitle="Navigation rapide">
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("CLAIMS")}>Dossiers sinistres</button>
-                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("MESSAGES")}>Contacter un conseiller</button>
-                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("CONTRACTS")}>Contrats</button>
-                  <button type="button" className="rounded-full bg-ms-navy px-4 py-2 text-xs font-semibold text-white" onClick={() => setActiveTab("BILLING")}>Facturation</button>
-                </div>
+                <QuickActions
+                  actions={[
+                    { label: "Dossiers sinistres", onClick: () => setActiveTab("CLAIMS") },
+                    { label: "Contacter un conseiller", onClick: () => setActiveTab("MESSAGES") },
+                    { label: "Contrats", onClick: () => setActiveTab("CONTRACTS") },
+                    { label: "Facturation", onClick: () => setActiveTab("BILLING") },
+                  ]}
+                />
               </SectionBlock>
 
               <SectionBlock

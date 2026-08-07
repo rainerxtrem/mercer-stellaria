@@ -5,6 +5,7 @@ import { getToken } from "next-auth/jwt";
 
 const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/client", role: "CLIENT" },
+  { prefix: "/investment", role: "CLIENT" },
   { prefix: "/collaborateur", role: "COLLABORATOR" },
   { prefix: "/admin", role: "ADMIN" },
   { prefix: "/api/clients", role: "COLLABORATOR" },
@@ -39,7 +40,7 @@ export async function middleware(request: NextRequest) {
   const userRole = (token.role as AppRole) ?? "PUBLIC";
   const profileCompleted = Boolean(token.profileCompleted);
 
-  const isClientArea = pathname.startsWith("/client") || pathname.startsWith("/api/contracts") || pathname.startsWith("/api/invoices") || pathname.startsWith("/api/claims") || pathname.startsWith("/api/contact") || pathname.startsWith("/api/notifications") || pathname.startsWith("/api/subscription-requests");
+  const isClientArea = pathname.startsWith("/client") || pathname.startsWith("/investment") || pathname.startsWith("/api/contracts") || pathname.startsWith("/api/invoices") || pathname.startsWith("/api/claims") || pathname.startsWith("/api/contact") || pathname.startsWith("/api/notifications") || pathname.startsWith("/api/subscription-requests");
 
   if (!profileCompleted && userRole === "CLIENT" && isClientArea) {
     if (pathname.startsWith("/api/")) {
@@ -61,5 +62,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/collaborateur/:path*", "/admin/:path*", "/api/:path*"],
+  matcher: ["/client/:path*", "/investment/:path*", "/collaborateur/:path*", "/admin/:path*", "/api/:path*"],
 };

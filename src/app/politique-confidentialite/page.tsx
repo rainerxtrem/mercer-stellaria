@@ -4,7 +4,7 @@ import { MarketingHeader } from "@/components/navigation/marketing-header";
 export default function PolitiqueConfidentialitePage() {
   return (
     <div className="brand-shell brand-lattice flex min-h-screen flex-col">
-      <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Confidentialité RGPD" />
+      <MarketingHeader />
       <main className="mx-auto w-full max-w-[980px] px-4 pb-12 pt-6 lg:px-8">
         <section className="surface p-6 lg:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ms-navy-soft">Protection des données</p>

@@ -2,24 +2,60 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
 import { ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
 
 type MarketingHeaderTab = "HOME" | "CABINET" | "ASSURANCES" | "INVESTMENT";
 
-type MarketingHeaderProps = {
-  activeTab: MarketingHeaderTab;
-  title: string;
-  subtitle: string;
-};
+function resolveBranding(pathname: string) {
+  if (pathname === "/cabinet" || pathname === "/avocats" || pathname.startsWith("/cabinet/")) {
+    return {
+      title: "Mercer & Stellaria Law Office",
+      subtitle: "Le cabinet",
+      activeTab: "CABINET" as MarketingHeaderTab,
+    };
+  }
 
-export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderProps) {
+  if (pathname === "/assurances" || pathname.startsWith("/assurances/")) {
+    return {
+      title: "Mercer & Stellaria Insurance",
+      subtitle: "Pôle Assurances",
+      activeTab: "ASSURANCES" as MarketingHeaderTab,
+    };
+  }
+
+  if (pathname === "/investment" || pathname === "/investissement" || pathname.startsWith("/investment/")) {
+    return {
+      title: "Mercer & Stellaria Investment",
+      subtitle: "Pôle Investissement",
+      activeTab: "INVESTMENT" as MarketingHeaderTab,
+    };
+  }
+
+  if (pathname === "/") {
+    return {
+      title: "Mercer & Stellaria Corporation",
+      subtitle: "HOLDING | LAW OFFICE | INSURANCE | INVESTMENT",
+      activeTab: "HOME" as MarketingHeaderTab,
+    };
+  }
+
+  return {
+    title: "Mercer & Stellaria Corporation",
+    subtitle: "HOLDING | LAW OFFICE | INSURANCE | INVESTMENT",
+    activeTab: null,
+  };
+}
+
+export function MarketingHeader() {
+  const pathname = usePathname();
   const { data: session } = useSession();
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const roleTarget = getDefaultSpaceForRole(role);
   const requiresOnboarding = role === "CLIENT" && !session?.user?.profileCompleted;
-  const brandSubtitle = "Holding | Law Office | Insurance | Investment";
+  const brand = resolveBranding(pathname);
 
   return (
     <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
@@ -34,19 +70,16 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
             priority
           />
           <div>
-            <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy">{title}</p>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-ms-navy-soft">{brandSubtitle}</p>
-            {subtitle && subtitle !== brandSubtitle ? (
-              <p className="text-[10px] tracking-[0.12em] text-ms-ink/65">{subtitle}</p>
-            ) : null}
+            <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy transition-all duration-200">{brand.title}</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-ms-navy-soft transition-all duration-200">{brand.subtitle}</p>
           </div>
         </div>
 
         <nav className="surface tab-strip row-start-2 justify-center p-2 lg:row-start-auto lg:justify-self-center" aria-label="Navigation principale">
-          <Link href="/" className={`tab-pill ${activeTab === "HOME" ? "tab-pill-active" : ""}`}>Accueil</Link>
-          <Link href="/cabinet" className={`tab-pill ${activeTab === "CABINET" ? "tab-pill-active" : ""}`}>Avocats</Link>
-          <Link href="/assurances" className={`tab-pill ${activeTab === "ASSURANCES" ? "tab-pill-active" : ""}`}>Assurances</Link>
-          <Link href="/investment" className={`tab-pill ${activeTab === "INVESTMENT" ? "tab-pill-active" : ""}`}>Investissement</Link>
+          <Link href="/" className={`tab-pill ${brand.activeTab === "HOME" ? "tab-pill-active" : ""}`}>Accueil</Link>
+          <Link href="/cabinet" className={`tab-pill ${brand.activeTab === "CABINET" ? "tab-pill-active" : ""}`}>Avocats</Link>
+          <Link href="/assurances" className={`tab-pill ${brand.activeTab === "ASSURANCES" ? "tab-pill-active" : ""}`}>Assurances</Link>
+          <Link href="/investment" className={`tab-pill ${brand.activeTab === "INVESTMENT" ? "tab-pill-active" : ""}`}>Investissement</Link>
         </nav>
 
         {!session?.user ? (

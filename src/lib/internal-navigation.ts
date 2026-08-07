@@ -23,13 +23,27 @@ export type InternalSpace = {
   modules: SpaceModule[];
 };
 
+type SpaceResolutionInput = {
+  permissions?: string[];
+  role?: string;
+  pathname: string;
+};
+
+function hasPermission(permissions: string[] | undefined, permissionKey: string) {
+  if (!permissions || permissions.length === 0) {
+    return false;
+  }
+
+  return permissions.includes("*") || permissions.includes(permissionKey);
+}
+
 export const INTERNAL_SPACES: InternalSpace[] = [
   {
     id: "law_firm",
     label: "Espace Avocat",
     permission: "space:law_firm",
     icon: "briefcase",
-    basePaths: ["/law"],
+    basePaths: ["/law", "/cabinet/espace"],
     defaultHref: "/law/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/law/dashboard" },
@@ -50,7 +64,7 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Espace Direction",
     permission: "space:direction",
     icon: "shield",
-    basePaths: ["/direction"],
+    basePaths: ["/direction", "/admin"],
     defaultHref: "/direction/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/direction/dashboard" },
@@ -83,7 +97,7 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "RH",
     permission: "space:collaborateur",
     icon: "users",
-    basePaths: ["/rh"],
+    basePaths: ["/rh", "/collaborateur"],
     defaultHref: "/rh/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/rh/dashboard" },
@@ -100,7 +114,7 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Assurance",
     permission: "space:client",
     icon: "heart",
-    basePaths: ["/assurance"],
+    basePaths: ["/assurance", "/assurances/dashboard"],
     defaultHref: "/assurance/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/assurance/dashboard" },
@@ -131,7 +145,7 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Mon espace",
     permission: "space:client",
     icon: "home",
-    basePaths: ["/client-space"],
+    basePaths: ["/client-space", "/client"],
     defaultHref: "/client-space/overview",
     modules: [
       { id: "overview", label: "Vue d'ensemble", href: "/client-space/overview" },
@@ -163,4 +177,39 @@ export function getActiveModule(pathname: string, visibleSpaces: InternalSpace[]
   }
 
   return activeSpace.modules.find((module) => module.href === pathname) ?? null;
+}
+
+function roleDefaultSpaceIds(role?: string): InternalSpaceId[] {
+  if (!role) {
+    return [];
+  }
+
+  if (role === "ADMIN") {
+    return ["direction", "law_firm", "collaborateur", "investment", "assurance", "finance", "client"];
+  }
+
+  if (role === "COLLABORATOR") {
+    return ["law_firm", "collaborateur", "investment", "assurance", "client"];
+  }
+
+  if (role === "CLIENT") {
+    return ["client", "assurance", "investment"];
+  }
+
+  return [];
+}
+
+export function resolveAccessibleSpaces({ permissions, role, pathname }: SpaceResolutionInput) {
+  const fromPermissions = INTERNAL_SPACES.filter((space) => hasPermission(permissions, space.permission));
+  const fromRole = roleDefaultSpaceIds(role)
+    .map((id) => INTERNAL_SPACES.find((space) => space.id === id) ?? null)
+    .filter((space): space is InternalSpace => Boolean(space));
+  const matchedByRoute = INTERNAL_SPACES.find((space) => space.basePaths.some((path) => pathname.startsWith(path))) ?? null;
+
+  const mergedById = new Map<InternalSpaceId, InternalSpace>();
+  [...fromPermissions, ...fromRole, ...(matchedByRoute ? [matchedByRoute] : [])].forEach((space) => {
+    mergedById.set(space.id, space);
+  });
+
+  return [...mergedById.values()];
 }

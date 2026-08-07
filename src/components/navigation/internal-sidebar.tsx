@@ -1,6 +1,6 @@
 "use client";
 
-import { INTERNAL_SPACES, getActiveSpace, type InternalSpace } from "@/lib/internal-navigation";
+import { getActiveSpace, resolveAccessibleSpaces, type InternalSpace } from "@/lib/internal-navigation";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -21,13 +21,6 @@ function Icon({ kind }: { kind: InternalSpace["icon"] }) {
       <path d={paths[kind]} />
     </svg>
   );
-}
-
-function hasPermission(permissions: string[] | undefined, permissionKey: string) {
-  if (!permissions || permissions.length === 0) {
-    return false;
-  }
-  return permissions.includes("*") || permissions.includes(permissionKey);
 }
 
 function isModuleActive(href: string, pathname: string, queryString: string, hash: string) {
@@ -68,8 +61,13 @@ export function InternalSidebar() {
   }, [pathname, queryString]);
 
   const visibleSpaces = useMemo(
-    () => INTERNAL_SPACES.filter((space) => hasPermission(session?.user?.permissions, space.permission)),
-    [session?.user?.permissions],
+    () =>
+      resolveAccessibleSpaces({
+        permissions: session?.user?.permissions,
+        role: session?.user?.role,
+        pathname,
+      }),
+    [pathname, session?.user?.permissions, session?.user?.role],
   );
 
   const activeSpace = getActiveSpace(pathname, visibleSpaces);
@@ -83,7 +81,7 @@ export function InternalSidebar() {
     return activeModule?.id ?? null;
   }, [activeSpace, hash, pathname, queryString]);
 
-  if (!activeSpace) {
+  if (!activeSpace || visibleSpaces.length === 0) {
     return null;
   }
 

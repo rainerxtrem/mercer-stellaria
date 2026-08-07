@@ -1,6 +1,7 @@
 import { authOptions } from "@/auth";
 import { NextResponse } from "next/server";
 import { AppRole, hasRequiredRole } from "@/lib/rbac";
+import { hasPermission } from "@/lib/grade-permissions";
 import { getServerSession } from "next-auth";
 
 export async function getCurrentUser() {
@@ -15,6 +16,8 @@ export async function getCurrentUser() {
     email: session.user.email ?? null,
     isOwner: Boolean(session.user.isOwner),
     discordHandle: session.user.discordHandle ?? null,
+    grades: session.user.grades ?? [],
+    permissions: session.user.permissions ?? [],
   };
 }
 
@@ -40,6 +43,24 @@ export async function requireOwner() {
   }
 
   if (!user.isOwner) {
+    return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return { ok: true as const, user };
+}
+
+export async function requirePermission(permissionKey: string) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false as const, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  if (user.isOwner) {
+    return { ok: true as const, user };
+  }
+
+  if (!hasPermission(user.permissions, permissionKey)) {
     return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

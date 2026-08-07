@@ -14,6 +14,20 @@ enum UserRole {
   ADMIN
 }
 
+enum PermissionResourceType {
+  SPACE
+  PAGE
+  MODULE
+  ACTION
+  FEATURE
+}
+
+enum RouteMatchType {
+  EXACT
+  PREFIX
+  REGEXP
+}
+
 enum ContractCategory {
   HEALTH
   THEFT_BURGLARY
@@ -128,6 +142,82 @@ model User {
   updatedDocumentTemplates     DocumentTemplate[] @relation("DocumentTemplateUpdater")
   generatedDocumentsCreated    GeneratedDocument[] @relation("GeneratedDocumentCreator")
   generatedDocumentsAsClient   GeneratedDocument[] @relation("GeneratedDocumentClient")
+  userGrades                   UserGrade[] @relation("UserGrades")
+  gradeAssignmentsMade         UserGrade[] @relation("GradeAssignmentActor")
+}
+
+model Grade {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  rank        Int
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userGrades   UserGrade[]
+  permissions  GradePermission[]
+
+  @@index([rank])
+}
+
+model UserGrade {
+  userId       String
+  gradeId      String
+  assignedAt   DateTime @default(now())
+  assignedById String?
+
+  user       User   @relation("UserGrades", fields: [userId], references: [id], onDelete: Cascade)
+  grade      Grade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  assignedBy User?  @relation("GradeAssignmentActor", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, gradeId])
+  @@index([gradeId])
+  @@index([assignedById, assignedAt])
+}
+
+model PermissionResource {
+  id          String                 @id @default(uuid())
+  key         String                 @unique
+  label       String
+  type        PermissionResourceType
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  gradePermissions GradePermission[]
+  routeBindings    RoutePermissionBinding[]
+
+  @@index([type])
+}
+
+model GradePermission {
+  gradeId    String
+  resourceId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  grade    Grade              @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  resource PermissionResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([gradeId, resourceId])
+  @@index([resourceId])
+}
+
+model RoutePermissionBinding {
+  id         String         @id @default(uuid())
+  pattern    String
+  matchType  RouteMatchType @default(PREFIX)
+  resourceId String
+  isEnabled  Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  resource PermissionResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([matchType, pattern, resourceId])
+  @@index([isEnabled])
+  @@index([matchType, pattern])
 }
 
 model SubscriptionRequest {

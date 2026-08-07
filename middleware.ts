@@ -18,6 +18,32 @@ const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/api/admin", role: "ADMIN" },
 ];
 
+type TokenRouteRule = {
+  pattern: string;
+  matchType: "EXACT" | "PREFIX" | "REGEXP";
+  permissionKey: string;
+};
+
+function matchesRouteRule(pathname: string, rule: TokenRouteRule) {
+  if (rule.matchType === "EXACT") {
+    return pathname === rule.pattern;
+  }
+
+  if (rule.matchType === "PREFIX") {
+    return pathname.startsWith(rule.pattern);
+  }
+
+  if (rule.matchType === "REGEXP") {
+    try {
+      return new RegExp(rule.pattern).test(pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const routeGuard = protectedRoutes.find((entry) => pathname.startsWith(entry.prefix));
@@ -39,6 +65,20 @@ export async function middleware(request: NextRequest) {
   }
 
   const userRole = (token.role as AppRole) ?? "PUBLIC";
+  const permissionKeys = Array.isArray(token.permissions) ? token.permissions.filter((key): key is string => typeof key === "string") : [];
+  const routeRules = Array.isArray(token.permissionRouteRules)
+    ? token.permissionRouteRules.filter(
+        (rule): rule is TokenRouteRule =>
+          Boolean(rule) &&
+          typeof rule === "object" &&
+          typeof (rule as TokenRouteRule).pattern === "string" &&
+          typeof (rule as TokenRouteRule).matchType === "string" &&
+          typeof (rule as TokenRouteRule).permissionKey === "string",
+      )
+    : [];
+
+  const dynamicRule = routeRules.find((rule) => matchesRouteRule(pathname, rule));
+  const hasDynamicAccess = !dynamicRule || permissionKeys.includes("*") || permissionKeys.includes(dynamicRule.permissionKey);
   const profileCompleted = Boolean(token.profileCompleted);
 
   const isClientArea = pathname.startsWith("/client") || pathname.startsWith("/investment/dashboard") || pathname.startsWith("/assurances/dashboard") || pathname.startsWith("/api/contracts") || pathname.startsWith("/api/invoices") || pathname.startsWith("/api/claims") || pathname.startsWith("/api/contact") || pathname.startsWith("/api/notifications") || pathname.startsWith("/api/subscription-requests");
@@ -52,6 +92,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!hasRequiredRole(userRole, routeGuard.role)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  if (!hasDynamicAccess) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

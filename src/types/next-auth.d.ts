@@ -12,6 +12,8 @@ declare module "next-auth" {
       profileCompleted?: boolean;
       discordHandle?: string | null;
       isOwner?: boolean;
+      grades?: string[];
+      permissions?: string[];
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -29,5 +31,12 @@ declare module "next-auth/jwt" {
     profileCompleted?: boolean;
     discordHandle?: string | null;
     isOwner?: boolean;
+    grades?: string[];
+    permissions?: string[];
+    permissionRouteRules?: Array<{
+      pattern: string;
+      matchType: string;
+      permissionKey: string;
+    }>;
   }
 }

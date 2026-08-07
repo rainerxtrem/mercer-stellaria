@@ -14,13 +14,6 @@ type KpiData = {
   claims: number;
 };
 
-type Collaborator = {
-  id: string;
-  fullName: string;
-  email: string;
-  isActive: boolean;
-};
-
 type Claim = {
   id: string;
   claimNumber: string;
@@ -68,14 +61,12 @@ export default function AdminPage() {
   const isOwner = Boolean(session?.user?.isOwner);
   const [status, setStatus] = useState<string>("");
   const [kpis, setKpis] = useState<KpiData>({ revenue: 0, activeContracts: 0, clients: 0, claims: 0 });
-  const [team, setTeam] = useState<Collaborator[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [accessUsers, setAccessUsers] = useState<AccessUser[]>([]);
   const [notificationFeed, setNotificationFeed] = useState<AppNotification[]>([]);
   const [feedUnreadCount, setFeedUnreadCount] = useState(0);
   const [auditTrail, setAuditTrail] = useState<AuditItem[]>([]);
-  const [teamForm, setTeamForm] = useState({ userId: "", fullName: "", email: "" });
   const [accessForm, setAccessForm] = useState({ userId: "", role: "COLLABORATOR" as AccessUser["role"], isActive: true });
 
   const performance = useMemo(() => {
@@ -96,9 +87,8 @@ export default function AdminPage() {
   }, [contracts]);
 
   async function loadData() {
-    const [kpiRes, teamRes, claimsRes, contractsRes, notificationsRes, auditRes] = await Promise.all([
+    const [kpiRes, claimsRes, contractsRes, notificationsRes, auditRes] = await Promise.all([
       fetch("/api/admin/kpis"),
-      fetch("/api/admin/team"),
       fetch("/api/claims"),
       fetch("/api/contracts"),
       fetch("/api/notifications"),
@@ -108,11 +98,6 @@ export default function AdminPage() {
     if (kpiRes.ok) {
       const json = await kpiRes.json();
       setKpis(json.data);
-    }
-
-    if (teamRes.ok) {
-      const json = await teamRes.json();
-      setTeam(json.data ?? []);
     }
 
     if (claimsRes.ok) {
@@ -149,65 +134,6 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData().catch(() => setStatus("Erreur de chargement des données."));
   }, [isOwner]);
-
-  async function createTeamMember() {
-    const response = await fetch("/api/admin/team", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName: teamForm.fullName, email: teamForm.email }),
-    });
-
-    if (!response.ok) {
-      setStatus("Création collaborateur impossible.");
-      return;
-    }
-
-    setStatus("Collaborateur cree.");
-    await loadData();
-  }
-
-  async function updateTeamMember() {
-    if (!teamForm.userId) {
-      setStatus("Sélectionnez un collaborateur à modifier.");
-      return;
-    }
-
-    const response = await fetch("/api/admin/team", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: teamForm.userId, fullName: teamForm.fullName, email: teamForm.email }),
-    });
-
-    if (!response.ok) {
-      setStatus("Modification collaborateur impossible.");
-      return;
-    }
-
-    setStatus("Collaborateur modifié.");
-    await loadData();
-  }
-
-  async function deleteTeamMember() {
-    if (!teamForm.userId) {
-      setStatus("Sélectionnez un collaborateur à supprimer.");
-      return;
-    }
-
-    const response = await fetch("/api/admin/team", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: teamForm.userId }),
-    });
-
-    if (!response.ok) {
-      setStatus("Suppression collaborateur impossible.");
-      return;
-    }
-
-    setStatus("Collaborateur supprimé.");
-    setTeamForm({ userId: "", fullName: "", email: "" });
-    await loadData();
-  }
 
   async function updateClaimStatus(claimId: string, statusValue: "APPROVED" | "WAITING_DETAILS") {
     const response = await fetch("/api/claims", {
@@ -290,6 +216,12 @@ export default function AdminPage() {
           <p className="workspace-kicker">Espace Administrateur</p>
           <h1 className="workspace-title">Direction & Supervision</h1>
           <p className="workspace-subtitle">KPI globaux, pilotage des collaborateurs et validation des sinistres majeurs.</p>
+          <a
+            href="/admin/parametres"
+            className="mt-4 inline-flex w-fit items-center rounded-full border border-ms-navy/25 bg-white px-4 py-2 text-sm font-semibold text-ms-navy transition hover:bg-ms-cream/50"
+          >
+            Ouvrir Paramètres RBAC
+          </a>
         </header>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -300,65 +232,6 @@ export default function AdminPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <SectionBlock title="Gestion de l'équipe" subtitle="Création et gestion des comptes collaborateurs">
-            <form className="grid gap-3 text-sm">
-              <select
-                value={teamForm.userId}
-                onChange={(event) => {
-                  const selected = team.find((item) => item.id === event.target.value);
-                  setTeamForm({
-                    userId: event.target.value,
-                    fullName: selected?.fullName ?? "",
-                    email: selected?.email ?? "",
-                  });
-                }}
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              >
-                <option value="">Nouveau collaborateur</option>
-                {team.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.fullName}
-                  </option>
-                ))}
-              </select>
-              <input
-                placeholder="Nom collaborateur"
-                value={teamForm.fullName}
-                onChange={(event) => setTeamForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              />
-              <input
-                placeholder="Email professionnel"
-                value={teamForm.email}
-                onChange={(event) => setTeamForm((prev) => ({ ...prev, email: event.target.value }))}
-                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={createTeamMember}
-                  className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white"
-                >
-                  Créer
-                </button>
-                <button
-                  type="button"
-                  onClick={updateTeamMember}
-                  className="rounded-full border border-ms-navy/20 px-4 py-2.5 font-semibold text-ms-navy"
-                >
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  onClick={deleteTeamMember}
-                  className="rounded-full border border-red-300 px-4 py-2.5 font-semibold text-red-700"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </form>
-          </SectionBlock>
-
           <SectionBlock title="Trésorerie & Sinistres" subtitle="Validation finale des remboursements lourds">
             <div className="space-y-3 text-sm">
               {claims.slice(0, 5).map((claim) => (

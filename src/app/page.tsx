@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { MarketingFooter } from "@/components/navigation/marketing-footer";
 import { MarketingHeader } from "@/components/navigation/marketing-header";
-import { ArrowRight, Landmark, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, FileText, Landmark, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
 
 const entities = [
   {
@@ -12,6 +13,10 @@ const entities = [
     text: "Conseil, contentieux stratégique, gouvernance et médiation pour dirigeants, entreprises et particuliers.",
     href: "/cabinet",
     icon: Landmark,
+    cta: "Voir le pôle Cabinet",
+    surfaceClass: "border-ms-gold/40 bg-gradient-to-br from-[#fffdf8] via-white to-[#fbf4e8]",
+    iconRingClass: "border-ms-gold/45 bg-ms-gold/15",
+    badgeClass: "text-[#7a5a1f]",
   },
   {
     badge: "Assurances",
@@ -19,6 +24,31 @@ const entities = [
     text: "Offres santé, pro et patrimoniales avec souscription, suivi des dossiers et indemnisation pilotées en ligne.",
     href: "/assurances",
     icon: ShieldCheck,
+    cta: "Voir le pôle Assurances",
+    surfaceClass: "border-ms-sky/45 bg-gradient-to-br from-[#f3f9ff] via-white to-[#e9f3ff]",
+    iconRingClass: "border-ms-sky/45 bg-ms-sky/15",
+    badgeClass: "text-[#1f5d8b]",
+  },
+];
+
+const insuranceQuickActions = [
+  {
+    label: "Acceder a mon espace",
+    hint: "Contrats, paiements, messagerie conseiller.",
+    href: "/connexion?space=assure",
+    Icon: ShieldCheck,
+  },
+  {
+    label: "Telecharger une attestation",
+    hint: "Retrouvez vos documents contractuels en quelques clics.",
+    href: "/connexion?space=assure",
+    Icon: FileText,
+  },
+  {
+    label: "Declarer un sinistre",
+    hint: "Lancez votre dossier et joignez les pieces necessaires.",
+    href: "/connexion?space=assure",
+    Icon: TriangleAlert,
   },
 ];
 
@@ -72,22 +102,58 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mt-8 overflow-hidden rounded-[30px] border border-ms-sky/35 bg-gradient-to-r from-[#0f2043] via-[#1a3f73] to-[#0f2043] p-6 text-white shadow-[0_22px_58px_rgba(15,32,67,0.2)] lg:p-8">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+            <div>
+              <p className="inline-flex rounded-full border border-white/35 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-ms-sky">
+                Assurance - Acces rapide client
+              </p>
+              <h2 className="mt-3 font-display text-4xl leading-tight text-ms-cream md:text-5xl">
+                Deja client Mercer & Stellaria Insurance ?
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-ms-cream/90 md:text-base">
+                Retrouvez vos services prioritaires en acces direct pour gagner du temps sur les actions les plus frequentes.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {insuranceQuickActions.map(({ label, hint, href, Icon }) => (
+                <Link
+                  key={label}
+                  href={href}
+                  className="group rounded-2xl border border-white/25 bg-white/10 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/18"
+                >
+                  <div className="flex items-center gap-2 text-ms-sky">
+                    <Icon size={16} />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">Action</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-white">{label}</p>
+                  <p className="mt-1 text-xs leading-5 text-ms-cream/85">{hint}</p>
+                  <span className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-white">
+                    Ouvrir <ArrowRight size={13} className="transition group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="mt-8 grid gap-6 lg:grid-cols-2">
           {entities.map((entity) => {
             const Icon = entity.icon;
             return (
-              <article key={entity.title} className="group relative overflow-hidden rounded-3xl border border-ms-navy/10 bg-white p-6 shadow-[0_18px_45px_rgba(15,32,67,0.08)]">
+              <article key={entity.title} className={`group relative overflow-hidden rounded-3xl border p-6 shadow-[0_18px_45px_rgba(15,32,67,0.08)] ${entity.surfaceClass}`}>
                 <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-ms-sky/20 blur-2xl transition group-hover:scale-110" />
-                <p className="relative text-xs font-semibold uppercase tracking-[0.22em] text-ms-navy-soft">{entity.badge}</p>
+                <p className={`relative text-xs font-semibold uppercase tracking-[0.22em] ${entity.badgeClass}`}>{entity.badge}</p>
                 <div className="relative mt-3 flex items-center gap-3">
-                  <div className="rounded-full border border-ms-navy/20 bg-ms-navy/5 p-2">
+                  <div className={`rounded-full border p-2 ${entity.iconRingClass}`}>
                     <Icon className="text-ms-navy" size={20} />
                   </div>
                   <h2 className="font-display text-4xl text-ms-navy">{entity.title}</h2>
                 </div>
                 <p className="relative mt-3 text-sm leading-7 text-ms-ink/85">{entity.text}</p>
                 <Link href={entity.href} className="relative mt-6 inline-flex items-center gap-2 rounded-full bg-ms-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-ms-navy-soft">
-                  Voir les offres <ArrowRight size={14} />
+                  {entity.cta} <ArrowRight size={14} />
                 </Link>
               </article>
             );
@@ -114,6 +180,8 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <MarketingFooter />
     </div>
   );
 }

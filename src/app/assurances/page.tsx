@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { MarketingFooter } from "@/components/navigation/marketing-footer";
 import { MarketingHeader } from "@/components/navigation/marketing-header";
 import { ArrowRight, BriefcaseBusiness, Clock3, HeartHandshake, Shield, ShieldCheck, Sparkles, Stethoscope, Wallet } from "lucide-react";
 
@@ -163,6 +164,8 @@ export default function AssurancesPage() {
           </div>
         </section>
       </main>
+
+      <MarketingFooter />
     </div>
   );
 }

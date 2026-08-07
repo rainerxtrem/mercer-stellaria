@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { MarketingFooter } from "@/components/navigation/marketing-footer";
 import { MarketingHeader } from "@/components/navigation/marketing-header";
 import { ArrowRight, FileText, Landmark, Scale } from "lucide-react";
 
@@ -90,6 +91,8 @@ export default function CabinetPage() {
           </div>
         </section>
       </main>
+
+      <MarketingFooter />
     </div>
   );
 }

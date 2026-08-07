@@ -4,19 +4,38 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { AppRole } from "@/lib/rbac";
+import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
+
+type ConnexionSpace = "assure" | "cabinet" | "default";
+
+function resolveConnexionSpace(value: string | null): ConnexionSpace {
+  if (value === "assure") {
+    return "assure";
+  }
+
+  if (value === "cabinet") {
+    return "cabinet";
+  }
+
+  return "default";
+}
 
 export default function ConnexionPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [status, setStatus] = useState<string>("");
-  const [oauthError] = useState<string | null>(() => {
+  const [queryState] = useState(() => {
     if (typeof window === "undefined") {
-      return null;
+      return { oauthError: null as string | null, requestedSpace: "default" as ConnexionSpace };
     }
 
-    return new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    return {
+      oauthError: params.get("error"),
+      requestedSpace: resolveConnexionSpace(params.get("space")),
+    };
   });
+  const { oauthError, requestedSpace } = queryState;
 
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const identity = useMemo(() => {
@@ -31,7 +50,11 @@ export default function ConnexionPage() {
 
   async function handleDiscordSignIn() {
     setStatus("Redirection vers Discord...");
-    await signIn("discord", { callbackUrl: "/client" });
+    const callbackUrl = requestedSpace === "default"
+      ? "/connexion"
+      : `/connexion?space=${requestedSpace}`;
+
+    await signIn("discord", { callbackUrl });
   }
 
   useEffect(() => {
@@ -45,9 +68,14 @@ export default function ConnexionPage() {
     }
 
     if (role !== "PUBLIC") {
-      router.replace("/client");
+      const target = getDefaultSpaceForRole(role);
+      router.replace(target);
     }
-  }, [session?.user, role, router]);
+  }, [session?.user, role, requestedSpace, router]);
+
+  const redirectLabel = requestedSpace === "cabinet"
+    ? "votre espace client"
+    : "votre espace assure";
 
   return (
     <main className="brand-shell flex flex-1 items-center justify-center px-6 py-12">
@@ -67,7 +95,7 @@ export default function ConnexionPage() {
         ) : (
           <div className="mt-7 grid gap-3">
             <p className="text-sm text-ms-ink/80">Connecté en tant que {identity}</p>
-            <p className="text-sm text-ms-ink/70">Redirection en cours vers votre espace client...</p>
+            <p className="text-sm text-ms-ink/70">Redirection en cours vers {redirectLabel}...</p>
             <div className="flex gap-2">
               <button
                 type="button"

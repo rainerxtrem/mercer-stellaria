@@ -79,7 +79,7 @@ export function MarketingHeader() {
           <Link href="/" className={`tab-pill ${brand.activeTab === "HOME" ? "tab-pill-active" : ""}`}>Accueil</Link>
           <Link href="/cabinet" className={`tab-pill ${brand.activeTab === "CABINET" ? "tab-pill-active" : ""}`}>Avocats</Link>
           <Link href="/assurances" className={`tab-pill ${brand.activeTab === "ASSURANCES" ? "tab-pill-active" : ""}`}>Assurances</Link>
-          <Link href="/investment" className={`tab-pill ${brand.activeTab === "INVESTMENT" ? "tab-pill-active" : ""}`}>Investissement</Link>
+          <Link href="/connexion?service=investment" className={`tab-pill ${brand.activeTab === "INVESTMENT" ? "tab-pill-active" : ""}`}>Investissement</Link>
         </nav>
 
         {!session?.user ? (

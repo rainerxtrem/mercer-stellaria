@@ -12,7 +12,7 @@ import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { AppRole } from "@/lib/rbac";
 import { buildOperationalDataset, ManagerClientRow } from "@/components/dashboard/operational-mock";
 
-type InvestmentMode = "CLIENT" | "MANAGER";
+type AssuranceMode = "CLIENT" | "MANAGER";
 
 type ClientApiRow = {
   id: string;
@@ -37,20 +37,20 @@ function resolveRiskProfile(label: string | null): "Prudent" | "Equilibre" | "Dy
   return "Equilibre";
 }
 
-export default function InvestmentDashboardPage() {
+export default function AssurancesDashboardPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const isManager = role === "COLLABORATOR" || role === "ADMIN";
 
-  const [mode, setMode] = useState<InvestmentMode>("CLIENT");
+  const [mode, setMode] = useState<AssuranceMode>("CLIENT");
   const [managerClients, setManagerClients] = useState<ManagerClientRow[]>([]);
   const [riskFilter, setRiskFilter] = useState<"ALL" | "Prudent" | "Equilibre" | "Dynamique">("ALL");
-  const [activeModal, setActiveModal] = useState<null | "appointment" | "arbitrage" | "report" | "risk">(null);
+  const [activeModal, setActiveModal] = useState<null | "appointment" | "claim" | "report" | "risk">(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/connexion?service=investment");
+      router.replace("/connexion?service=assurance");
     }
   }, [status, router]);
 
@@ -60,7 +60,7 @@ export default function InvestmentDashboardPage() {
     }
   }, [isManager, status]);
 
-  const dataset = useMemo(() => buildOperationalDataset("investment", role), [role]);
+  const dataset = useMemo(() => buildOperationalDataset("assurance", role), [role]);
 
   useEffect(() => {
     if (!isManager) {
@@ -79,11 +79,10 @@ export default function InvestmentDashboardPage() {
         const mapped: ManagerClientRow[] = rows.map((client, index) => ({
           id: client.id,
           fullName: client.fullName,
-          assetsUnderManagement: 180000 + (index + 1) * 42000,
+          assetsUnderManagement: 90000 + (index + 1) * 28000,
           riskProfile: resolveRiskProfile(client.riskLabel),
           kycStatus: client.citizenUniqueId ? "A jour" : "A verifier",
         }));
-
         setManagerClients(mapped);
       } catch {
         setManagerClients([]);
@@ -100,24 +99,10 @@ export default function InvestmentDashboardPage() {
     return source.filter((row) => row.riskProfile === riskFilter);
   }, [dataset.managerClients, managerClients, riskFilter]);
 
-  const managerMetrics = [
-    { label: "Clients suivis", value: String(managerRows.length), detail: "Portefeuille total" },
-    {
-      label: "Encours géré",
-      value: formatCurrency(managerRows.reduce((sum, row) => sum + row.assetsUnderManagement, 0)),
-      detail: "Actifs agrégés",
-    },
-    {
-      label: "KYC à vérifier",
-      value: String(managerRows.filter((row) => row.kycStatus === "A verifier").length),
-      detail: "Action conformité requise",
-    },
-  ];
-
   if (status === "loading") {
     return (
       <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-6 lg:px-8">
-        <p className="text-sm text-ms-ink/70">Chargement sécurisé de votre espace investment...</p>
+        <p className="text-sm text-ms-ink/70">Chargement sécurisé de votre espace assurances...</p>
       </main>
     );
   }
@@ -129,12 +114,12 @@ export default function InvestmentDashboardPage() {
   return (
     <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-4 lg:px-8 lg:py-6">
       <div className="workspace-grid grid gap-4 lg:gap-6">
-        <RoleSwitcher currentPath="/investment/dashboard" />
+        <RoleSwitcher currentPath="/assurances/dashboard" />
 
         <header className="workspace-hero">
-          <p className="workspace-kicker">Investment</p>
-          <h1 className="workspace-title">Dashboard Investment</h1>
-          <p className="workspace-subtitle">Suivi investisseur et pilotage gestionnaire sur une base de composants partagés.</p>
+          <p className="workspace-kicker">Assurances</p>
+          <h1 className="workspace-title">Dashboard Assurances</h1>
+          <p className="workspace-subtitle">Vue assurée et vue gestionnaire alignées sur les rôles de session.</p>
         </header>
 
         <RoleModeSwitch mode={mode} onModeChange={setMode} canUseManagerMode={isManager} />
@@ -143,12 +128,12 @@ export default function InvestmentDashboardPage() {
           <>
             <MetricsGrid items={dataset.clientMetrics} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" />
 
-            <SectionBlock title="Répartition du portefeuille" subtitle="Vue consolidée des positions">
+            <SectionBlock title="Répartition des garanties" subtitle="Contrats, types d'actifs couverts et suivi de valeur">
               <DataTable
                 rows={dataset.positions}
-                emptyText="Aucune position à afficher."
+                emptyText="Aucune garantie active."
                 columns={[
-                  { key: "fund", header: "Nom du fonds", render: (row) => row.name },
+                  { key: "fund", header: "Nom de la couverture", render: (row) => row.name },
                   { key: "asset", header: "Type d'actif", render: (row) => row.category },
                   { key: "amount", header: "Montant", render: (row) => formatCurrency(row.amount) },
                   {
@@ -164,48 +149,51 @@ export default function InvestmentDashboardPage() {
               />
             </SectionBlock>
 
-            <SectionBlock title="Historique des transactions" subtitle="Derniers mouvements d'investissement">
+            <SectionBlock title="Historique des opérations" subtitle="Transactions et incidents récents">
               <DataTable
                 rows={dataset.history}
-                emptyText="Aucun mouvement récent."
+                emptyText="Aucune opération récente."
                 columns={[
                   { key: "date", header: "Date", render: (row) => new Date(row.date).toLocaleDateString("fr-FR") },
                   { key: "operation", header: "Opération", render: (row) => row.label },
-                  {
-                    key: "amount",
-                    header: "Montant",
-                    render: (row) => (
-                      <span className={row.amount >= 0 ? "text-ms-navy" : "text-rose-700"}>{formatCurrency(row.amount)}</span>
-                    ),
-                  },
-                  {
-                    key: "status",
-                    header: "Statut",
-                    render: (row) => (
-                      <span className="rounded-full border border-ms-navy/20 px-2.5 py-1 text-xs font-semibold text-ms-navy">
-                        {row.status === "EXECUTEE" ? "Exécutée" : "En cours"}
-                      </span>
-                    ),
-                  },
+                  { key: "amount", header: "Montant", render: (row) => formatCurrency(row.amount) },
+                  { key: "status", header: "Statut", render: (row) => (row.status === "EXECUTEE" ? "Exécutée" : "En cours") },
                 ]}
               />
             </SectionBlock>
 
-            <SectionBlock title="Actions rapides" subtitle="Contacts et demandes prioritaires">
+            <SectionBlock title="Actions rapides" subtitle="Parcours opérationnels instantanés">
               <QuickActions
                 actions={[
                   { label: "Prendre RDV avec mon conseiller", onClick: () => setActiveModal("appointment") },
-                  { label: "Demander un arbitrage", tone: "secondary", onClick: () => setActiveModal("arbitrage") },
+                  { label: "Déclarer un sinistre", tone: "secondary", onClick: () => setActiveModal("claim") },
                 ]}
               />
             </SectionBlock>
           </>
         ) : (
           <>
-            <MetricsGrid items={managerMetrics} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" />
+            <MetricsGrid
+              items={[
+                { label: "Clients suivis", value: String(managerRows.length), detail: "Portefeuille actif" },
+                {
+                  label: "Encours géré",
+                  value: formatCurrency(managerRows.reduce((sum, row) => sum + row.assetsUnderManagement, 0)),
+                  detail: "Montants assurés agrégés",
+                },
+                {
+                  label: "KYC à vérifier",
+                  value: String(managerRows.filter((row) => row.kycStatus === "A verifier").length),
+                  detail: "Conformité documentaire",
+                },
+              ]}
+              className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+            />
 
-            <SectionBlock title="Portefeuille clients" subtitle="Encours, risque et conformité KYC">
-              <div className="mb-4 flex justify-end">
+            <SectionBlock
+              title="Portefeuille clients"
+              subtitle="Encours, risque et conformité KYC"
+              actions={
                 <select
                   value={riskFilter}
                   onChange={(event) => setRiskFilter(event.target.value as "ALL" | "Prudent" | "Equilibre" | "Dynamique")}
@@ -216,29 +204,22 @@ export default function InvestmentDashboardPage() {
                   <option value="Equilibre">Équilibré</option>
                   <option value="Dynamique">Dynamique</option>
                 </select>
-              </div>
+              }
+            >
               <DataTable
                 rows={managerRows}
-                emptyText="Aucune cliente investisseur trouvée."
+                emptyText="Aucun client disponible."
                 minWidthClassName="min-w-[940px]"
                 columns={[
                   { key: "name", header: "Nom du client", render: (row) => row.fullName },
                   { key: "aum", header: "Encours géré", render: (row) => formatCurrency(row.assetsUnderManagement) },
                   { key: "risk", header: "Profil de risque", render: (row) => row.riskProfile },
-                  {
-                    key: "kyc",
-                    header: "Statut conformité (KYC)",
-                    render: (row) => (
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${row.kycStatus === "A jour" ? "border border-emerald-300 bg-emerald-50 text-emerald-700" : "border border-amber-300 bg-amber-50 text-amber-800"}`}>
-                        {row.kycStatus}
-                      </span>
-                    ),
-                  },
+                  { key: "kyc", header: "Statut conformité (KYC)", render: (row) => row.kycStatus },
                 ]}
               />
             </SectionBlock>
 
-            <SectionBlock title="Actions gestionnaire" subtitle="Pilotage de la relation et de la performance">
+            <SectionBlock title="Actions gestionnaire" subtitle="Pilotage de la performance et du risque client">
               <QuickActions
                 actions={[
                   { label: "Générer un rapport de performance", onClick: () => setActiveModal("report") },
@@ -255,9 +236,9 @@ export default function InvestmentDashboardPage() {
           <div className="surface w-full max-w-lg p-6">
             <h3 className="font-display text-3xl text-ms-navy">Action en cours</h3>
             <p className="mt-2 text-sm text-ms-ink/80">
-              {activeModal === "appointment" ? "Demande de rendez-vous prête à être transmise au conseiller investment." : null}
-              {activeModal === "arbitrage" ? "Formulaire de demande d'arbitrage prêt pour validation." : null}
-              {activeModal === "report" ? "Génération d'un rapport de performance lancée sur le périmètre filtré." : null}
+              {activeModal === "appointment" ? "Demande de rendez-vous prête à être transmise au conseiller." : null}
+              {activeModal === "claim" ? "Ouverture du workflow de déclaration de sinistre en préparation." : null}
+              {activeModal === "report" ? "Génération d'un rapport de performance lancée pour le portefeuille filtré." : null}
               {activeModal === "risk" ? "Mise à jour du profil de risque prête à être appliquée." : null}
             </p>
             <div className="mt-5 flex gap-2">

@@ -6,6 +6,7 @@ import { getToken } from "next-auth/jwt";
 const protectedRoutes: Array<{ prefix: string; role: AppRole }> = [
   { prefix: "/client", role: "CLIENT" },
   { prefix: "/investment", role: "CLIENT" },
+  { prefix: "/assurances/dashboard", role: "CLIENT" },
   { prefix: "/collaborateur", role: "COLLABORATOR" },
   { prefix: "/admin", role: "ADMIN" },
   { prefix: "/api/clients", role: "COLLABORATOR" },
@@ -62,5 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/client/:path*", "/investment/:path*", "/collaborateur/:path*", "/admin/:path*", "/api/:path*"],
+  matcher: ["/client/:path*", "/investment/:path*", "/assurances/dashboard/:path*", "/collaborateur/:path*", "/admin/:path*", "/api/:path*"],
 };

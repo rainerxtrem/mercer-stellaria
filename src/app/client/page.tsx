@@ -85,7 +85,12 @@ type AppNotification = {
   createdAt: string;
 };
 
-type ClientTab = "OVERVIEW" | "CONTRACTS" | "CLAIMS" | "MESSAGES" | "REQUESTS" | "BILLING";
+export type ClientTab = "OVERVIEW" | "CONTRACTS" | "CLAIMS" | "MESSAGES" | "REQUESTS" | "BILLING";
+
+export type ClientWorkspaceProps = {
+  forcedTab?: ClientTab;
+  hideTabNavigation?: boolean;
+};
 
 const clientTabs: Array<{ id: ClientTab; label: string }> = [
   { id: "OVERVIEW", label: "Vue d'ensemble" },
@@ -152,7 +157,7 @@ function getClaimJourney(status: string) {
   return { step: "En cours", nextAction: "Consultez le dossier pour les prochaines actions." };
 }
 
-export default function ClientPage() {
+export default function ClientPage({ forcedTab, hideTabNavigation = false }: ClientWorkspaceProps) {
   const { data: session } = useSession();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -160,7 +165,7 @@ export default function ClientPage() {
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<ClientTab>("OVERVIEW");
+  const [activeTab, setActiveTab] = useState<ClientTab>(forcedTab ?? "OVERVIEW");
   const [selectedContractId, setSelectedContractId] = useState("");
   const [signatureMethod, setSignatureMethod] = useState<"DRAWN_CANVAS" | "CERTIFIED_CLICK">("CERTIFIED_CLICK");
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -751,18 +756,20 @@ export default function ClientPage() {
           <p className="workspace-subtitle">Souscription autonome, suivi des contrats et historique des sinistres.</p>
         </header>
 
-        <nav className="surface tab-strip p-2" aria-label="Navigation espace client">
-          {clientTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-pill ${activeTab === tab.id ? "tab-pill-active" : ""}`}
-            >
-              {tab.id === "MESSAGES" && hasUnreadAdvisorMessage ? `🔔 ${tab.label}` : tab.label}
-            </button>
-          ))}
-        </nav>
+        {!hideTabNavigation ? (
+          <nav className="surface tab-strip p-2" aria-label="Navigation espace client">
+            {clientTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`tab-pill ${activeTab === tab.id ? "tab-pill-active" : ""}`}
+              >
+                {tab.id === "MESSAGES" && hasUnreadAdvisorMessage ? `🔔 ${tab.label}` : tab.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
 
         {hasUnreadAdvisorMessage ? (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900">

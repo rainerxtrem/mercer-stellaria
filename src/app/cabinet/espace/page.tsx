@@ -83,9 +83,27 @@ type DashboardData = {
   recentActivity: Array<{ kind: string; id: string; title: string; updatedAt: string }>;
 };
 
-export default function LawFirmWorkspacePage() {
+export type LawModuleView =
+  | "all"
+  | "dashboard"
+  | "cases"
+  | "clients"
+  | "tasks"
+  | "billing"
+  | "document-generator"
+  | "library"
+  | "trainings"
+  | "bar-exam"
+  | "disciplinary"
+  | "profile";
+
+export type LawWorkspaceProps = {
+  moduleView?: LawModuleView;
+};
+
+export default function LawFirmWorkspacePage({ moduleView = "all" }: LawWorkspaceProps) {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [matters, setMatters] = useState<LawMatter[]>([]);
@@ -584,6 +602,18 @@ export default function LawFirmWorkspacePage() {
     { label: "Tâches ouvertes", value: String(dashboard?.metrics.openTasks ?? 0), detail: "Suivi équipe" },
   ];
 
+  const showDashboard = moduleView === "all" || moduleView === "dashboard";
+  const showCases = moduleView === "all" || moduleView === "cases";
+  const showClients = moduleView === "all" || moduleView === "clients";
+  const showTasks = moduleView === "all" || moduleView === "tasks";
+  const showBilling = moduleView === "all" || moduleView === "billing";
+  const showDocuments = moduleView === "all" || moduleView === "document-generator";
+  const showLibrary = moduleView === "all" || moduleView === "library";
+  const showTrainings = moduleView === "all" || moduleView === "trainings";
+  const showBarExam = moduleView === "all" || moduleView === "bar-exam";
+  const showDisciplinary = moduleView === "all" || moduleView === "disciplinary";
+  const showProfile = moduleView === "all" || moduleView === "profile";
+
   if (status === "loading" || status === "unauthenticated") {
     return (
       <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-6 lg:px-8">
@@ -603,30 +633,35 @@ export default function LawFirmWorkspacePage() {
 
         {statusMessage ? <div className="rounded-2xl border border-ms-navy/15 bg-white px-4 py-3 text-sm font-semibold text-ms-navy">{statusMessage}</div> : null}
 
-        <MetricsGrid items={metrics} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" />
+        {showDashboard ? <MetricsGrid items={metrics} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" /> : null}
 
-        <SectionBlock title="Raccourcis rapides" subtitle="Accès direct aux actions clés du module">
-          <div className="flex flex-wrap gap-2 text-sm">
-            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-invoice-form")?.scrollIntoView({ behavior: "smooth" })}>Créer une facture</button>
-            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-tasks")?.scrollIntoView({ behavior: "smooth" })}>Créer une tâche</button>
-            <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-documents")?.scrollIntoView({ behavior: "smooth" })}>Ouvrir les documents</button>
-          </div>
-        </SectionBlock>
-
-        <SectionBlock title="Recherche globale" subtitle="Clients, dossiers, documents, factures et avocats">
-          <input value={searchQuery} onChange={(event) => void runSearch(event.target.value)} placeholder="Rechercher un nom, dossier, facture, document..." className="w-full rounded-2xl border border-ms-navy/15 bg-white px-4 py-3 text-sm" />
-          {searchResults ? (
-            <div className="mt-4 grid gap-4 xl:grid-cols-4">
-              <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Clients</h3>{searchResults.users.map((user) => <p key={user.id} className="text-sm">{user.fullName} - {user.email}</p>)}</div>
-              <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Dossiers</h3>{searchResults.matters.map((matter) => <p key={matter.id} className="text-sm">{matter.matterNumber} - {matter.title}</p>)}</div>
-              <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Factures</h3>{searchResults.invoices.map((invoice) => <p key={invoice.id} className="text-sm">{invoice.invoiceNumber} - {invoice.matter.title}</p>)}</div>
-              <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Documents</h3>{searchResults.documents.map((document) => <p key={document.id} className="text-sm">{document.documentNumber} - {document.title}</p>)}</div>
+        {showDashboard ? (
+          <SectionBlock title="Raccourcis rapides" subtitle="Accès direct aux actions clés du module">
+            <div className="flex flex-wrap gap-2 text-sm">
+              <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-invoice-form")?.scrollIntoView({ behavior: "smooth" })}>Créer une facture</button>
+              <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-tasks")?.scrollIntoView({ behavior: "smooth" })}>Créer une tâche</button>
+              <button type="button" className="rounded-full border border-ms-navy/20 px-4 py-2 font-semibold text-ms-navy" onClick={() => document.getElementById("law-firm-documents")?.scrollIntoView({ behavior: "smooth" })}>Ouvrir les documents</button>
             </div>
-          ) : null}
-        </SectionBlock>
+          </SectionBlock>
+        ) : null}
 
-        <section className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
-          <SectionBlock title="Gestion des dossiers" subtitle="Créer, modifier, archiver et suivre les dossiers">
+        {showDashboard || showCases || showClients || showBilling || showDocuments ? (
+          <SectionBlock title="Recherche globale" subtitle="Clients, dossiers, documents, factures et avocats">
+            <input value={searchQuery} onChange={(event) => void runSearch(event.target.value)} placeholder="Rechercher un nom, dossier, facture, document..." className="w-full rounded-2xl border border-ms-navy/15 bg-white px-4 py-3 text-sm" />
+            {searchResults ? (
+              <div className="mt-4 grid gap-4 xl:grid-cols-4">
+                <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Clients</h3>{searchResults.users.map((user) => <p key={user.id} className="text-sm">{user.fullName} - {user.email}</p>)}</div>
+                <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Dossiers</h3>{searchResults.matters.map((matter) => <p key={matter.id} className="text-sm">{matter.matterNumber} - {matter.title}</p>)}</div>
+                <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Factures</h3>{searchResults.invoices.map((invoice) => <p key={invoice.id} className="text-sm">{invoice.invoiceNumber} - {invoice.matter.title}</p>)}</div>
+                <div><h3 className="mb-2 text-sm font-semibold text-ms-navy">Documents</h3>{searchResults.documents.map((document) => <p key={document.id} className="text-sm">{document.documentNumber} - {document.title}</p>)}</div>
+              </div>
+            ) : null}
+          </SectionBlock>
+        ) : null}
+
+        {showCases || showBilling ? (
+          <section className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
+            {showCases ? <SectionBlock title="Gestion des dossiers" subtitle="Créer, modifier, archiver et suivre les dossiers">
             <form className="grid gap-3 text-sm" onSubmit={createMatter}>
               <input
                 value={matterCreateForm.title}
@@ -729,10 +764,10 @@ export default function LawFirmWorkspacePage() {
                 </article>
               ))}
             </div>
-          </SectionBlock>
+            </SectionBlock> : null}
 
-          <div className="grid gap-6">
-            <SectionBlock title="Résumé du dossier" subtitle="Chat relié au client et activité du dossier">
+            <div className="grid gap-6">
+              {showCases ? <SectionBlock title="Résumé du dossier" subtitle="Chat relié au client et activité du dossier">
               {selectedMatter ? (
                 <div className="space-y-3 text-sm">
                   <p className="font-semibold text-ms-navy">{selectedMatter.title}</p>
@@ -763,9 +798,9 @@ export default function LawFirmWorkspacePage() {
                   <button type="button" onClick={sendMessage} className="rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Envoyer</button>
                 </div>
               ) : <p className="text-sm text-ms-ink/65">Sélectionnez un dossier.</p>}
-            </SectionBlock>
+              </SectionBlock> : null}
 
-            <SectionBlock title="Facturation" subtitle="Factures, totaux et signatures">
+              {showBilling ? <SectionBlock title="Facturation" subtitle="Factures, totaux et signatures">
               <form id="law-firm-invoice-form" className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createInvoice}>
                 <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{editingInvoiceId ? "Modifier une facture" : "Créer une facture"}</p>
                 <select value={invoiceForm.matterId} onChange={(event) => syncInvoiceMatter(event.target.value)} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" required>
@@ -826,72 +861,101 @@ export default function LawFirmWorkspacePage() {
                 ))}
               </div>
               {selectedInvoice ? <div className="mt-4 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm"><p className="font-semibold text-ms-navy">{selectedInvoice.invoiceNumber}</p><p>{selectedInvoice.lines.length} ligne(s) - {selectedInvoice.total.toLocaleString("fr-FR")} EUR</p></div> : null}
-            </SectionBlock>
-          </div>
-        </section>
+              </SectionBlock> : null}
+            </div>
+          </section>
+        ) : null}
 
-        <div id="law-firm-documents">
-          <SectionBlock title="Documents" subtitle="Accès au générateur et aux documents générés">
-            <DocumentTemplateManager onStatus={setStatusMessage} />
-          </SectionBlock>
-        </div>
-
-        <div id="law-firm-tasks">
-          <SectionBlock title="Tâches" subtitle="Suivi opérationnel partagé">
-            <form className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createTask}>
-            <select value={taskForm.matterId} onChange={(event) => setTaskForm((prev) => ({ ...prev, matterId: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2">
-              <option value="">Sélectionner un dossier</option>
-              {matters.filter((matter) => !matter.isArchived).map((matter) => (
-                <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
-              ))}
-            </select>
-            <input value={taskForm.title} onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))} placeholder="Titre de la tâche" className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
-            <textarea value={taskForm.description} onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Description (optionnelle)" className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
-            <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((prev) => ({ ...prev, dueDate: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
-            <button type="submit" disabled={taskSaving} className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white disabled:opacity-60">
-              {taskSaving ? "Création..." : "Créer la tâche"}
-            </button>
-            </form>
+        {showClients ? (
+          <SectionBlock title="Clients" subtitle="Annuaire client partageable avec recherche rapide">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {tasks.map((task) => (
-                <article key={task.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
-                  <p className="font-semibold text-ms-navy">{task.title}</p>
-                  <p className="text-ms-ink/70">{task.matter.title}</p>
-                  {task.description ? <p className="mt-1 text-ms-ink/75">{task.description}</p> : null}
-                  <p className="mt-1 text-xs text-ms-ink/60">Échéance: {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <select value={task.status} onChange={(event) => void updateTaskStatus(task.id, event.target.value as Task["status"])} className="rounded-full border border-ms-navy/20 px-3 py-1">
-                      <option value="TODO">A faire</option>
-                      <option value="IN_PROGRESS">En cours</option>
-                      <option value="BLOCKED">Bloquée</option>
-                      <option value="DONE">Terminée</option>
-                    </select>
-                    <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => { if (window.confirm("Supprimer cette tâche ?")) { void deleteTask(task.id); } }}>
-                      Supprimer
-                    </button>
-                  </div>
+              {matterClients.map((client) => (
+                <article key={client.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
+                  <p className="font-semibold text-ms-navy">{client.fullName}</p>
+                  <p className="text-xs text-ms-ink/70">{client.email}</p>
+                  <p className="mt-1 text-xs text-ms-ink/70">ID citoyen: {client.citizenUniqueId ?? "Non renseigné"}</p>
                 </article>
               ))}
             </div>
           </SectionBlock>
-        </div>
+        ) : null}
 
-        <SectionBlock title="Activité récente" subtitle="Derniers événements du workspace">
-          <div className="space-y-2 text-sm">
-            {dashboard?.recentActivity?.map((item) => <p key={`${item.kind}-${item.id}`} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">{item.kind} - {item.title}</p>)}
+        {showDocuments ? (
+          <div id="law-firm-documents">
+            <SectionBlock title="Documents" subtitle="Accès au générateur et aux documents générés">
+              <DocumentTemplateManager onStatus={setStatusMessage} />
+            </SectionBlock>
           </div>
-        </SectionBlock>
+        ) : null}
 
-        <SectionBlock title="Agenda" subtitle="Échéances à venir">
-          <div className="space-y-2 text-sm">
-            {(dashboard?.agenda ?? []).length === 0 ? <p className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3 text-ms-ink/70">Aucune échéance enregistrée.</p> : null}
-            {(dashboard?.agenda ?? []).map((task) => (
-              <p key={task.id} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">
-                {task.matter.matterNumber} - {task.title} - {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Sans date"}
-              </p>
-            ))}
+        {showTasks ? (
+          <div id="law-firm-tasks">
+            <SectionBlock title="Tâches" subtitle="Suivi opérationnel partagé">
+              <form className="mb-4 grid gap-3 rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm" onSubmit={createTask}>
+              <select value={taskForm.matterId} onChange={(event) => setTaskForm((prev) => ({ ...prev, matterId: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2">
+                <option value="">Sélectionner un dossier</option>
+                {matters.filter((matter) => !matter.isArchived).map((matter) => (
+                  <option key={matter.id} value={matter.id}>{matter.matterNumber} - {matter.title}</option>
+                ))}
+              </select>
+              <input value={taskForm.title} onChange={(event) => setTaskForm((prev) => ({ ...prev, title: event.target.value }))} placeholder="Titre de la tâche" className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
+              <textarea value={taskForm.description} onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))} placeholder="Description (optionnelle)" className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
+              <input type="date" value={taskForm.dueDate} onChange={(event) => setTaskForm((prev) => ({ ...prev, dueDate: event.target.value }))} className="rounded-xl border border-ms-navy/15 bg-white px-3 py-2" />
+              <button type="submit" disabled={taskSaving} className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white disabled:opacity-60">
+                {taskSaving ? "Création..." : "Créer la tâche"}
+              </button>
+              </form>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {tasks.map((task) => (
+                  <article key={task.id} className="rounded-2xl border border-ms-navy/10 bg-white p-4 text-sm">
+                    <p className="font-semibold text-ms-navy">{task.title}</p>
+                    <p className="text-ms-ink/70">{task.matter.title}</p>
+                    {task.description ? <p className="mt-1 text-ms-ink/75">{task.description}</p> : null}
+                    <p className="mt-1 text-xs text-ms-ink/60">Échéance: {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Non définie"}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <select value={task.status} onChange={(event) => void updateTaskStatus(task.id, event.target.value as Task["status"])} className="rounded-full border border-ms-navy/20 px-3 py-1">
+                        <option value="TODO">A faire</option>
+                        <option value="IN_PROGRESS">En cours</option>
+                        <option value="BLOCKED">Bloquée</option>
+                        <option value="DONE">Terminée</option>
+                      </select>
+                      <button type="button" className="rounded-full border border-red-200 px-3 py-1 text-red-700" onClick={() => { if (window.confirm("Supprimer cette tâche ?")) { void deleteTask(task.id); } }}>
+                        Supprimer
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </SectionBlock>
           </div>
-        </SectionBlock>
+        ) : null}
+
+        {showDashboard ? (
+          <SectionBlock title="Activité récente" subtitle="Derniers événements du workspace">
+            <div className="space-y-2 text-sm">
+              {dashboard?.recentActivity?.map((item) => <p key={`${item.kind}-${item.id}`} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">{item.kind} - {item.title}</p>)}
+            </div>
+          </SectionBlock>
+        ) : null}
+
+        {showDashboard ? (
+          <SectionBlock title="Agenda" subtitle="Échéances à venir">
+            <div className="space-y-2 text-sm">
+              {(dashboard?.agenda ?? []).length === 0 ? <p className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3 text-ms-ink/70">Aucune échéance enregistrée.</p> : null}
+              {(dashboard?.agenda ?? []).map((task) => (
+                <p key={task.id} className="rounded-xl border border-ms-navy/10 bg-white px-4 py-3">
+                  {task.matter.matterNumber} - {task.title} - {task.dueDate ? new Date(task.dueDate).toLocaleDateString("fr-FR") : "Sans date"}
+                </p>
+              ))}
+            </div>
+          </SectionBlock>
+        ) : null}
+
+        {showLibrary ? <SectionBlock title="Bibliothèque" subtitle="Ressources juridiques partagées"><p className="text-sm text-ms-ink/70">Module prêt pour l&apos;indexation documentaire et la recherche de jurisprudence.</p></SectionBlock> : null}
+        {showTrainings ? <SectionBlock title="Formations" subtitle="Parcours de montée en compétence"><p className="text-sm text-ms-ink/70">Module prêt pour le suivi des formations internes et externes.</p></SectionBlock> : null}
+        {showBarExam ? <SectionBlock title="Examen Barreau" subtitle="Préparation et évaluations"><p className="text-sm text-ms-ink/70">Module prêt pour les sessions d&apos;examens et simulations.</p></SectionBlock> : null}
+        {showDisciplinary ? <SectionBlock title="Disciplinaire" subtitle="Suivi conformité et procédures"><p className="text-sm text-ms-ink/70">Module prêt pour le traitement des dossiers disciplinaires.</p></SectionBlock> : null}
+        {showProfile ? <SectionBlock title="Mon espace" subtitle="Profil et préférences"><div className="grid gap-2 text-sm text-ms-ink/80"><p>Nom: {session?.user?.name ?? "Non renseigné"}</p><p>Email: {session?.user?.email ?? "Non renseigné"}</p></div></SectionBlock> : null}
       </div>
     </main>
   );

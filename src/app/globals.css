@@ -431,6 +431,40 @@ button:focus-visible {
   min-height: 100vh;
 }
 
+.internal-breadcrumbs {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(11, 18, 32, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+}
+
+.internal-breadcrumb-link {
+  color: #30415f;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.internal-breadcrumb-link:hover {
+  color: #0b1220;
+}
+
+.internal-breadcrumb-sep {
+  color: #7d90af;
+  font-size: 0.78rem;
+}
+
+.internal-breadcrumb-current {
+  color: #0b1220;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .internal-sidebar {
   position: fixed;
   left: 0;

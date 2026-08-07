@@ -55,7 +55,13 @@ type AuditItem = {
   actor: { id: string; fullName: string; email: string } | null;
 };
 
-export default function AdminPage() {
+export type DirectionDashboardModuleView = "all" | "dashboard" | "notifications" | "audit" | "reports" | "users";
+
+export type DirectionDashboardProps = {
+  moduleView?: DirectionDashboardModuleView;
+};
+
+export default function AdminPage({ moduleView = "all" }: DirectionDashboardProps) {
   const { data: session } = useSession();
   const isOwner = Boolean(session?.user?.isOwner);
   const [status, setStatus] = useState<string>("");
@@ -84,6 +90,12 @@ export default function AdminPage() {
       conversionRate: `${Math.round((signedContracts / total) * 100)}%`,
     }));
   }, [contracts]);
+
+  const showDashboard = moduleView === "all" || moduleView === "dashboard";
+  const showNotifications = moduleView === "all" || moduleView === "notifications";
+  const showAudit = moduleView === "all" || moduleView === "audit";
+  const showReports = moduleView === "all" || moduleView === "reports";
+  const showUsers = moduleView === "all" || moduleView === "users";
 
   async function loadData() {
     const [kpiRes, claimsRes, contractsRes, notificationsRes, auditRes] = await Promise.all([
@@ -222,15 +234,18 @@ export default function AdminPage() {
           </a>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Chiffre d'affaires" value={`${kpis.revenue.toLocaleString("fr-FR")} $`} />
-          <StatCard label="Contrats actifs" value={String(kpis.activeContracts)} />
-          <StatCard label="Clients" value={String(kpis.clients)} />
-          <StatCard label="Sinistres déclarés" value={String(kpis.claims)} />
-        </section>
+        {showDashboard ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Chiffre d'affaires" value={`${kpis.revenue.toLocaleString("fr-FR")} $`} />
+            <StatCard label="Contrats actifs" value={String(kpis.activeContracts)} />
+            <StatCard label="Clients" value={String(kpis.clients)} />
+            <StatCard label="Sinistres déclarés" value={String(kpis.claims)} />
+          </section>
+        ) : null}
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <SectionBlock title="Trésorerie & Sinistres" subtitle="Validation finale des remboursements lourds">
+        {showDashboard ? (
+          <section className="grid gap-6 lg:grid-cols-2">
+            <SectionBlock title="Trésorerie & Sinistres" subtitle="Validation finale des remboursements lourds">
             <div className="space-y-3 text-sm">
               {claims.slice(0, 5).map((claim) => (
                 <div key={claim.id} className="rounded-xl border border-ms-navy/10 bg-white p-4">
@@ -255,12 +270,14 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
-          </SectionBlock>
-        </section>
+            </SectionBlock>
+          </section>
+        ) : null}
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div id="notifications-feed">
-            <SectionBlock
+        {showNotifications || showAudit ? (
+          <section className="grid gap-6 lg:grid-cols-2">
+            {showNotifications ? <div id="notifications-feed">
+              <SectionBlock
               title="Centre notifications"
               subtitle="Alertes opérationnelles et suivi quotidien"
               actions={
@@ -286,11 +303,11 @@ export default function AdminPage() {
                   ))
                 )}
               </div>
-            </SectionBlock>
-          </div>
+              </SectionBlock>
+            </div> : null}
 
-          <div id="audit-trail">
-            <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
+            {showAudit ? <div id="audit-trail">
+              <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
               <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
                 {auditTrail.length === 0 ? (
                   <p className="text-sm text-ms-ink/65">Aucune entrée d&apos;audit.</p>
@@ -306,11 +323,12 @@ export default function AdminPage() {
                   ))
                 )}
               </div>
-            </SectionBlock>
-          </div>
-        </section>
+              </SectionBlock>
+            </div> : null}
+          </section>
+        ) : null}
 
-        {isOwner ? (
+        {isOwner && showUsers ? (
           <SectionBlock title="Gestion admin" subtitle="Visible uniquement pour le compte proprietaire Discord baptiste_72">
             <div className="grid gap-3 text-sm">
               <select
@@ -401,7 +419,7 @@ export default function AdminPage() {
           </SectionBlock>
         ) : null}
 
-        <div id="performance-reports">
+        {showReports ? <div id="performance-reports">
           <SectionBlock title="Performance par agent" subtitle="Qui a fait signer le plus de contrats ?">
             <div className="space-y-3 md:hidden">
               {performance.map((agent) => (
@@ -435,9 +453,9 @@ export default function AdminPage() {
               </table>
             </div>
           </SectionBlock>
-        </div>
+        </div> : null}
 
-        <DocumentTemplateManager onStatus={setStatus} />
+        {showDashboard ? <DocumentTemplateManager onStatus={setStatus} /> : null}
       </div>
     </main>
   );

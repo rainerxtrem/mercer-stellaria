@@ -85,11 +85,17 @@ type PricingItem = {
   isActive: boolean;
 };
 
+export type DirectionSettingsModuleView = "all" | "users_roles" | "permissions" | "pricing";
+
+export type DirectionSettingsPageProps = {
+  moduleView?: DirectionSettingsModuleView;
+};
+
 function sortGrades(values: Grade[]) {
   return [...values].sort((a, b) => a.rank - b.rank);
 }
 
-export default function AdminSettingsPage() {
+export default function AdminSettingsPage({ moduleView = "all" }: DirectionSettingsPageProps) {
   const [status, setStatus] = useState("");
 
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -139,6 +145,9 @@ export default function AdminSettingsPage() {
   });
 
   const selectedUser = useMemo(() => users.find((user) => user.id === selectedUserId) ?? null, [users, selectedUserId]);
+  const showUsersRoles = moduleView === "all" || moduleView === "users_roles";
+  const showPermissions = moduleView === "all" || moduleView === "permissions";
+  const showPricing = moduleView === "all" || moduleView === "pricing";
 
   const gradePermissionSet = useMemo(() => {
     const entries = permissionsData.permissions
@@ -437,7 +446,7 @@ export default function AdminSettingsPage() {
           <p className="workspace-subtitle">Gestion centralisée des utilisateurs, grades cumulables et permissions dynamiques.</p>
         </header>
 
-        <div id="settings-users-roles">
+        {showUsersRoles ? <div id="settings-users-roles">
           <SectionBlock title="Utilisateurs & Rôles" subtitle="Fiche utilisateur, activation et attribution multi-grades">
             <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">
             <div className="overflow-x-auto rounded-2xl border border-ms-navy/10 bg-white">
@@ -569,9 +578,9 @@ export default function AdminSettingsPage() {
             </div>
             </div>
           </SectionBlock>
-        </div>
+        </div> : null}
 
-        <div id="settings-permissions">
+        {showPermissions ? <div id="settings-permissions">
           <SectionBlock title="Permissions" subtitle="Matrice dynamique grade × ressources et contrôle des routes">
             <div className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
             <div className="space-y-4">
@@ -736,9 +745,9 @@ export default function AdminSettingsPage() {
             </div>
             </div>
           </SectionBlock>
-        </div>
+        </div> : null}
 
-        <SectionBlock title="Grille Tarifaire" subtitle="Catalogue central modifiable par la Direction pour la facturation Law Firm">
+        {showPricing ? <SectionBlock title="Grille Tarifaire" subtitle="Catalogue central modifiable par la Direction pour la facturation Law Firm">
           <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">
             <div className="overflow-x-auto rounded-2xl border border-ms-navy/10 bg-white">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -858,7 +867,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </div>
-        </SectionBlock>
+        </SectionBlock> : null}
       </div>
     </main>
   );

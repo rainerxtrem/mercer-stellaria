@@ -44,7 +44,7 @@ function isModuleActive(href: string, pathname: string, queryString: string, has
     return url.search === queryString;
   }
 
-  return !hash;
+  return true;
 }
 
 export function InternalSidebar() {

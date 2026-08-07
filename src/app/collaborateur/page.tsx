@@ -160,8 +160,13 @@ type ContractActionForm = {
   coverageNotes: string;
 };
 
-type CollaborateurTab = "CLIENTS" | "CLAIMS" | "REQUESTS" | "BILLING" | "CONTACT";
+export type CollaborateurTab = "CLIENTS" | "CLAIMS" | "REQUESTS" | "BILLING" | "CONTACT";
 type ClaimDossierTab = "SUMMARY" | "INSURER" | "COMMUNICATION";
+
+export type CollaborateurWorkspaceProps = {
+  forcedTab?: CollaborateurTab;
+  hideTabNavigation?: boolean;
+};
 
 const collaborateurTabs: Array<{ id: CollaborateurTab; label: string }> = [
   { id: "CLIENTS", label: "Fiches clients" },
@@ -203,12 +208,12 @@ function formatSenderRole(role: string) {
   return role;
 }
 
-export default function CollaborateurPage() {
+export default function CollaborateurPage({ forcedTab, hideTabNavigation = false }: CollaborateurWorkspaceProps) {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "ADMIN";
 
   const [status, setStatus] = useState("");
-  const [activeTab, setActiveTab] = useState<CollaborateurTab>("CLIENTS");
+  const [activeTab, setActiveTab] = useState<CollaborateurTab>(forcedTab ?? "CLIENTS");
   const [clients, setClients] = useState<Client[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
@@ -992,18 +997,20 @@ export default function CollaborateurPage() {
           <StatCard label="Demandes formule" value={String(overview.requestsToReview)} />
         </section>
 
-        <nav className="surface tab-strip p-2" aria-label="Navigation espace collaborateur">
-          {collaborateurTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`tab-pill ${activeTab === tab.id ? "tab-pill-active" : ""}`}
-            >
-              {tab.id === "CONTACT" && unreadClientCount > 0 ? `🔔 ${tab.label}` : tab.label}
-            </button>
-          ))}
-        </nav>
+        {!hideTabNavigation ? (
+          <nav className="surface tab-strip p-2" aria-label="Navigation espace collaborateur">
+            {collaborateurTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`tab-pill ${activeTab === tab.id ? "tab-pill-active" : ""}`}
+              >
+                {tab.id === "CONTACT" && unreadClientCount > 0 ? `🔔 ${tab.label}` : tab.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
 
         {unreadClientCount > 0 ? (
           <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900">

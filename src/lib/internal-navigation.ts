@@ -4,6 +4,7 @@ export type InternalSpaceId =
   | "collaborateur"
   | "investment"
   | "assurance"
+  | "finance"
   | "client";
 
 export type SpaceModule = {
@@ -28,15 +29,20 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Espace Avocat",
     permission: "space:law_firm",
     icon: "briefcase",
-    basePaths: ["/cabinet/espace"],
-    defaultHref: "/cabinet/espace",
+    basePaths: ["/law"],
+    defaultHref: "/law/dashboard",
     modules: [
-      { id: "dashboard", label: "Tableau de bord", href: "/cabinet/espace" },
-      { id: "cases", label: "Dossiers", href: "/cabinet/espace#law-firm-matters" },
-      { id: "tasks", label: "Taches", href: "/cabinet/espace#law-firm-tasks" },
-      { id: "billing", label: "Facturation", href: "/cabinet/espace#law-firm-invoice-form" },
-      { id: "documents", label: "Generateur de documents", href: "/cabinet/espace#law-firm-documents" },
-      { id: "activity", label: "Activite", href: "/cabinet/espace#law-firm-activity" },
+      { id: "dashboard", label: "Tableau de bord", href: "/law/dashboard" },
+      { id: "cases", label: "Dossiers", href: "/law/cases" },
+      { id: "clients", label: "Clients", href: "/law/clients" },
+      { id: "tasks", label: "Taches", href: "/law/tasks" },
+      { id: "billing", label: "Facturation", href: "/law/billing" },
+      { id: "document-generator", label: "Generateur de documents", href: "/law/document-generator" },
+      { id: "library", label: "Bibliotheque", href: "/law/library" },
+      { id: "trainings", label: "Formations", href: "/law/trainings" },
+      { id: "bar-exam", label: "Examen Barreau", href: "/law/bar-exam" },
+      { id: "disciplinary", label: "Disciplinaire", href: "/law/disciplinary" },
+      { id: "profile", label: "Mon espace", href: "/law/profile" },
     ],
   },
   {
@@ -44,16 +50,17 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Espace Direction",
     permission: "space:direction",
     icon: "shield",
-    basePaths: ["/admin"],
-    defaultHref: "/admin",
+    basePaths: ["/direction"],
+    defaultHref: "/direction/dashboard",
     modules: [
-      { id: "dashboard", label: "Tableau de bord", href: "/admin" },
-      { id: "settings", label: "Parametres", href: "/admin/parametres" },
-      { id: "users_roles", label: "Utilisateurs & Roles", href: "/admin/parametres#settings-users-roles" },
-      { id: "permissions", label: "Permissions", href: "/admin/parametres#settings-permissions" },
-      { id: "audit", label: "Journal d'audit", href: "/admin#audit-trail" },
-      { id: "notifications", label: "Notifications", href: "/admin#notifications-feed" },
-      { id: "reports", label: "Rapports", href: "/admin#performance-reports" },
+      { id: "dashboard", label: "Tableau de bord", href: "/direction/dashboard" },
+      { id: "settings", label: "Parametres", href: "/direction/settings" },
+      { id: "users_roles", label: "Utilisateurs & Roles", href: "/direction/users-roles" },
+      { id: "permissions", label: "Permissions", href: "/direction/permissions" },
+      { id: "audit", label: "Journal d'audit", href: "/direction/audit" },
+      { id: "notifications", label: "Notifications", href: "/direction/notifications" },
+      { id: "reports", label: "Rapports", href: "/direction/reports" },
+      { id: "profile", label: "Mon espace", href: "/direction/profile" },
     ],
   },
   {
@@ -61,25 +68,31 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Investment",
     permission: "space:investment",
     icon: "chart",
-    basePaths: ["/investment/dashboard"],
+    basePaths: ["/investment"],
     defaultHref: "/investment/dashboard",
     modules: [
       { id: "dashboard", label: "Tableau de bord", href: "/investment/dashboard" },
+      { id: "portfolio", label: "Portefeuille", href: "/investment/portfolio" },
+      { id: "analytics", label: "Analytique", href: "/investment/analytics" },
+      { id: "requests", label: "Demandes", href: "/investment/requests" },
+      { id: "profile", label: "Mon espace", href: "/investment/profile" },
     ],
   },
   {
     id: "collaborateur",
-    label: "Espace Collaborateur",
+    label: "RH",
     permission: "space:collaborateur",
     icon: "users",
-    basePaths: ["/collaborateur"],
-    defaultHref: "/collaborateur",
+    basePaths: ["/rh"],
+    defaultHref: "/rh/dashboard",
     modules: [
-      { id: "clients", label: "Clients", href: "/collaborateur?tab=CLIENTS" },
-      { id: "claims", label: "Sinistres", href: "/collaborateur?tab=CLAIMS" },
-      { id: "requests", label: "Souscriptions", href: "/collaborateur?tab=REQUESTS" },
-      { id: "billing", label: "Facturation", href: "/collaborateur?tab=BILLING" },
-      { id: "contact", label: "Contact", href: "/collaborateur?tab=CONTACT" },
+      { id: "dashboard", label: "Tableau de bord", href: "/rh/dashboard" },
+      { id: "clients", label: "Clients", href: "/rh/clients" },
+      { id: "claims", label: "Sinistres", href: "/rh/claims" },
+      { id: "requests", label: "Souscriptions", href: "/rh/requests" },
+      { id: "billing", label: "Facturation", href: "/rh/billing" },
+      { id: "contact", label: "Contact", href: "/rh/contact" },
+      { id: "profile", label: "Mon espace", href: "/rh/profile" },
     ],
   },
   {
@@ -87,18 +100,47 @@ export const INTERNAL_SPACES: InternalSpace[] = [
     label: "Assurance",
     permission: "space:client",
     icon: "heart",
-    basePaths: ["/assurances/dashboard"],
-    defaultHref: "/assurances/dashboard",
-    modules: [{ id: "dashboard", label: "Tableau de bord", href: "/assurances/dashboard" }],
+    basePaths: ["/assurance"],
+    defaultHref: "/assurance/dashboard",
+    modules: [
+      { id: "dashboard", label: "Tableau de bord", href: "/assurance/dashboard" },
+      { id: "contracts", label: "Contrats", href: "/assurance/contracts" },
+      { id: "claims", label: "Sinistres", href: "/assurance/claims" },
+      { id: "billing", label: "Facturation", href: "/assurance/billing" },
+      { id: "support", label: "Support", href: "/assurance/support" },
+      { id: "profile", label: "Mon espace", href: "/assurance/profile" },
+    ],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    permission: "space:direction",
+    icon: "chart",
+    basePaths: ["/finance"],
+    defaultHref: "/finance/dashboard",
+    modules: [
+      { id: "dashboard", label: "Tableau de bord", href: "/finance/dashboard" },
+      { id: "billing", label: "Facturation", href: "/finance/billing" },
+      { id: "treasury", label: "Tresorerie", href: "/finance/treasury" },
+      { id: "reports", label: "Rapports", href: "/finance/reports" },
+      { id: "profile", label: "Mon espace", href: "/finance/profile" },
+    ],
   },
   {
     id: "client",
     label: "Mon espace",
     permission: "space:client",
     icon: "home",
-    basePaths: ["/client"],
-    defaultHref: "/client",
-    modules: [{ id: "dashboard", label: "Tableau de bord", href: "/client" }],
+    basePaths: ["/client-space"],
+    defaultHref: "/client-space/overview",
+    modules: [
+      { id: "overview", label: "Vue d'ensemble", href: "/client-space/overview" },
+      { id: "contracts", label: "Contrats", href: "/client-space/contracts" },
+      { id: "claims", label: "Sinistres", href: "/client-space/claims" },
+      { id: "messages", label: "Messages", href: "/client-space/messages" },
+      { id: "requests", label: "Souscriptions", href: "/client-space/requests" },
+      { id: "billing", label: "Facturation", href: "/client-space/billing" },
+    ],
   },
 ];
 
@@ -112,4 +154,13 @@ export function getActiveSpace(pathname: string, visibleSpaces: InternalSpace[])
     visibleSpaces[0] ??
     null
   );
+}
+
+export function getActiveModule(pathname: string, visibleSpaces: InternalSpace[]) {
+  const activeSpace = getActiveSpace(pathname, visibleSpaces);
+  if (!activeSpace) {
+    return null;
+  }
+
+  return activeSpace.modules.find((module) => module.href === pathname) ?? null;
 }

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MarketingFooter } from "@/components/navigation/marketing-footer";
 import { MarketingHeader } from "@/components/navigation/marketing-header";
-import { ArrowRight, FileText, Landmark, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, FileText, Landmark, ShieldCheck, Sparkles, TriangleAlert, Wallet } from "lucide-react";
 
 const entities = [
   {
@@ -29,25 +29,36 @@ const entities = [
     iconRingClass: "border-ms-sky/45 bg-ms-sky/15",
     badgeClass: "text-[#1f5d8b]",
   },
+  {
+    badge: "Investissement",
+    title: "Mercer & Stellaria Investment",
+    text: "Gestion d'actifs, capital-investissement et solutions patrimoniales pour clients privés et institutionnels.",
+    href: "/investment",
+    icon: Wallet,
+    cta: "Voir le pôle Investissement",
+    surfaceClass: "border-[#8fb89c]/55 bg-gradient-to-br from-[#f2faf4] via-white to-[#e8f5ec]",
+    iconRingClass: "border-[#8fb89c]/65 bg-[#8fb89c]/18",
+    badgeClass: "text-[#2f6b46]",
+  },
 ];
 
 const insuranceQuickActions = [
   {
     label: "Accéder à mon espace",
     hint: "Contrats, paiements, messagerie conseiller.",
-    href: "/connexion?space=assure",
+    href: "/connexion?service=assurance",
     Icon: ShieldCheck,
   },
   {
     label: "Télécharger une attestation",
     hint: "Retrouvez vos documents contractuels en quelques clics.",
-    href: "/connexion?space=assure",
+    href: "/connexion?service=assurance",
     Icon: FileText,
   },
   {
     label: "Déclarer un sinistre",
     hint: "Lancez votre dossier et joignez les pièces nécessaires.",
-    href: "/connexion?space=assure",
+    href: "/connexion?service=assurance",
     Icon: TriangleAlert,
   },
 ];
@@ -55,7 +66,7 @@ const insuranceQuickActions = [
 export default function Home() {
   return (
     <div className="brand-shell brand-lattice flex flex-1 flex-col">
-      <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Holding | Law Office | Insurance" />
+      <MarketingHeader activeTab="HOME" title="Mercer & Stellaria Corporation" subtitle="Holding | Law Office | Insurance | Investment" />
 
       <main className="mx-auto w-full max-w-[1500px] px-4 pb-14 pt-6 lg:px-8">
         <section className="relative overflow-hidden rounded-[30px] border border-ms-gold/30 bg-ms-navy text-ms-cream shadow-[0_26px_70px_rgba(15,32,67,0.24)]">
@@ -138,7 +149,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-2">
+        <section className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {entities.map((entity) => {
             const Icon = entity.icon;
             return (

@@ -6,15 +6,15 @@ import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
 
-type ConnexionSpace = "assure" | "cabinet" | "default";
+type ConnexionService = "assurance" | "investment" | "default";
 
-function resolveConnexionSpace(value: string | null): ConnexionSpace {
-  if (value === "assure") {
-    return "assure";
+function resolveConnexionService(value: string | null): ConnexionService {
+  if (value === "assurance" || value === "assure") {
+    return "assurance";
   }
 
-  if (value === "cabinet") {
-    return "cabinet";
+  if (value === "investment" || value === "cabinet") {
+    return "investment";
   }
 
   return "default";
@@ -26,16 +26,16 @@ export default function ConnexionPage() {
   const [status, setStatus] = useState<string>("");
   const [queryState] = useState(() => {
     if (typeof window === "undefined") {
-      return { oauthError: null as string | null, requestedSpace: "default" as ConnexionSpace };
+      return { oauthError: null as string | null, requestedService: "default" as ConnexionService };
     }
 
     const params = new URLSearchParams(window.location.search);
     return {
       oauthError: params.get("error"),
-      requestedSpace: resolveConnexionSpace(params.get("space")),
+      requestedService: resolveConnexionService(params.get("service") ?? params.get("space")),
     };
   });
-  const { oauthError, requestedSpace } = queryState;
+  const { oauthError, requestedService } = queryState;
 
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const identity = useMemo(() => {
@@ -50,9 +50,9 @@ export default function ConnexionPage() {
 
   async function handleDiscordSignIn() {
     setStatus("Redirection vers Discord...");
-    const callbackUrl = requestedSpace === "default"
+    const callbackUrl = requestedService === "default"
       ? "/connexion"
-      : `/connexion?space=${requestedSpace}`;
+      : `/connexion?service=${requestedService}`;
 
     await signIn("discord", { callbackUrl });
   }
@@ -71,10 +71,10 @@ export default function ConnexionPage() {
       const target = getDefaultSpaceForRole(role);
       router.replace(target);
     }
-  }, [session?.user, role, requestedSpace, router]);
+  }, [session?.user, role, requestedService, router]);
 
-  const redirectLabel = requestedSpace === "cabinet"
-    ? "votre espace client"
+  const redirectLabel = requestedService === "investment"
+    ? "votre espace investisseur"
     : "votre espace assuré";
 
   return (

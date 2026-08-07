@@ -4,9 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { AppRole, getDefaultSpaceForRole } from "@/lib/rbac";
-import { ChevronDown, Scale, ShieldCheck } from "lucide-react";
+import { ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
 
-type MarketingHeaderTab = "HOME" | "CABINET" | "ASSURANCES";
+type MarketingHeaderTab = "HOME" | "CABINET" | "ASSURANCES" | "INVESTMENT";
 
 type MarketingHeaderProps = {
   activeTab: MarketingHeaderTab;
@@ -19,6 +19,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
   const role = ((session?.user?.role as AppRole | undefined) ?? "PUBLIC");
   const roleTarget = getDefaultSpaceForRole(role);
   const requiresOnboarding = role === "CLIENT" && !session?.user?.profileCompleted;
+  const brandSubtitle = "Holding | Law Office | Insurance | Investment";
 
   return (
     <header className="sticky top-0 z-30 border-b border-ms-navy/10 bg-white/80 backdrop-blur">
@@ -34,7 +35,10 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
           />
           <div>
             <p className="agency-name text-2xl font-semibold tracking-wide text-ms-navy">{title}</p>
-            <p className="text-[11px] uppercase tracking-[0.28em] text-ms-navy-soft">{subtitle}</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-ms-navy-soft">{brandSubtitle}</p>
+            {subtitle && subtitle !== brandSubtitle ? (
+              <p className="text-[10px] tracking-[0.12em] text-ms-ink/65">{subtitle}</p>
+            ) : null}
           </div>
         </div>
 
@@ -42,6 +46,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
           <Link href="/" className={`tab-pill ${activeTab === "HOME" ? "tab-pill-active" : ""}`}>Accueil</Link>
           <Link href="/cabinet" className={`tab-pill ${activeTab === "CABINET" ? "tab-pill-active" : ""}`}>Avocats</Link>
           <Link href="/assurances" className={`tab-pill ${activeTab === "ASSURANCES" ? "tab-pill-active" : ""}`}>Assurances</Link>
+          <Link href="/investment" className={`tab-pill ${activeTab === "INVESTMENT" ? "tab-pill-active" : ""}`}>Investissement</Link>
         </nav>
 
         {!session?.user ? (
@@ -53,7 +58,7 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
                 aria-haspopup="menu"
               >
                 <span className="text-left text-[13px] font-semibold leading-tight">
-                  Accès Client & Assuré
+                  Connexion Espaces Clients
                 </span>
                 <ChevronDown size={16} className="text-ms-navy/75 transition group-hover:rotate-180 group-focus-visible:rotate-180" />
               </button>
@@ -62,34 +67,34 @@ export function MarketingHeader({ activeTab, title, subtitle }: MarketingHeaderP
                   Choisissez votre espace de connexion
                 </p>
                 <Link
-                  href="/connexion?space=assure"
+                  href="/connexion?service=assurance"
                   className="flex items-start gap-3 rounded-2xl border border-ms-navy/10 bg-ms-mist/70 px-3 py-3 transition hover:border-ms-sky/70 hover:bg-ms-mist"
                 >
                   <ShieldCheck size={16} className="mt-0.5 text-ms-navy" />
                   <span>
-                    <span className="block text-sm font-semibold text-ms-navy">Espace Assuré (Contrats & Attestations)</span>
+                    <span className="block text-sm font-semibold text-ms-navy">Espace Assuré (Assurance)</span>
                     <span className="block text-xs text-ms-ink/70">Suivi des contrats, attestations et sinistres.</span>
                   </span>
                 </Link>
                 <Link
-                  href="/connexion?space=cabinet"
+                  href="/connexion?service=investment"
                   className="mt-2 flex items-start gap-3 rounded-2xl border border-ms-navy/10 bg-white px-3 py-3 transition hover:border-ms-gold/70 hover:bg-[#fdf8ef]"
                 >
-                  <Scale size={16} className="mt-0.5 text-ms-navy" />
+                  <Sparkles size={16} className="mt-0.5 text-ms-navy" />
                   <span>
-                    <span className="block text-sm font-semibold text-ms-navy">Espace Client Cabinet</span>
-                    <span className="block text-xs text-ms-ink/70">Accès dossier juridique et accompagnement conseil.</span>
+                    <span className="block text-sm font-semibold text-ms-navy">Espace Investisseur (Investment)</span>
+                    <span className="block text-xs text-ms-ink/70">Pilotage des portefeuilles et suivi des allocations.</span>
                   </span>
                 </Link>
               </div>
             </div>
 
             <div className="grid w-full gap-2 lg:hidden">
-              <Link href="/connexion?space=assure" className="marketing-header-action">
-                Espace Assuré (Contrats & Attestations)
+              <Link href="/connexion?service=assurance" className="marketing-header-action">
+                Espace Assuré (Assurance)
               </Link>
-              <Link href="/connexion?space=cabinet" className="marketing-header-action">
-                Espace Client Cabinet
+              <Link href="/connexion?service=investment" className="marketing-header-action">
+                Espace Investisseur (Investment)
               </Link>
             </div>
 

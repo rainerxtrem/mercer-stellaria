@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { ClaimStatus, ContractCategory, SubscriptionRequestStatus } from "@/generated/prisma/enums";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   getContractStatusLabel,
@@ -961,8 +960,7 @@ export default function CollaborateurPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <WorkspaceSidebar space="collaborateur" currentPath="/collaborateur" />
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">

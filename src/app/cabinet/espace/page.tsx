@@ -3,7 +3,6 @@
 import { DocumentTemplateManager } from "@/components/admin/document-template-manager";
 import { MetricsGrid } from "@/components/dashboard/metrics-grid";
 import { SectionBlock } from "@/components/dashboard/section-block";
-import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -596,8 +595,6 @@ export default function LawFirmWorkspacePage() {
   return (
     <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-4 lg:px-8 lg:py-6">
       <div className="workspace-grid grid gap-4 lg:gap-6">
-        <RoleSwitcher currentPath="/cabinet/espace" />
-
         <header className="workspace-hero">
           <p className="workspace-kicker">Law Firm</p>
           <h1 className="workspace-title">Espace de travail juridique</h1>

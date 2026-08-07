@@ -3,7 +3,6 @@
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { DocumentTemplateManager } from "@/components/admin/document-template-manager";
-import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -192,8 +191,7 @@ export default function AdminPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <WorkspaceSidebar space="admin" currentPath="/admin" />
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
@@ -261,51 +259,55 @@ export default function AdminPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <SectionBlock
-            title="Centre notifications"
-            subtitle="Alertes opérationnelles et suivi quotidien"
-            actions={
-              <button
-                type="button"
-                className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
-                onClick={() => void markNotificationsAsRead()}
-              >
-                Tout marquer lu ({feedUnreadCount})
-              </button>
-            }
-          >
-            <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
-              {notificationFeed.length === 0 ? (
-                <p className="text-sm text-ms-ink/65">Aucune notification disponible.</p>
-              ) : (
-                notificationFeed.slice(0, 10).map((item) => (
-                  <article key={item.id} className={`rounded-lg border p-3 ${item.isRead ? "border-ms-navy/10 bg-ms-cream/40" : "border-ms-gold/35 bg-ms-gold/10"}`}>
-                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.title}</p>
-                    <p className="mt-1 text-sm text-ms-ink/85">{item.body}</p>
-                    <p className="mt-1 text-xs text-ms-ink/60">{new Date(item.createdAt).toLocaleString("fr-FR")}</p>
-                  </article>
-                ))
-              )}
-            </div>
-          </SectionBlock>
+          <div id="notifications-feed">
+            <SectionBlock
+              title="Centre notifications"
+              subtitle="Alertes opérationnelles et suivi quotidien"
+              actions={
+                <button
+                  type="button"
+                  className="rounded-full border border-ms-navy/20 px-3 py-1 text-xs font-semibold text-ms-navy"
+                  onClick={() => void markNotificationsAsRead()}
+                >
+                  Tout marquer lu ({feedUnreadCount})
+                </button>
+              }
+            >
+              <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+                {notificationFeed.length === 0 ? (
+                  <p className="text-sm text-ms-ink/65">Aucune notification disponible.</p>
+                ) : (
+                  notificationFeed.slice(0, 10).map((item) => (
+                    <article key={item.id} className={`rounded-lg border p-3 ${item.isRead ? "border-ms-navy/10 bg-ms-cream/40" : "border-ms-gold/35 bg-ms-gold/10"}`}>
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.title}</p>
+                      <p className="mt-1 text-sm text-ms-ink/85">{item.body}</p>
+                      <p className="mt-1 text-xs text-ms-ink/60">{new Date(item.createdAt).toLocaleString("fr-FR")}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </SectionBlock>
+          </div>
 
-          <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
-            <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
-              {auditTrail.length === 0 ? (
-                <p className="text-sm text-ms-ink/65">Aucune entrée d&apos;audit.</p>
-              ) : (
-                auditTrail.slice(0, 15).map((item) => (
-                  <article key={item.id} className="rounded-lg border border-ms-navy/10 bg-ms-cream/40 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.action}</p>
-                    <p className="mt-1 text-sm text-ms-ink/85">{item.summary}</p>
-                    <p className="mt-1 text-xs text-ms-ink/60">
-                      {new Date(item.createdAt).toLocaleString("fr-FR")} · {item.actor?.fullName ?? "Système"}
-                    </p>
-                  </article>
-                ))
-              )}
-            </div>
-          </SectionBlock>
+          <div id="audit-trail">
+            <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
+              <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
+                {auditTrail.length === 0 ? (
+                  <p className="text-sm text-ms-ink/65">Aucune entrée d&apos;audit.</p>
+                ) : (
+                  auditTrail.slice(0, 15).map((item) => (
+                    <article key={item.id} className="rounded-lg border border-ms-navy/10 bg-ms-cream/40 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ms-navy-soft">{item.action}</p>
+                      <p className="mt-1 text-sm text-ms-ink/85">{item.summary}</p>
+                      <p className="mt-1 text-xs text-ms-ink/60">
+                        {new Date(item.createdAt).toLocaleString("fr-FR")} · {item.actor?.fullName ?? "Système"}
+                      </p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </SectionBlock>
+          </div>
         </section>
 
         {isOwner ? (
@@ -399,39 +401,41 @@ export default function AdminPage() {
           </SectionBlock>
         ) : null}
 
-        <SectionBlock title="Performance par agent" subtitle="Qui a fait signer le plus de contrats ?">
-          <div className="space-y-3 md:hidden">
-            {performance.map((agent) => (
-              <article key={agent.name} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
-                <p className="text-sm font-semibold text-ms-navy">{agent.name}</p>
-                <div className="mt-3 grid gap-1 text-sm text-ms-ink/80">
-                  <p>Contrats signés: {agent.signedContracts}</p>
-                  <p>Taux de conversion: {agent.conversionRate}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[620px] text-left text-sm">
-              <thead className="text-ms-navy-soft">
-                <tr>
-                  <th className="pb-3">Collaborateur</th>
-                  <th className="pb-3">Contrats signés</th>
-                  <th className="pb-3">Taux de conversion</th>
-                </tr>
-              </thead>
-              <tbody className="text-ms-ink/85">
-                {performance.map((agent) => (
-                  <tr key={agent.name} className="border-t border-ms-navy/10">
-                    <td className="py-3">{agent.name}</td>
-                    <td className="py-3">{agent.signedContracts}</td>
-                    <td className="py-3">{agent.conversionRate}</td>
+        <div id="performance-reports">
+          <SectionBlock title="Performance par agent" subtitle="Qui a fait signer le plus de contrats ?">
+            <div className="space-y-3 md:hidden">
+              {performance.map((agent) => (
+                <article key={agent.name} className="rounded-2xl border border-ms-navy/10 bg-white p-4">
+                  <p className="text-sm font-semibold text-ms-navy">{agent.name}</p>
+                  <div className="mt-3 grid gap-1 text-sm text-ms-ink/80">
+                    <p>Contrats signés: {agent.signedContracts}</p>
+                    <p>Taux de conversion: {agent.conversionRate}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[620px] text-left text-sm">
+                <thead className="text-ms-navy-soft">
+                  <tr>
+                    <th className="pb-3">Collaborateur</th>
+                    <th className="pb-3">Contrats signés</th>
+                    <th className="pb-3">Taux de conversion</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionBlock>
+                </thead>
+                <tbody className="text-ms-ink/85">
+                  {performance.map((agent) => (
+                    <tr key={agent.name} className="border-t border-ms-navy/10">
+                      <td className="py-3">{agent.name}</td>
+                      <td className="py-3">{agent.signedContracts}</td>
+                      <td className="py-3">{agent.conversionRate}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SectionBlock>
+        </div>
 
         <DocumentTemplateManager onStatus={setStatus} />
       </div>

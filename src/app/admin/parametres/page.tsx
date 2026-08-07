@@ -1,7 +1,6 @@
 "use client";
 
 import { SectionBlock } from "@/components/dashboard/section-block";
-import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { PermissionResourceType, RouteMatchType } from "@/generated/prisma/enums";
 import { useEffect, useMemo, useState } from "react";
 
@@ -413,8 +412,7 @@ export default function AdminSettingsPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <WorkspaceSidebar space="admin" currentPath="/admin/parametres" />
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
@@ -439,8 +437,9 @@ export default function AdminSettingsPage() {
           <p className="workspace-subtitle">Gestion centralisée des utilisateurs, grades cumulables et permissions dynamiques.</p>
         </header>
 
-        <SectionBlock title="Utilisateurs & Rôles" subtitle="Fiche utilisateur, activation et attribution multi-grades">
-          <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">
+        <div id="settings-users-roles">
+          <SectionBlock title="Utilisateurs & Rôles" subtitle="Fiche utilisateur, activation et attribution multi-grades">
+            <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">
             <div className="overflow-x-auto rounded-2xl border border-ms-navy/10 bg-white">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-ms-cream/40 text-ms-navy-soft">
@@ -568,11 +567,13 @@ export default function AdminSettingsPage() {
                 <p className="text-ms-ink/70">Sélectionnez un utilisateur dans la liste.</p>
               )}
             </div>
-          </div>
-        </SectionBlock>
+            </div>
+          </SectionBlock>
+        </div>
 
-        <SectionBlock title="Permissions" subtitle="Matrice dynamique grade × ressources et contrôle des routes">
-          <div className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
+        <div id="settings-permissions">
+          <SectionBlock title="Permissions" subtitle="Matrice dynamique grade × ressources et contrôle des routes">
+            <div className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
             <div className="space-y-4">
               <div className="rounded-2xl border border-ms-navy/10 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -733,8 +734,9 @@ export default function AdminSettingsPage() {
                 ))}
               </div>
             </div>
-          </div>
-        </SectionBlock>
+            </div>
+          </SectionBlock>
+        </div>
 
         <SectionBlock title="Grille Tarifaire" subtitle="Catalogue central modifiable par la Direction pour la facturation Law Firm">
           <div className="grid gap-6 xl:grid-cols-[1.35fr,1fr]">

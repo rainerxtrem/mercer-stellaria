@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { MetricsGrid } from "@/components/dashboard/metrics-grid";
 import { QuickActions } from "@/components/dashboard/quick-actions";
-import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { SignaturePad } from "@/components/signature/signature-pad";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -746,7 +745,6 @@ export default function ClientPage() {
           </div>
         ) : null}
 
-        <RoleSwitcher currentPath="/client" />
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Client</p>
           <h1 className="workspace-title">Tableau de bord</h1>

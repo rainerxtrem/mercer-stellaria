@@ -10,7 +10,6 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { DataTable } from "@/components/dashboard/data-table";
 import { RoleModeSwitch } from "@/components/dashboard/role-mode-switch";
 import { RiskProfileModal } from "@/components/dashboard/risk-profile-modal";
-import { RoleSwitcher } from "@/components/navigation/role-switcher";
 import { AppRole } from "@/lib/rbac";
 import { buildEmptyOperationalDataset, ManagerClientRow } from "@/components/dashboard/operational-mock";
 
@@ -269,8 +268,6 @@ export default function AssurancesDashboardPage() {
   return (
     <main className="workspace-shell mx-auto w-full max-w-[1500px] px-4 py-4 lg:px-8 lg:py-6">
       <div className="workspace-grid grid gap-4 lg:gap-6">
-        <RoleSwitcher currentPath="/assurances/dashboard" />
-
         <header className="workspace-hero">
           <p className="workspace-kicker">Assurances</p>
           <h1 className="workspace-title">Dashboard Assurances</h1>

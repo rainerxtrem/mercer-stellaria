@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClaimStatusLabel, getContractStatusLabel, getSubscriptionRequestStatusLabel } from "@/lib/status-mapping";
@@ -195,8 +194,7 @@ export default function CollaborateurClientDossierPage() {
   if (!data) {
     return (
       <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-        <WorkspaceSidebar space="collaborateur" currentPath="/collaborateur" />
-        <div className="workspace-grid mx-auto w-full max-w-7xl lg:pl-[19rem]">
+        <div className="workspace-grid mx-auto w-full max-w-7xl">
           {status ? (
             <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
               <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
@@ -223,8 +221,7 @@ export default function CollaborateurClientDossierPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <WorkspaceSidebar space="collaborateur" currentPath="/collaborateur" />
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">

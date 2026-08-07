@@ -8,9 +8,13 @@ import { z } from "zod";
 const matterStatuses = ["IN_PROGRESS", "PENDING", "HOLD", "CLOSED"] as const;
 
 const createMatterSchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: z.string().uuid().optional(),
+  clientIds: z.array(z.string().uuid()).min(1).optional(),
   title: z.string().min(3).max(160),
   summary: z.string().min(3).max(4000).optional(),
+}).refine((data) => Boolean(data.clientId) || Boolean(data.clientIds?.length), {
+  message: "Au moins un client doit être sélectionné.",
+  path: ["clientIds"],
 });
 
 const updateMatterSchema = z.object({
@@ -44,11 +48,20 @@ export async function GET(request: NextRequest) {
             { summary: { contains: search } },
             { client: { fullName: { contains: search } } },
             { client: { email: { contains: search } } },
+            { participants: { some: { client: { fullName: { contains: search } } } } },
+            { participants: { some: { client: { firstName: { contains: search } } } } },
+            { participants: { some: { client: { lastName: { contains: search } } } } },
+            { participants: { some: { client: { citizenUniqueId: { contains: search } } } } },
           ]
         : undefined,
     },
     include: {
       client: { select: { id: true, fullName: true, email: true, phone: true } },
+      participants: {
+        select: {
+          client: { select: { id: true, fullName: true, firstName: true, lastName: true, email: true, citizenUniqueId: true } },
+        },
+      },
       createdBy: { select: { id: true, fullName: true, email: true } },
       updatedBy: { select: { id: true, fullName: true, email: true } },
       messages: { select: { id: true }, take: 1, orderBy: { createdAt: "desc" } },
@@ -74,27 +87,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const client = await prisma.user.findFirst({
-    where: { id: parsed.data.clientId, role: { in: [UserRole.CLIENT, UserRole.COLLABORATOR, UserRole.ADMIN] } },
+  const selectedClientIds = [...new Set([...(parsed.data.clientIds ?? []), ...(parsed.data.clientId ? [parsed.data.clientId] : [])])];
+
+  const clients = await prisma.user.findMany({
+    where: { id: { in: selectedClientIds }, role: { in: [UserRole.CLIENT, UserRole.COLLABORATOR, UserRole.ADMIN] } },
     select: { id: true },
   });
 
-  if (!client) {
-    return NextResponse.json({ error: "Client introuvable." }, { status: 404 });
+  if (clients.length !== selectedClientIds.length) {
+    return NextResponse.json({ error: "Un ou plusieurs clients sont introuvables." }, { status: 404 });
   }
+
+  const primaryClientId = selectedClientIds[0];
 
   const matter = await prisma.lawMatter.create({
     data: {
       matterNumber: await buildChronologicalNumber("DOS", "law_matter"),
-      clientId: parsed.data.clientId,
+      clientId: primaryClientId,
       title: parsed.data.title,
       summary: parsed.data.summary,
       createdById: auth.user.id,
       updatedById: auth.user.id,
       lastActivityAt: new Date(),
+      participants: {
+        createMany: {
+          data: selectedClientIds.map((clientId) => ({ clientId })),
+        },
+      },
     },
     include: {
       client: { select: { id: true, fullName: true, email: true, phone: true } },
+      participants: {
+        select: {
+          client: { select: { id: true, fullName: true, firstName: true, lastName: true, email: true, citizenUniqueId: true } },
+        },
+      },
       createdBy: { select: { id: true, fullName: true, email: true } },
       updatedBy: { select: { id: true, fullName: true, email: true } },
     },
@@ -139,6 +166,11 @@ export async function PATCH(request: NextRequest) {
     },
     include: {
       client: { select: { id: true, fullName: true, email: true, phone: true } },
+      participants: {
+        select: {
+          client: { select: { id: true, fullName: true, firstName: true, lastName: true, email: true, citizenUniqueId: true } },
+        },
+      },
       createdBy: { select: { id: true, fullName: true, email: true } },
       updatedBy: { select: { id: true, fullName: true, email: true } },
       messages: { select: { id: true }, take: 1, orderBy: { createdAt: "desc" } },

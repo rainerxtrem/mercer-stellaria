@@ -17,6 +17,18 @@ type LawMatter = {
   status: "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED";
   isArchived: boolean;
   client: { id: string; fullName: string; email: string; phone: string | null };
+  participants?: Array<{
+    client: { id: string; fullName: string; firstName: string | null; lastName: string | null; email: string; citizenUniqueId: string | null };
+  }>;
+};
+
+type MatterClientOption = {
+  id: string;
+  fullName: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  citizenUniqueId: string | null;
 };
 
 type MatterMessage = {
@@ -61,7 +73,7 @@ type Task = {
 
 type SearchResult = {
   users: Array<{ id: string; fullName: string; email: string; role: string }>;
-  matters: Array<{ id: string; title: string; matterNumber: string; status: string; isArchived: boolean; client: { fullName: string; email: string } }>;
+  matters: Array<{ id: string; title: string; matterNumber: string; status: string; isArchived: boolean; client: { fullName: string; email: string }; participants?: Array<{ client: { fullName: string; citizenUniqueId: string | null } }> }>;
   invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; matter: { title: string }; client: { fullName: string } }>;
   documents: Array<{ id: string; title: string; documentNumber: string; signedAt: string | null }>;
 };
@@ -78,6 +90,7 @@ export default function LawFirmWorkspacePage() {
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [matters, setMatters] = useState<LawMatter[]>([]);
+  const [matterClients, setMatterClients] = useState<MatterClientOption[]>([]);
   const [invoices, setInvoices] = useState<LawInvoice[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskForm, setTaskForm] = useState({ matterId: "", title: "", description: "", dueDate: "" });
@@ -87,6 +100,12 @@ export default function LawFirmWorkspacePage() {
   const [matterStatusFilter, setMatterStatusFilter] = useState<"ALL" | "IN_PROGRESS" | "PENDING" | "HOLD" | "CLOSED">("ALL");
   const [showArchivedMatters, setShowArchivedMatters] = useState(false);
   const [matterSearch, setMatterSearch] = useState("");
+  const [matterClientQuery, setMatterClientQuery] = useState("");
+  const [matterCreateForm, setMatterCreateForm] = useState({
+    title: "",
+    summary: "",
+    clientIds: [] as string[],
+  });
   const [pricingCatalog, setPricingCatalog] = useState<PricingItem[]>([]);
   const [invoiceFormSaving, setInvoiceFormSaving] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
@@ -118,12 +137,13 @@ export default function LawFirmWorkspacePage() {
   }, [router, status]);
 
   async function loadWorkspace() {
-    const [dashboardRes, mattersRes, invoicesRes, tasksRes, pricingRes] = await Promise.all([
+    const [dashboardRes, mattersRes, invoicesRes, tasksRes, pricingRes, clientsRes] = await Promise.all([
       fetch("/api/law-firm/dashboard"),
       fetch("/api/law-firm/matters"),
       fetch("/api/law-firm/invoices"),
       fetch("/api/law-firm/tasks"),
       fetch("/api/law-firm/pricing"),
+      fetch("/api/law-firm/clients"),
     ]);
 
     if (dashboardRes.ok) {
@@ -140,6 +160,9 @@ export default function LawFirmWorkspacePage() {
     }
     if (pricingRes.ok) {
       setPricingCatalog((await pricingRes.json()).data ?? []);
+    }
+    if (clientsRes.ok) {
+      setMatterClients((await clientsRes.json()).data ?? []);
     }
   }
 
@@ -169,6 +192,20 @@ export default function LawFirmWorkspacePage() {
 
   const selectedMatter = useMemo(() => matters.find((matter) => matter.id === selectedMatterId) ?? null, [matters, selectedMatterId]);
   const selectedInvoice = useMemo(() => invoices.find((invoice) => invoice.id === selectedInvoiceId) ?? null, [invoices, selectedInvoiceId]);
+  const selectedMatterClients = useMemo(
+    () => matterClients.filter((client) => matterCreateForm.clientIds.includes(client.id)),
+    [matterClients, matterCreateForm.clientIds],
+  );
+  const filteredMatterClients = useMemo(() => {
+    const query = matterClientQuery.trim().toLowerCase();
+    return matterClients.filter((client) => {
+      if (!query) {
+        return true;
+      }
+      const haystack = `${client.fullName} ${client.firstName ?? ""} ${client.lastName ?? ""} ${client.citizenUniqueId ?? ""}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [matterClients, matterClientQuery]);
   const filteredMatters = useMemo(
     () =>
       matters.filter((matter) => {
@@ -180,7 +217,8 @@ export default function LawFirmWorkspacePage() {
         }
         if (matterSearch.trim()) {
           const keyword = matterSearch.trim().toLowerCase();
-          const haystack = `${matter.matterNumber} ${matter.title} ${matter.client.fullName} ${matter.client.email}`.toLowerCase();
+          const participantText = (matter.participants ?? []).map((entry) => `${entry.client.fullName} ${entry.client.citizenUniqueId ?? ""}`).join(" ");
+          const haystack = `${matter.matterNumber} ${matter.title} ${matter.client.fullName} ${matter.client.email} ${participantText}`.toLowerCase();
           return haystack.includes(keyword);
         }
 
@@ -210,18 +248,38 @@ export default function LawFirmWorkspacePage() {
     await loadMatterMessages(matterId);
   }
 
+  function toggleMatterClient(clientId: string) {
+    setMatterCreateForm((prev) => ({
+      ...prev,
+      clientIds: prev.clientIds.includes(clientId) ? prev.clientIds.filter((value) => value !== clientId) : [...prev.clientIds, clientId],
+    }));
+  }
+
   async function createMatter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    if (!matterCreateForm.title.trim()) {
+      setStatusMessage("Le titre du dossier est requis.");
+      return;
+    }
+    if (matterCreateForm.clientIds.length === 0) {
+      setStatusMessage("Sélectionnez au moins un client.");
+      return;
+    }
+
     const response = await fetch("/api/law-firm/matters", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        clientId: String(form.get("clientId")),
-        title: String(form.get("title")),
-        summary: String(form.get("summary") || "") || undefined,
+        clientIds: matterCreateForm.clientIds,
+        title: matterCreateForm.title.trim(),
+        summary: matterCreateForm.summary.trim() || undefined,
       }),
     });
+
+    if (response.ok) {
+      setMatterCreateForm({ title: "", summary: "", clientIds: [] });
+      setMatterClientQuery("");
+    }
 
     setStatusMessage(response.ok ? "Dossier créé." : "Création de dossier impossible.");
     await loadWorkspace();
@@ -548,9 +606,7 @@ export default function LawFirmWorkspacePage() {
 
         {statusMessage ? <div className="rounded-2xl border border-ms-navy/15 bg-white px-4 py-3 text-sm font-semibold text-ms-navy">{statusMessage}</div> : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricsGrid items={metrics} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" />
-        </section>
+        <MetricsGrid items={metrics} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" />
 
         <SectionBlock title="Raccourcis rapides" subtitle="Accès direct aux actions clés du module">
           <div className="flex flex-wrap gap-2 text-sm">
@@ -575,9 +631,54 @@ export default function LawFirmWorkspacePage() {
         <section className="grid gap-6 xl:grid-cols-[1.3fr,1fr]">
           <SectionBlock title="Gestion des dossiers" subtitle="Créer, modifier, archiver et suivre les dossiers">
             <form className="grid gap-3 text-sm" onSubmit={createMatter}>
-              <input name="clientId" placeholder="ID client existant" className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5" />
-              <input name="title" placeholder="Titre du dossier" className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5" />
-              <textarea name="summary" placeholder="Résumé" className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5" />
+              <input
+                value={matterCreateForm.title}
+                onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="Titre du dossier"
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+              />
+              <textarea
+                value={matterCreateForm.summary}
+                onChange={(event) => setMatterCreateForm((prev) => ({ ...prev, summary: event.target.value }))}
+                placeholder="Résumé"
+                className="rounded-xl border border-ms-navy/15 bg-white px-4 py-2.5"
+              />
+
+              <div className="rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-ms-navy-soft">Clients du dossier</p>
+                <input
+                  value={matterClientQuery}
+                  onChange={(event) => setMatterClientQuery(event.target.value)}
+                  placeholder="Rechercher: nom, prénom ou ID citoyen unique"
+                  className="mb-2 rounded-xl border border-ms-navy/15 bg-white px-3 py-2"
+                />
+                <div className="max-h-48 space-y-1 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-2">
+                  {filteredMatterClients.slice(0, 30).map((client) => {
+                    const checked = matterCreateForm.clientIds.includes(client.id);
+                    return (
+                      <label key={client.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-ms-cream/50">
+                        <input type="checkbox" checked={checked} onChange={() => toggleMatterClient(client.id)} />
+                        <span className="text-xs">
+                          <strong>{client.fullName}</strong> - {client.citizenUniqueId ?? "ID non renseigné"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {filteredMatterClients.length === 0 ? <p className="px-2 py-1 text-xs text-ms-ink/65">Aucun client trouvé.</p> : null}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {selectedMatterClients.map((client) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => toggleMatterClient(client.id)}
+                      className="rounded-full border border-ms-navy/20 bg-white px-2.5 py-1 text-xs text-ms-navy"
+                    >
+                      {client.fullName} ×
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button className="w-fit rounded-full bg-ms-navy px-4 py-2.5 font-semibold text-white">Créer le dossier</button>
             </form>
             <div className="mt-4 grid gap-2 rounded-2xl border border-ms-navy/10 bg-ms-cream/30 p-3 text-sm md:grid-cols-[1fr,auto,auto]">
@@ -610,6 +711,11 @@ export default function LawFirmWorkspacePage() {
                     <button type="button" className="text-left" onClick={() => void selectMatter(matter.id)}>
                       <p className="font-semibold text-ms-navy">{matter.matterNumber} - {matter.title}</p>
                       <p className="text-xs text-ms-ink/70">{matter.client.fullName} - {matter.status === "HOLD" ? "EN_INSTANCE" : matter.status} {matter.isArchived ? "- archivé" : ""}</p>
+                      {(matter.participants ?? []).length > 1 ? (
+                        <p className="mt-1 text-[11px] text-ms-ink/65">
+                          Co-clients: {(matter.participants ?? []).map((entry) => entry.client.fullName).join(", ")}
+                        </p>
+                      ) : null}
                     </button>
                     <div className="flex gap-2 text-xs">
                       <button type="button" className="rounded-full border border-ms-navy/20 px-3 py-1" onClick={() => void selectMatter(matter.id)}>Ouvrir</button>

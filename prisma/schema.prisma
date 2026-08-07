@@ -169,6 +169,7 @@ model User {
   userGrades                   UserGrade[] @relation("UserGrades")
   gradeAssignmentsMade         UserGrade[] @relation("GradeAssignmentActor")
   lawMattersAsClient           LawMatter[] @relation("LawMatterClient")
+  lawMatterParticipations      LawMatterParticipant[] @relation("LawMatterParticipantUser")
   lawMattersCreated            LawMatter[] @relation("LawMatterCreator")
   lawMattersUpdated            LawMatter[] @relation("LawMatterUpdater")
   lawMattersArchived           LawMatter[] @relation("LawMatterArchiver")
@@ -214,9 +215,22 @@ model LawMatter {
   tasks         LawMatterTask[]
   invoices      LawInvoice[]
   documents     GeneratedDocument[] @relation("GeneratedDocumentMatter")
+  participants  LawMatterParticipant[] @relation("LawMatterParticipants")
 
   @@index([clientId, status])
   @@index([isArchived, lastActivityAt])
+}
+
+model LawMatterParticipant {
+  matterId    String
+  clientId    String
+  assignedAt  DateTime @default(now())
+
+  matter      LawMatter @relation("LawMatterParticipants", fields: [matterId], references: [id], onDelete: Cascade)
+  client      User      @relation("LawMatterParticipantUser", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@id([matterId, clientId])
+  @@index([clientId, assignedAt])
 }
 
 model LawMatterMessage {

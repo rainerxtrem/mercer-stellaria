@@ -3,7 +3,7 @@
 import { SectionBlock } from "@/components/dashboard/section-block";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { DocumentTemplateManager } from "@/components/admin/document-template-manager";
-import { RoleSwitcher } from "@/components/navigation/role-switcher";
+import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -192,7 +192,8 @@ export default function AdminPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
+      <WorkspaceSidebar space="admin" currentPath="/admin" />
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
@@ -211,7 +212,6 @@ export default function AdminPage() {
           </div>
         ) : null}
 
-        <RoleSwitcher currentPath="/admin" />
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Administrateur</p>
           <h1 className="workspace-title">Direction & Supervision</h1>
@@ -289,10 +289,10 @@ export default function AdminPage() {
             </div>
           </SectionBlock>
 
-          <SectionBlock title="Journal d'audit" subtitle="Traçabilité des actions sensibles">
+          <SectionBlock title="Journal d&apos;audit" subtitle="Traçabilité des actions sensibles">
             <div className="max-h-64 space-y-2 overflow-auto rounded-xl border border-ms-navy/10 bg-white p-3">
               {auditTrail.length === 0 ? (
-                <p className="text-sm text-ms-ink/65">Aucune entrée d'audit.</p>
+                <p className="text-sm text-ms-ink/65">Aucune entrée d&apos;audit.</p>
               ) : (
                 auditTrail.slice(0, 15).map((item) => (
                   <article key={item.id} className="rounded-lg border border-ms-navy/10 bg-ms-cream/40 p-3">

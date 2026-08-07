@@ -1,7 +1,7 @@
 "use client";
 
 import { SectionBlock } from "@/components/dashboard/section-block";
-import { RoleSwitcher } from "@/components/navigation/role-switcher";
+import { WorkspaceSidebar } from "@/components/navigation/workspace-sidebar";
 import { PermissionResourceType, RouteMatchType } from "@/generated/prisma/enums";
 import { useEffect, useMemo, useState } from "react";
 
@@ -413,7 +413,8 @@ export default function AdminSettingsPage() {
 
   return (
     <main className="brand-shell workspace-shell flex flex-1 justify-center px-6 py-8">
-      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6">
+      <WorkspaceSidebar space="admin" currentPath="/admin/parametres" />
+      <div className="workspace-grid mx-auto grid w-full max-w-7xl gap-6 lg:pl-[19rem]">
         {status ? (
           <div className="fixed right-5 top-5 z-[80] w-full max-w-sm" aria-live="polite">
             <div className="rounded-xl border border-ms-navy/15 bg-white/95 px-4 py-3 text-sm font-semibold text-ms-navy shadow-lg backdrop-blur">
@@ -431,8 +432,6 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         ) : null}
-
-        <RoleSwitcher currentPath="/admin/parametres" />
 
         <header className="workspace-hero">
           <p className="workspace-kicker">Espace Direction</p>
